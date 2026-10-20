@@ -38,6 +38,14 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
           disable-animations: true
           script: bash scripts/smoke-android.sh
+      - name: Upload emulator notification screenshot and test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: move60-smoke-evidence
+          path: smoke-debug/
+          if-no-files-found: ignore
+          retention-days: 3
       - name: Upload AndroidRuntime logs on failure
         if: failure()
         uses: actions/upload-artifact@v4
