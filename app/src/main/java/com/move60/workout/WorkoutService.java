@@ -13,6 +13,8 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.SystemClock;
+import android.widget.RemoteViews;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -20,8 +22,8 @@ import org.json.JSONObject;
 public class WorkoutService extends Service {
     static final String ACTION_SYNC="com.move60.workout.ACTION_SYNC";
     static final String EXTRA_SNAPSHOT="snapshot";
-    private static final String CHANNEL_PROGRESS="move60_progress_v5";
-    private static final String CHANNEL_PHASE="move60_phase_v5";
+    static final String CHANNEL_PROGRESS="move60_progress_lockscreen_v7";
+    private static final String CHANNEL_PHASE="move60_phase_v7";
     private static final int ONGOING_ID=601;
     private static final int PHASE_ID=602;
     private final Handler handler=new Handler(Looper.getMainLooper());
@@ -33,9 +35,12 @@ public class WorkoutService extends Service {
     @Override public void onCreate() {
         super.onCreate();
         NotificationManager nm=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);
-        NotificationChannel on=new NotificationChannel(CHANNEL_PROGRESS,"운동 진행 · 잠금화면",NotificationManager.IMPORTANCE_LOW);
+        NotificationChannel on=new NotificationChannel(CHANNEL_PROGRESS,"운동 진행 · 잠금화면",NotificationManager.IMPORTANCE_DEFAULT);
         on.setDescription("현재 운동 구간 및 남은 시간");
         on.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+        on.setSound(null,null);
+        on.enableVibration(false);
+        on.enableLights(false);
         nm.createNotificationChannel(on);
         NotificationChannel changes=new NotificationChannel(CHANNEL_PHASE,"운동 구간 전환 안내",NotificationManager.IMPORTANCE_DEFAULT);
         changes.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
@@ -85,7 +90,7 @@ public class WorkoutService extends Service {
         prefs().edit().putString("snapshot",snapshot.toString()).apply();
     }
     private static class Cue {
-        String title,detail,signature;
+        String title,detail,signature,stageLabel,roundLabel,effort;
         long ends;
         int progress;
     }
@@ -99,6 +104,9 @@ public class WorkoutService extends Service {
         long elapsed=Math.max(0,Math.min(seconds(stage),(now-stageStart)/1000L));
         c.progress=(int)Math.max(0,Math.min(3600,previous+elapsed));
         c.title=stageNames[stage];
+        c.stageLabel=stageNames[stage];
+        c.roundLabel=(stage+1)+"/4 단계";
+        c.effort="운동 진행 중";
         c.detail="운동 중";
         c.ends=stageEnd;
         if(stage==1) {
@@ -111,7 +119,9 @@ public class WorkoutService extends Service {
                     long to=from+phase.optLong("seconds",60)*1000L;
                     if(now<to) {
                         c.title=phase.optString("name","실내 사이클");
-                        c.detail="실내 사이클 · RPE "+phase.optString("rpe","—")+" · "+(i+1)+"/"+phases.length()+"구간";
+                        c.detail=phase.optString("description","페달링 호흡을 유지하세요");
+                        c.roundLabel=(i+1)+"/"+phases.length()+" 구간";
+                        c.effort="RPE "+phase.optString("rpe","—");
                         c.ends=to;
                         break;
                     }
@@ -130,19 +140,44 @@ public class WorkoutService extends Service {
             .setSmallIcon(R.drawable.ic_fitness)
             .setColor(Color.rgb(180,245,110))
             .setContentIntent(pi)
-            .setVisibility(Notification.VISIBILITY_PUBLIC);
+            .setVisibility(Notification.VISIBILITY_PUBLIC)
+            .setOnlyAlertOnce(true).setSilent(true).setPriority(Notification.PRIORITY_DEFAULT);
+    }
+    private RemoteViews card(Cue c, long now, boolean expanded) {
+        RemoteViews v=new RemoteViews(getPackageName(),expanded ? R.layout.notification_move60_expanded : R.layout.notification_move60_compact);
+        v.setTextViewText(R.id.n_brand,"MOVE60");
+        v.setTextViewText(R.id.n_title,c.title);
+        v.setTextViewText(R.id.n_stage,c.stageLabel);
+        v.setTextViewText(R.id.n_badge,c.roundLabel);
+        v.setTextViewText(R.id.n_effort,c.effort);
+        v.setTextViewText(R.id.n_detail,c.detail);
+        v.setTextViewText(R.id.n_progress_text,"전체 "+(c.progress/60)+"/60분");
+        v.setProgressBar(R.id.n_progress,3600,c.progress,false);
+        long left=Math.max(0,(long)Math.ceil((c.ends-now)/1000.0));
+        v.setChronometer(R.id.n_clock,SystemClock.elapsedRealtime()+left*1000,null,true);
+        v.setChronometerCountDown(R.id.n_clock,true);
+        return v;
+    }
+    private Notification publicCard(long now) {
+        Cue c=cue(now);
+        return builder(CHANNEL_PROGRESS)
+            .setContentTitle("MOVE60 · "+c.title).setContentText(c.effort+" · "+c.roundLabel)
+            .setStyle(new Notification.DecoratedCustomViewStyle())
+            .setCustomContentView(card(c,now,false)).setCustomBigContentView(card(c,now,true))
+            .setOngoing(true).setCategory(Notification.CATEGORY_STATUS)
+            .setShowWhen(true).setWhen(c.ends)
+            .setUsesChronometer(true).setChronometerCountDown(true).build();
     }
     private Notification buildOngoing(long now) {
         Cue c=cue(now);
         return builder(CHANNEL_PROGRESS)
-            .setContentTitle("MOVE60 · "+c.title)
-            .setContentText(c.detail+" · 전체 "+(c.progress/60)+"/60분")
-            .setStyle(new Notification.BigTextStyle().bigText(c.title+"\n"+c.detail+"\n전체 "+(c.progress/60)+"/60분 진행"))
-            .setOngoing(true).setCategory(Notification.CATEGORY_SERVICE)
+            .setContentTitle("MOVE60 · "+c.title).setContentText(c.effort+" · "+c.roundLabel)
+            .setStyle(new Notification.DecoratedCustomViewStyle())
+            .setCustomContentView(card(c,now,false)).setCustomBigContentView(card(c,now,true))
+            .setPublicVersion(publicCard(now))
+            .setOngoing(true).setCategory(Notification.CATEGORY_STATUS)
             .setShowWhen(true).setWhen(c.ends)
-            .setUsesChronometer(true).setChronometerCountDown(true)
-            .setProgress(3600,c.progress,false)
-            .build();
+            .setUsesChronometer(true).setChronometerCountDown(true).build();
     }
     private void updateAndSchedule(boolean transition) {
         handler.removeCallbacks(onBoundary);
@@ -162,7 +197,7 @@ public class WorkoutService extends Service {
                 .setAutoCancel(true).build());
         }
         lastCue=c.signature;
-        long target=Math.min(snapshot.optLong("deadlineAt",now+1000),c.ends);
+        long target=Math.min(Math.min(snapshot.optLong("deadlineAt",now+1000),c.ends),now+60000L);
         handler.postDelayed(onBoundary,Math.max(150,Math.min(3600000,target-now+30)));
     }
     private void finishNotification() {

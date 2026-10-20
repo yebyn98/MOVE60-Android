@@ -52,6 +52,22 @@ public class MainActivity extends Activity {
     }
 
     private class TimerBridge {
+        @JavascriptInterface public void openLockscreenNotificationSettings() {
+            runOnUiThread(() -> {
+                try {
+                    Intent settings=new Intent(android.provider.Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS);
+                    settings.putExtra(android.provider.Settings.EXTRA_APP_PACKAGE,getPackageName());
+                    settings.putExtra(android.provider.Settings.EXTRA_CHANNEL_ID,WorkoutService.CHANNEL_PROGRESS);
+                    startActivity(settings);
+                } catch(Exception e) {
+                    try {
+                        Intent fallback=new Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS);
+                        fallback.putExtra(android.provider.Settings.EXTRA_APP_PACKAGE,getPackageName());
+                        startActivity(fallback);
+                    } catch(Exception ignored) {}
+                }
+            });
+        }
         @JavascriptInterface public void updateWorkout(String snapshot) {
             try {
                 org.json.JSONObject state = new org.json.JSONObject(snapshot);
