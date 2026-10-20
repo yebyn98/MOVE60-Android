@@ -4,3 +4,11 @@
 *.iml
 local.properties
 .DS_Store
+
+# Do not commit personal signing keys or credentials
+*.p12
+*.jks
+*.keystore
+signing.env
+signing-bundle.zip
+*SIGNING_BUNDLE_BASE64*
