@@ -29,6 +29,7 @@ class MainActivity : Activity() {
     private val mint = Color.rgb(180, 245, 110)
     private val textPrimary = Color.rgb(237, 245, 255)
     private val textSecondary = Color.rgb(166, 185, 205)
+    private lateinit var updateManager: UpdateManager
     private lateinit var data: WorkoutData
     private lateinit var session: SessionStore
     private lateinit var content: LinearLayout
@@ -81,6 +82,7 @@ class MainActivity : Activity() {
         window.navigationBarColor = background
         data = WorkoutData(this)
         session = SessionStore(this, data)
+        updateManager = UpdateManager(this)
         soundEnabled = getSharedPreferences("preferences", MODE_PRIVATE).getBoolean("sound", true)
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 25)
@@ -95,6 +97,7 @@ class MainActivity : Activity() {
         constructInterface()
         handler.post(ticker)
         if (session.running) syncService()
+        updateManager.check(false)
     }
 
     private fun constructInterface() {
@@ -157,7 +160,7 @@ class MainActivity : Activity() {
         addGap(settings, 9)
         settings.addView(actionButton("잠금화면 알림 설정 열기", false) { openLockscreenSettings() })
         addGap(settings, 8)
-        settings.addView(actionButton("새 버전 확인 · GitHub", false) { showUpdateInfo() })
+        settings.addView(actionButton("새 버전 확인 · 업데이트", false) { updateManager.check(true) })
         addGap(settings, 12)
         settings.addView(label("Kotlin 네이티브 앱 · 운동 시간은 화면을 꺼도 계속 계산돼요. 앱 삭제 시 운동 기록은 없어질 수 있어요.", 12, false, textSecondary))
         content.addView(settings)
@@ -454,16 +457,6 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun showUpdateInfo() {
-        AlertDialog.Builder(this)
-            .setTitle("MOVE60 업데이트 확인")
-            .setMessage("현재 소스 저장소는 비공개라서 앱에서 APK를 자동 다운로드할 수 없어요. GitHub Actions에 로그인해 최신 성공 빌드를 확인할 수 있어요. 자동 업데이트 알림과 앱 내 설치에는 별도 다운로드 배포 경로가 필요해요.")
-            .setNegativeButton("닫기", null)
-            .setPositiveButton("GitHub에서 확인") { _, _ ->
-                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/yebyn98/MOVE60-Android/actions/workflows/build-apk.yml")))
-            }.show()
-    }
-
     private fun playTone() {
         try {
             val tone = android.media.ToneGenerator(android.media.AudioManager.STREAM_NOTIFICATION, 35)
@@ -513,6 +506,7 @@ class MainActivity : Activity() {
     }
     override fun onDestroy() {
         handler.removeCallbacks(ticker)
+        updateManager.onDestroy()
         super.onDestroy()
     }
 }

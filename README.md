@@ -1,47 +1,31 @@
-# MOVE60 Android — GitHub Actions 자동 APK 빌드
+# MOVE60 · Kotlin Android 체중 감량 운동 플래너
 
-헬스장 운동 플래너: 실내 사이클 중심 60분, 요일별 운동 부위/RPE, 매주 자동 운동 조합, 통일된 체크박스, 운동 자세 상세 패널 및 Android 잠금화면 운동 카운트다운.
+월~금 60분 운동 데이터와 운동 자세·주의사항·대체 운동, 매주 변경되는 운동 종목과 타이머 체크리스트를 Kotlin 네이티브 화면으로 구현했습니다. 앱에는 Java/HTML/WebView UI 코드가 없습니다.
 
-## 초보자를 위한 APK 빌드
+## 운동과 잠금화면 알림
 
-1. GitHub에서 **비공개(private)** 저장소(예: `MOVE60-Android`)를 만듭니다. 처음에는 README 자동 생성을 끄면 업로드하기 간단합니다.
-2. 이 폴더의 **모든 파일과 숨김 폴더 `.github`까지** GitHub 저장소의 기본 브랜치(main)에 업로드합니다. GitHub 연결 및 저장소 쓰기 권한이 활성화되어 있으면 ChatGPT에서 파일 업로드를 도울 수 있습니다.
-3. GitHub 상단 **Actions → Build MOVE60 Android APK**를 클릭해 첫 빌드 상태를 확인합니다. 첫 `push`로 자동 시작하거나 **Run workflow** 버튼으로 수동 실행할 수 있습니다.
-4. 성공(초록 체크)한 실행을 열고 페이지 하단 **Artifacts → MOVE60-debug-APK**을 누르면 압축 ZIP으로 내려받습니다.
-5. 내려받은 ZIP 압축을 풀고 `app-debug.apk`를 갤럭시 휴대폰으로 옮겨 실행하면 설치할 수 있습니다. 휴대폰에서 해당 파일 관리자에 대한 '알 수 없는 앱 설치'를 한 번 허용해야 할 수 있습니다.
-6. 앱 최초 실행 시 **알림 권한 허용**, 휴대폰 설정에서 해당 앱의 **잠금화면 알림 표시**를 켭니다.
+- 실내 사이클 중심 + 준비/근력/정리 운동, 5개 요일의 운동 부위와 강도 구분
+- 화요일 8회 인터벌, 18개 체크 가능한 세부 구간과 카운트다운 동기화
+- 앱을 닫아도 벽시계 시간 기준 타이머와 포그라운드 서비스 유지
+- 알림창의 작은 카드/펼친 카드에서 운동명, 남은 시간, RPE, 구간 번호, 전체 진행률 표시
+- 잠금화면 알림은 Android/삼성 갤럭시 개인 설정에 따라 카드 전체 대신 요약 형태로 표시될 수 있습니다. 앱 설정의 잠금화면 알림 바로가기를 확인하세요.
 
-### 빌드 기술 구성
+## 공개 업데이트 기능
 
-- Android Gradle Plugin **8.7.3**, Gradle **8.9**, Java **17**, compile/target SDK **35**, min SDK **26**.
-- `gradle/actions/setup-gradle@v4`가 CI에 Gradle을 준비하기 때문에 **Gradle Wrapper가 없어도 GitHub Actions에서는 자동 빌드**됩니다. 로컬 Android Studio에서 열 경우 Gradle 8.9를 지정하거나 Gradle Wrapper를 생성하세요.
-- GitHub가 빌드하는 **debug APK**는 디버그 키로 서명되어 폰에 직접 설치할 수 있지만 Google Play 출시용으로 쓰지 않습니다.
-- 빌드 성공 여부와 실기기 정상 작동 여부는 별개의 단계입니다. 설치 후 백그라운드/잠금화면의 표시를 직접 검증해야 합니다.
+Kotlin `UpdateManager`는 앱 실행 시 하루 두 번 이내로 `https://raw.githubusercontent.com/yebyn98/MOVE60-Updates/main/latest.json`에서 새 버전을 확인합니다. 새 버전이 있으면 팝업에서 APK를 다운로드하고 SHA-256 검증 뒤 Android 설치 화면을 엽니다. **자동 설치는 Android 보안상 지원되지 않으며 사용자 승인이 필요**합니다.
 
-## 운동/알림 동작
+**현재 주의:** 별도 공개 배포 저장소 `yebyn98/MOVE60-Updates`가 만들어져야 앱 내 업데이트 버튼이 작동합니다. 저장소가 없으면 안내만 표시합니다. 개발 소스 저장소 `yebyn98/MOVE60-Android`는 계속 비공개로 유지됩니다.
 
-- 고정 60분: 준비운동 + 실내 사이클 + 근력운동 + 마무리 스트레칭.
-- 화요일 사이클: 4분 적응 + 1분 빠르게 / 2분 회복 × 8회 + 2분 정리 = 총 30분이며, 총 18개 세부 안내/체크 항목입니다.
-- 앱 내 운동 타이머를 시작하면 Android 포그라운드 서비스가 실행되어 화면을 닫거나 잠가도 알림창에서 현재 인터벌·강도(RPE)·해당 구간의 남은 시간을 표시합니다.
-- 기기 제조사의 절전 정책/강제 종료/재부팅/알림 권한 설정에 따라 지속 표시가 제한될 수 있습니다. **휴대폰 화면을 꺼도 모든 상황에서 100% 표시가 보장되는 것은 아닙니다.**
-- 로컬 데이터 저장 방식으로 기기 간 동기화는 되지 않습니다.
-- `/app/src/main/assets/MOVE60.html`이 앱 UI의 원본입니다. 새 버전을 만들 때 UI와 Android 서비스가 사용하는 사이클 구간 데이터가 동일한지 확인하세요.
+## 같은 키로 서명되는 배포 APK
 
-## 파일 구성
+GitHub Actions secret `MOVE60_SIGNING_BUNDLE_BASE64`를 한번 등록해야 합니다. 이 비밀값은 `move60.p12` PKCS12 서명 파일과 `signing.env`가 들어 있는 ZIP을 Base64 인코딩한 문자열입니다. GitHub Actions는 이후 매 빌드마다 같은 서명키로 release APK를 생성합니다. **서명 파일이나 비밀번호를 GitHub 소스 파일에 커밋하지 마세요.**
 
-- `.github/workflows/build-apk.yml` — GitHub Actions APK 빌드 및 자동 업로드
-- `scripts/verify-plan.cjs` — 모든 요일 60분/사이클 세부 구간/화요일 8회차 검증
-- `app/src/main/assets/MOVE60.html` — 운동 UI, 주간 랜덤, 인터벌·체크리스트, 체크박스 통일, 상세 패널
-- `app/src/main/java/com/move60/workout/WorkoutService.java` — 진행 중 알림·잠금화면 카운트다운
-- `app/src/main/java/com/move60/workout/MainActivity.java` — WebView UI 및 네이티브 서비스 호출
+Secret이 없으면 컴파일 검증용 임시 디버그 APK만 생성됩니다(영구 업데이트용 아님).
 
-## 앱 빌드 실패 시
+별도 공개 저장소에 자동 업로드하려면 `yebyn98/MOVE60-Updates` public 저장소를 만들고 해당 저장소에만 Contents Read/Write 권한이 있는 fine-grained PAT을 Secret `MOVE60_UPDATES_PAT`으로 등록해야 합니다. 그 후 빌드가 성공하면 Signed release APK와 `latest.json`을 공개 저장소에 자동 게시합니다. 공개 저장소에는 바이너리/버전 정보만 공개되며 앱 소스는 비공개입니다.
 
-Actions에서 실패한 작업을 열어 **Build debug APK** 단계의 오류를 확인하세요. JDK, Android SDK, Gradle 버전 및 권한 상태도 확인하세요.
+## Actions
 
-## v7: 잠금화면 카드형 타이머
-- 잠금화면 가시성 PUBLIC, 별도 DEFAULT 중요도 채널, 무음 상시 알림
-- 공개 알림에도 카드형 타이머/진행바 표시, 펼친 카드형 디자인 유지
-- 앱의 '잠금화면 알림 설정 열기' 버튼을 눌러 해당 채널을 직접 설정
-- 삼성 One UI에서는 휴대폰 설정 → 알림 → 잠겨 있을 때 알림 내용 숨기기: 항상 표시, 앱 알림 → MOVE60에서 잠금 상태 내용 표시: 항상 표시도 필요할 수 있음
-- 기기 보안·제조사 정책에 따라 잠금화면의 카드 레이아웃 및 표시 여부는 달라질 수 있음
+https://github.com/yebyn98/MOVE60-Android/actions/workflows/build-apk.yml
+
+Kotlin 네이티브 컴파일용 Debug APK는 자동으로 생성됩니다. 고정 서명 Secret이 설정된 후에는 추가로 `MOVE60-signed-release-APK` artifact가 생성됩니다. 기존 다른 임시 debug 키로 서명된 v5/v7은 처음 새 서명 방식으로 전환할 때 한 번 삭제 후 재설치가 필요할 수 있습니다. 이후에는 서명을 계속 재사용하여 데이터 보존 업데이트가 가능합니다.
