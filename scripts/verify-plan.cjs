@@ -1,24 +1,18 @@
-#!/usr/bin/env node
-const fs=require('node:fs');
-const vm=require('node:vm');
-const html=fs.readFileSync('app/src/main/assets/MOVE60.html','utf8');
-const scripts=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].map(x=>x[1]).filter(Boolean);
-for(const code of scripts) new vm.Script(code,{filename:'MOVE60.html'});
-const js=scripts.join('\n');
-const start=js.indexOf('const plan=');
-const end=js.indexOf('\nfunction expandPhases',start);
-if(start<0||end<0) throw Error('Missing plan definitions');
-const plan=vm.runInNewContext(js.slice(start,end)+'\nplan;');
-for(let day=1;day<=5;day++){
-  const p=plan[day];if(!p)throw Error('Missing day '+day);
-  const total=p.warm+p.cycle+p.strength+p.stretch;
-  if(total!==60)throw Error(p.day+' total is '+total+', not 60');
-  const phases=p.cyclePhases.flatMap(p=>p.repeat?Array.from({length:p.repeat},()=>p.parts).flat():[p]);
-  const cycle=phases.reduce((sum,p)=>sum+p.m,0);
-  if(cycle!==p.cycle)throw Error(p.day+' cycle is '+cycle);
-  if(day===2&&(phases.length!==18||p.cyclePhases.find(x=>x.repeat)?.repeat!==8))throw Error('Tuesday must have 8 intervals/18 phases');
-  console.log('PASS '+p.day+' | '+total+' min | cycle '+cycle+' min | '+phases.length+' phases');
+const fs = require('node:fs');
+const assert = require('node:assert/strict');
+const source = JSON.parse(fs.readFileSync('app/src/main/assets/workouts.json', 'utf8'));
+for (let day = 1; day <= 5; day++) {
+  const p = source.plan[day];
+  assert.ok(p, `Day ${day} exists`);
+  assert.equal(p.warm + p.cycle + p.strength + p.stretch, 60, `${p.day} duration`);
+  const expanded = p.cyclePhases.flatMap(x => x.repeat ? Array.from({length:x.repeat}, () => x.parts).flat() : [x]);
+  assert.equal(expanded.reduce((sum,p) => sum+p.m, 0), p.cycle, `${p.day} cycle minutes`);
+  if (day === 2) {
+    assert.equal(expanded.length, 18, 'Tuesday 18 cycle segments');
+    assert.equal(p.cyclePhases.find(x => x.repeat)?.repeat, 8, 'Tuesday 8 intervals');
+  }
+  assert.equal(source.pools[day].length, source.reps[day].length, `${p.day} strength slots`);
+  for (const slot of source.pools[day]) for (const id of slot) assert.ok(source.exercise[id], `Missing ${id}`);
+  console.log(`PASS ${p.day}: 60분 / 사이클 ${p.cycle}분 / 구간 ${expanded.length}개`);
 }
-if(!html.includes('Move60Native.updateWorkout'))throw Error('Missing native bridge');
-if(!html.includes('currentPhase()?.index===ti'))throw Error('Checklist mismatch');
-console.log('PASS all 5 days');
+console.log('PASS: Kotlin asset data preserves original weekday workouts.');

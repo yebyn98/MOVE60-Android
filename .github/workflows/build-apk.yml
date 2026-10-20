@@ -1,4 +1,4 @@
-name: Build MOVE60 Android APK
+name: Build MOVE60 Kotlin Android APK
 on:
   push:
     branches: [main]
@@ -8,7 +8,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - name: Set up Java 17
@@ -16,7 +16,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Install Android SDK using runner's preinstalled tools
+      - name: Install Android SDK
         shell: bash
         run: |
           SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
@@ -29,14 +29,20 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Validate workout plans and JavaScript
+      - name: Validate original 60-minute weekday routines
         run: node scripts/verify-plan.cjs
-      - name: Build debug APK
+      - name: Check there is no old WebView or Java source
+        shell: bash
+        run: |
+          test -z "$(find app/src/main -name '*.java' -o -name '*.html' -print -quit)" || { echo "Legacy Java/HTML UI remains"; exit 1; }
+          grep -q "class MainActivity" app/src/main/java/com/move60/workout/MainActivity.kt
+          grep -q "class WorkoutService" app/src/main/java/com/move60/workout/WorkoutService.kt
+      - name: Build Kotlin native APK
         run: gradle --no-daemon --stacktrace :app:assembleDebug
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: MOVE60-debug-APK
+          name: MOVE60-Kotlin-v8-debug-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
