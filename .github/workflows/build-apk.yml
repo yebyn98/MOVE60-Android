@@ -45,11 +45,42 @@ jobs:
             echo '::error::MOVE60_SIGNING_BUNDLE_BASE64 is unavailable in MOVE60-Android Actions secrets.'
             exit 1
           else
-            printf '%s' "$MOVE60_SIGNING_BUNDLE_BASE64" | base64 --decode > "$RUNNER_TEMP/move60-signing.zip"
             mkdir -p "$RUNNER_TEMP/move60-signing"
-            unzip -q "$RUNNER_TEMP/move60-signing.zip" -d "$RUNNER_TEMP/move60-signing"
-            test -f "$RUNNER_TEMP/move60-signing/move60.p12"
-            test -f "$RUNNER_TEMP/move60-signing/signing.env"
+            python3 - <<'PY'
+            import os,io,zipfile,base64,binascii,pathlib,sys
+            value=os.environ.get("MOVE60_SIGNING_BUNDLE_BASE64","").strip()
+            if value.startswith("MOVE60_SIGNING_BUNDLE_BASE64="):
+                value=value.split("=",1)[1].strip()
+            value=value.strip('"\'\x60')
+            data=value.encode("utf-8")
+            status="unrecognized"
+            for attempt in range(5):
+                if zipfile.is_zipfile(io.BytesIO(data)):
+                    with zipfile.ZipFile(io.BytesIO(data)) as archive:
+                        entries={name.rsplit("/",1)[-1]:name for name in archive.namelist()}
+                        if "move60.p12" in entries and "signing.env" in entries:
+                            out=pathlib.Path(os.environ["RUNNER_TEMP"])/"move60-signing"
+                            for fname in ["move60.p12","signing.env"]:
+                                (out/fname).write_bytes(archive.read(entries[fname]))
+                            status="restored"
+                            break
+                        if "MOVE60_SIGNING_BUNDLE_BASE64.txt" in entries:
+                            data=archive.read(entries["MOVE60_SIGNING_BUNDLE_BASE64.txt"]).strip()
+                            continue
+                        status="zip-without-expected-files"
+                    break
+                try:
+                    data=base64.b64decode(b"".join(data.split()),validate=True)
+                except (binascii.Error,ValueError):
+                    status="not-a-valid-base64-bundle"
+                    break
+            if status!="restored":
+                print(f"::error::Signing Secret exists but its content is {status}. Supply only the complete text inside MOVE60_SIGNING_BUNDLE_BASE64.txt (not the file or an archive).")
+                sys.exit(1)
+            print("Stable signing bundle restored from Actions secret.")
+            PY
+            test -s "$RUNNER_TEMP/move60-signing/move60.p12"
+            test -s "$RUNNER_TEMP/move60-signing/signing.env"
             set -a
             source "$RUNNER_TEMP/move60-signing/signing.env"
             set +a
