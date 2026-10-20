@@ -537,7 +537,7 @@ class MainActivity : Activity() {
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(22), dp(65), dp(22), dp(24))
-            setBackgroundColor(background)
+            setBackgroundColor(this@MainActivity.background)
         }
         val title = TextView(this).apply {
             text = "MOVE60 · 안전 복구"
