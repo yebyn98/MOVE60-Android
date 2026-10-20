@@ -141,7 +141,7 @@ public class WorkoutService extends Service {
             .setColor(Color.rgb(180,245,110))
             .setContentIntent(pi)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
-            .setOnlyAlertOnce(true).setSilent(true).setPriority(Notification.PRIORITY_DEFAULT);
+            .setOnlyAlertOnce(true).setPriority(Notification.PRIORITY_DEFAULT);
     }
     private RemoteViews card(Cue c, long now, boolean expanded) {
         RemoteViews v=new RemoteViews(getPackageName(),expanded ? R.layout.notification_move60_expanded : R.layout.notification_move60_compact);
