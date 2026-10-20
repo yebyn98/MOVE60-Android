@@ -54,6 +54,7 @@ class MainActivity : Activity() {
     private var lastStage = -1
     private var lastChecked = -1
     private var soundEnabled = true
+    private var recoveryMode = false
     private val ticker = object : Runnable {
         override fun run() {
             val changed = session.reconcile()
@@ -80,10 +81,17 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         window.statusBarColor = background
         window.navigationBarColor = background
-        data = WorkoutData(this)
-        session = SessionStore(this, data)
         CrashReporter.install(this)
-        updateManager = UpdateManager(this)
+        recoveryMode = CrashReporter.needsRecovery(this)
+        try {
+            data = WorkoutData(this)
+            session = SessionStore(this, data)
+            updateManager = UpdateManager(this)
+        } catch (e: Exception) {
+            CrashReporter.log(this, "앱 초기화 오류: " + e.stackTraceToString().take(4000))
+            showRecoveryScreen("운동 기록을 불러오는 중 문제가 발생했어요.")
+            return
+        }
         soundEnabled = getSharedPreferences("preferences", MODE_PRIVATE).getBoolean("sound", true)
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 25)
@@ -95,11 +103,33 @@ class MainActivity : Activity() {
         }
         scroll.addView(content)
         setContentView(scroll)
-        constructInterface()
+        try {
+            constructInterface()
+        } catch (e: Exception) {
+            CrashReporter.log(this, "화면 구성 오류: " + e.stackTraceToString().take(4000))
+            showRecoveryScreen("화면을 표시하는 중 문제가 발생했어요.")
+            return
+        }
         handler.post(ticker)
-        if (session.running) syncService()
-        updateManager.check(false)
-        handler.postDelayed({ CrashReporter.offerLastCrash(this) }, 750L)
+        if (!recoveryMode) {
+            if (session.running) syncService()
+            updateManager.check(false)
+        } else {
+            handler.postDelayed({
+                if (!isFinishing && !isDestroyed) {
+                    AlertDialog.Builder(this)
+                        .setTitle("MOVE60 안전 복구 모드")
+                        .setMessage("이전 실행의 종료 오류가 기록되어 자동 알림 재시작을 중지했어요. 운동 기록은 그대로 남아 있어요. 오류 기록을 확인한 뒤 알림을 다시 켤 수 있어요.")
+                        .setNegativeButton("오류 기록 확인") { _, _ -> CrashReporter.showDiagnostics(this) }
+                        .setPositiveButton("알림 재시도") { _, _ ->
+                            CrashReporter.acknowledge(this)
+                            recoveryMode = false
+                            if (session.running) syncService()
+                            updateManager.check(false)
+                        }.show()
+                }
+            }, 750L)
+        }
     }
 
     private fun constructInterface() {
@@ -169,7 +199,7 @@ class MainActivity : Activity() {
         preferenceRow.addView(actionButton("알림 진단 ↗", false) { showNotificationDiagnostics() },
             LinearLayout.LayoutParams(-2, dp(40)))
         settings.addView(preferenceRow)
-        settings.addView(label("MOVE60 12.0 · 카드형 알림 또는 잠금화면 표시는 알림 진단에서 확인하세요.", 11, false, textSecondary))
+        settings.addView(label("MOVE60 13.0 · 카드형 알림 또는 잠금화면 표시는 알림 진단에서 확인하세요.", 11, false, textSecondary))
         addGap(settings, 8)
         settings.addView(actionButton("오류 기록 확인 · 복사", false) { CrashReporter.showDiagnostics(this) })
         content.addView(settings)
@@ -444,6 +474,7 @@ class MainActivity : Activity() {
     private fun afterAction() { syncService(); renderStages(); renderSummary(); refreshTimer() }
 
     private fun syncService() {
+        if (recoveryMode) return
         val intent = Intent(this, WorkoutService::class.java)
         if (session.running && !session.finished) {
             intent.action = WorkoutService.ACTION_SYNC
@@ -502,6 +533,31 @@ class MainActivity : Activity() {
         } catch (ignored: Exception) {}
     }
 
+    private fun showRecoveryScreen(message: String) {
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(22), dp(65), dp(22), dp(24))
+            setBackgroundColor(background)
+        }
+        val title = TextView(this).apply {
+            text = "MOVE60 · 안전 복구"
+            textSize = 24f
+            setTextColor(mint)
+        }
+        val description = TextView(this).apply {
+            text = message + "\n앱을 삭제하지 마세요. 오류 기록을 복사해 알려주면 원인을 확인할 수 있어요."
+            textSize = 15f
+            setTextColor(textPrimary)
+            setPadding(0, dp(22), 0, dp(22))
+        }
+        layout.addView(title)
+        layout.addView(description)
+        layout.addView(actionButton("오류 기록 확인 · 복사", false) {
+            CrashReporter.showDiagnostics(this)
+        })
+        setContentView(layout)
+    }
+
     private fun label(text: String, size: Int, bold: Boolean, color: Int = textPrimary) = TextView(this).apply {
         this.text = text
         setTextColor(color)
@@ -543,7 +599,7 @@ class MainActivity : Activity() {
     }
     override fun onResume() {
         super.onResume()
-        if (::updateManager.isInitialized) {
+        if (::updateManager.isInitialized && !recoveryMode) {
             try { updateManager.resumePendingInstall() }
             catch (e: Exception) { CrashReporter.log(this, "업데이트 복원 오류: " + e.javaClass.simpleName + ": " + e.message) }
         }
@@ -551,7 +607,7 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
         handler.removeCallbacks(ticker)
-        updateManager.onDestroy()
+        if (::updateManager.isInitialized) updateManager.onDestroy()
         super.onDestroy()
     }
 }
