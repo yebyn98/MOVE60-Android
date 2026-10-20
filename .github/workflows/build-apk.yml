@@ -3,6 +3,9 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+concurrency:
+  group: move60-release-main
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
@@ -76,6 +79,12 @@ jobs:
           MOVE60_UPDATES_PAT: ${{ secrets.MOVE60_UPDATES_PAT }}
         shell: bash
         run: |
+          # Guard against older runs publishing an APK after a newer commit.
+          CURRENT_MAIN="$(git -C "$GITHUB_WORKSPACE" ls-remote origin refs/heads/main | cut -f1)"
+          if [ "$CURRENT_MAIN" != "$GITHUB_SHA" ]; then
+            echo "Skipping outdated build $GITHUB_SHA; main is $CURRENT_MAIN"
+            exit 0
+          fi
           if [ -z "$MOVE60_UPDATES_PAT" ]; then
             echo '::error::MOVE60_UPDATES_PAT is unavailable in MOVE60-Android Actions secrets.'
             exit 1
