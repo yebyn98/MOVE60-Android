@@ -19,7 +19,10 @@ object CrashReporter {
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             try {
                 val msg = Date().toString() + " · " + thread.name + "\n" + throwable.stackTraceToString().take(12000)
-                app.getSharedPreferences(PREF, Context.MODE_PRIVATE).edit().putString(KEY, msg).commit()
+                app.getSharedPreferences(PREF, Context.MODE_PRIVATE).edit()
+                    .putString(KEY, msg)
+                    .putLong("crash_epoch", System.currentTimeMillis())
+                    .putBoolean("crash_acknowledged", false).commit()
             } catch (_: Throwable) {}
             previous?.uncaughtException(thread, throwable)
         }
@@ -27,7 +30,20 @@ object CrashReporter {
 
     fun log(context: Context, message: String) {
         try { context.getSharedPreferences(PREF, Context.MODE_PRIVATE).edit()
-            .putString(KEY, Date().toString() + " · recovered error\n" + message).apply() } catch (_: Exception) {}
+            .putString("last_warning", Date().toString() + " · recovered error\n" + message).apply() } catch (_: Exception) {}
+    }
+
+    fun needsRecovery(context: Context): Boolean {
+        val p = context.getSharedPreferences(PREF, Context.MODE_PRIVATE)
+        if (p.getBoolean("crash_acknowledged", false)) return false
+        val crash = p.getString(KEY, null) ?: return false
+        val epoch = p.getLong("crash_epoch", 0L)
+        return epoch == 0L || System.currentTimeMillis() - epoch < 7L * 24L * 3600L * 1000L
+    }
+
+    fun acknowledge(context: Context) {
+        context.getSharedPreferences(PREF, Context.MODE_PRIVATE).edit()
+            .putBoolean("crash_acknowledged", true).apply()
     }
 
     fun offerLastCrash(activity: Activity) {
@@ -41,11 +57,12 @@ object CrashReporter {
     }
 
     fun showDiagnostics(activity: Activity) {
-        val detail = activity.getSharedPreferences(PREF, Context.MODE_PRIVATE).getString(KEY, null)
+        val p = activity.getSharedPreferences(PREF, Context.MODE_PRIVATE)
+        val detail = listOfNotNull(p.getString(KEY, null), p.getString("last_warning", null)).joinToString("\n\n")
         AlertDialog.Builder(activity).setTitle("MOVE60 오류 기록")
-            .setMessage(detail ?: "저장된 오류 기록이 없어요.")
+            .setMessage(detail.ifBlank { "저장된 오류 기록이 없어요." })
             .setNegativeButton("닫기", null)
-            .setPositiveButton("복사") { _, _ -> if (detail != null) copy(activity, detail) }.show()
+            .setPositiveButton("복사") { _, _ -> if (detail.isNotBlank()) copy(activity, detail) }.show()
     }
 
     private fun copy(context: Context, value: String) {
