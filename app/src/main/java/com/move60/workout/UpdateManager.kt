@@ -131,7 +131,8 @@ class UpdateManager(private val activity: Activity) {
                 val p=activity.getSharedPreferences("move60_update",Context.MODE_PRIVATE)
                 if(intent?.action==DownloadManager.ACTION_DOWNLOAD_COMPLETE
                     && intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID,-1L)==p.getLong("downloadId",-1L)) {
-                    resumePendingInstall()
+                    try { resumePendingInstall() }
+                    catch (e: Exception) { CrashReporter.log(activity, "다운로드 콜백: " + e.javaClass.simpleName + ": " + e.message) }
                 }
             }
         }
@@ -150,9 +151,15 @@ class UpdateManager(private val activity: Activity) {
         val expected=p.getString("expectedHash",null)
         if(id<0||expected.isNullOrBlank()||verifying)return
         val dm=activity.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-        val query=dm.query(DownloadManager.Query().setFilterById(id))?:return
-        val status=query.use { if(it.moveToFirst())it.getInt(it.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
-            else DownloadManager.STATUS_FAILED }
+        val status = try {
+            val query = dm.query(DownloadManager.Query().setFilterById(id)) ?: return
+            query.use { if (it.moveToFirst()) it.getInt(it.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
+                else DownloadManager.STATUS_FAILED }
+        } catch (e: Exception) {
+            CrashReporter.log(activity, "다운로드 상태 조회: " + e.javaClass.simpleName + ": " + e.message)
+            p.edit().remove("downloadId").remove("expectedHash").remove("installerShown").apply()
+            return
+        }
         if(status==DownloadManager.STATUS_FAILED) {
             p.edit().remove("downloadId").remove("expectedHash").remove("installerShown").apply()
             inform("다운로드에 실패했어요. 다시 업데이트를 눌러 주세요.")
