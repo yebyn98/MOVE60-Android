@@ -199,7 +199,7 @@ class MainActivity : Activity() {
         preferenceRow.addView(actionButton("알림 진단 ↗", false) { showNotificationDiagnostics() },
             LinearLayout.LayoutParams(-2, dp(40)))
         settings.addView(preferenceRow)
-        settings.addView(label("MOVE60 13.0 · 카드형 알림 또는 잠금화면 표시는 알림 진단에서 확인하세요.", 11, false, textSecondary))
+        settings.addView(label("MOVE60 14.0 · 안정형 기본 알림을 사용하며 카드형 알림은 분리되어 있어요.", 11, false, textSecondary))
         addGap(settings, 8)
         settings.addView(actionButton("오류 기록 확인 · 복사", false) { CrashReporter.showDiagnostics(this) })
         content.addView(settings)

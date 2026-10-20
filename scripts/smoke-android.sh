@@ -59,9 +59,23 @@ if ! grep -q 'com.move60.workout' smoke-debug/notifications.txt; then
 fi
 # Capture the notification shade to check whether SystemUI actually renders the custom card.
 adb shell input swipe 550 8 550 1400 420 || true
-sleep 2
+sleep 3
 adb shell screencap -p /sdcard/move60-shade.png || true
 adb pull /sdcard/move60-shade.png smoke-debug/notification-shade.png >/dev/null 2>&1 || true
+adb shell uiautomator dump /sdcard/move60-shade.xml >/dev/null 2>&1 || true
+adb pull /sdcard/move60-shade.xml smoke-debug/notification-shade.xml >/dev/null 2>&1 || true
+adb logcat -d -v threadtime > smoke-debug/logcat-after-shade.txt || true
+if grep -q -E 'FATAL EXCEPTION|BadForegroundServiceNotificationException|Error inflating class android.view.View|RemoteServiceException' smoke-debug/logcat-after-shade.txt; then
+  echo "Fatal notification rendering error found after opening notification shade"
+  grep -n -A 30 -B 5 -E 'FATAL EXCEPTION|BadForegroundServiceNotificationException|Error inflating class android.view.View|RemoteServiceException' smoke-debug/logcat-after-shade.txt | tail -n 120
+  exit 1
+fi
+if ! grep -q 'MOVE60' smoke-debug/notification-shade.xml; then
+  echo "MOVE60 notification was posted but not rendered in the notification shade"
+  exit 1
+fi
+pid="$(adb shell pidof com.move60.workout | tr -d '\r' || true)"
+if test -z "$pid"; then echo "MOVE60 process died while rendering notification"; exit 1; fi
 adb shell input keyevent KEYCODE_BACK || true
 echo "Testing app relaunch with persisted active timer..."
 adb shell am force-stop com.move60.workout
@@ -75,4 +89,4 @@ if grep -q 'FATAL EXCEPTION' smoke-debug/logcat.txt; then
   grep -n -A 30 'FATAL EXCEPTION' smoke-debug/logcat.txt | tail -n 100
   exit 1
 fi
-echo "Passed cold launch x3, workout start, ongoing notification and relaunch checks."
+echo "Passed cold launch x3, workout start, rendered notification shade and active-session relaunch checks."

@@ -45,7 +45,7 @@ class WorkoutService : Service() {
         manager.createNotificationChannel(NotificationChannel(
             CHANNEL_PROGRESS, "운동 진행 · 잠금화면 타이머", NotificationManager.IMPORTANCE_DEFAULT
         ).apply {
-            description = "MOVE60 v12: 카드형 진행 알림과 잠금화면 카운트다운"
+            description = "MOVE60: 안정형 진행 알림과 잠금화면 카운트다운"
             lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             setSound(null, null)
             enableVibration(false)
@@ -70,14 +70,11 @@ class WorkoutService : Service() {
                 return START_NOT_STICKY
             }
             val now = System.currentTimeMillis()
-            // Promote the service with the designed notification immediately.
-            // If a device rejects the custom RemoteViews, keep the timer alive with a text fallback.
-            val first = try {
-                buildNotification(now)
-            } catch (e: Exception) {
-                logFailure("Initial notification card: " + e.javaClass.simpleName + ": " + e.message)
-                buildFallbackNotification(now)
-            }
+            // The foreground-service contract always starts with a platform notification.
+            // Custom RemoteViews are rendered asynchronously by SystemUI, so a local try/catch
+            // cannot protect OEM devices from a later inflation failure.
+            val first = buildFallbackNotification(now)
+            prefs.edit().putString("card_status", "안정형 기본 알림 사용 중").apply()
             if (Build.VERSION.SDK_INT >= 34) startForeground(ONGOING_ID, first, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
             else startForeground(ONGOING_ID, first)
             updateAndSchedule(false)
@@ -237,15 +234,20 @@ class WorkoutService : Service() {
         }
         val c = cue(now)
         val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        val enhancedCardEnabled = prefs.getBoolean("enhanced_card_enabled", false)
         try {
-            val card = buildNotification(now)
-            // RemoteViews are rendered by SystemUI. Re-inflating with a null parent
-            // here can fail on OEM ROMs and incorrectly force the text-only fallback.
-            nm.notify(ONGOING_ID, card)
-            prefs.edit().putString("card_status", "위젯형 알림 게시 요청 완료").apply()
+            if (enhancedCardEnabled) {
+                nm.notify(ONGOING_ID, buildNotification(now))
+                prefs.edit().putString("card_status", "실험형 카드 알림 게시 요청 완료").apply()
+            } else {
+                nm.notify(ONGOING_ID, buildFallbackNotification(now))
+                prefs.edit().putString("card_status", "안정형 기본 알림 사용 중").apply()
+            }
         } catch (e: Exception) {
-            logFailure("Notification card error: " + e.javaClass.simpleName + ": " + e.message)
-            prefs.edit().putString("card_status", "기본 텍스트 알림으로 대체").apply()
+            logFailure("Notification update error: " + e.javaClass.simpleName + ": " + e.message)
+            // A failed enhanced notification is disabled for future process starts.
+            prefs.edit().putBoolean("enhanced_card_enabled", false)
+                .putString("card_status", "카드 오류로 안정형 기본 알림 전환").apply()
             try { nm.notify(ONGOING_ID, buildFallbackNotification(now)) }
             catch (ignored: Exception) { logFailure("Notification fallback error: " + ignored.message) }
         }
