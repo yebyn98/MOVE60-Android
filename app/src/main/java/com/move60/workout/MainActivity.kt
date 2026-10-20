@@ -85,7 +85,7 @@ class MainActivity : Activity() {
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 25)
         }
-        val scroll = ScrollView(this).apply { fillViewport = true; isVerticalScrollBarEnabled = false; setBackgroundColor(background) }
+        val scroll = ScrollView(this).apply { isFillViewport = true; isVerticalScrollBarEnabled = false; setBackgroundColor(this@MainActivity.background) }
         content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(18), dp(24), dp(18), dp(110))
@@ -176,7 +176,7 @@ class MainActivity : Activity() {
                 text = labels[d - 1] + if (data.localToday().dayOfWeek.value == d) " •" else ""
                 setTextSize(16f)
                 setTypeface(null, Typeface.BOLD)
-                setTextColor(if (active) background else textSecondary)
+                setTextColor(if (active) this@MainActivity.background else textSecondary)
                 gravity = Gravity.CENTER
                 background = rounded(if (active) mint else panel, 13, if (active) mint else subtle)
                 setOnClickListener {
