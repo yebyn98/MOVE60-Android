@@ -82,6 +82,7 @@ class MainActivity : Activity() {
         window.navigationBarColor = background
         data = WorkoutData(this)
         session = SessionStore(this, data)
+        CrashReporter.install(this)
         updateManager = UpdateManager(this)
         soundEnabled = getSharedPreferences("preferences", MODE_PRIVATE).getBoolean("sound", true)
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
@@ -90,7 +91,7 @@ class MainActivity : Activity() {
         val scroll = ScrollView(this).apply { isFillViewport = true; isVerticalScrollBarEnabled = false; setBackgroundColor(this@MainActivity.background) }
         content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(18), dp(24), dp(18), dp(110))
+            setPadding(dp(18), dp(52), dp(18), dp(90))
         }
         scroll.addView(content)
         setContentView(scroll)
@@ -98,6 +99,7 @@ class MainActivity : Activity() {
         handler.post(ticker)
         if (session.running) syncService()
         updateManager.check(false)
+        handler.postDelayed({ CrashReporter.offerLastCrash(this) }, 750L)
     }
 
     private fun constructInterface() {
@@ -105,6 +107,11 @@ class MainActivity : Activity() {
         val header = row().apply { gravity = Gravity.CENTER_VERTICAL }
         header.addView(label("MOVE", 24, true), LinearLayout.LayoutParams(0, -2, 1f))
         header.addView(label("60", 24, true, mint))
+        header.addView(actionButton("업데이트 ↗", false) { updateManager.check(true) }.apply {
+            textSize = 11f
+            minHeight = dp(34)
+            setPadding(dp(9), dp(5), dp(9), dp(5))
+        }, LinearLayout.LayoutParams(-2, dp(35)).apply { leftMargin = dp(13) })
         content.addView(header)
         addGap(content, 21)
         content.addView(label("WEEKDAY WORKOUT", 11, true, mint))
@@ -144,25 +151,27 @@ class MainActivity : Activity() {
         completedCard.addView(trackingSummary)
         content.addView(completedCard)
         addGap(content, 18)
-        val settings = card()
-        settings.addView(label("설정 · 업데이트", 17, true))
-        addGap(settings, 12)
-        val check = Switch(this).apply {
+        val settings = column().apply { setPadding(dp(5), dp(4), dp(5), dp(4)) }
+        settings.addView(label("앱 설정", 13, true, textSecondary))
+        addGap(settings, 8)
+        val preferenceRow = row().apply { gravity = Gravity.CENTER_VERTICAL }
+        val soundSwitch = Switch(this).apply {
             text = "구간 전환 알림음"
-            setTextColor(textPrimary)
+            textSize = 12f
+            setTextColor(textSecondary)
             isChecked = soundEnabled
             setOnCheckedChangeListener { _, enabled ->
                 soundEnabled = enabled
                 getSharedPreferences("preferences", MODE_PRIVATE).edit().putBoolean("sound", enabled).apply()
             }
         }
-        settings.addView(check)
-        addGap(settings, 9)
-        settings.addView(actionButton("잠금화면 알림 설정 열기", false) { openLockscreenSettings() })
+        preferenceRow.addView(soundSwitch, LinearLayout.LayoutParams(0, -2, 1f))
+        preferenceRow.addView(actionButton("알림 진단 ↗", false) { showNotificationDiagnostics() },
+            LinearLayout.LayoutParams(-2, dp(40)))
+        settings.addView(preferenceRow)
+        settings.addView(label("MOVE60 11.0 · 운동 알림이 보이지 않으면 알림 진단에서 확인하세요.", 11, false, textSecondary))
         addGap(settings, 8)
-        settings.addView(actionButton("새 버전 확인 · 업데이트", false) { updateManager.check(true) })
-        addGap(settings, 12)
-        settings.addView(label("Kotlin 네이티브 앱 · 운동 시간은 화면을 꺼도 계속 계산돼요. 앱 삭제 시 운동 기록은 없어질 수 있어요.", 12, false, textSecondary))
+        settings.addView(actionButton("오류 기록 확인 · 복사", false) { CrashReporter.showDiagnostics(this) })
         content.addView(settings)
         renderDayStrip()
         renderSummary()
@@ -221,9 +230,12 @@ class MainActivity : Activity() {
                 background = rounded(Color.rgb(19, 32, 50), 11, subtle)
                 setPadding(dp(2), dp(9), dp(2), dp(9))
             }
-            box.addView(label("${stage.minutes}분", 17, true, mint))
-            box.addView(label(listOf("준비", "사이클", "근력", "정리")[index], 10, false, textSecondary))
-            stages.addView(box, LinearLayout.LayoutParams(0, -2, 1f).apply { if (index > 0) leftMargin = dp(5) })
+            box.addView(label("${stage.minutes}분", 17, true, mint).apply { gravity = Gravity.CENTER },
+                LinearLayout.LayoutParams(-1, dp(25)))
+            box.addView(label(listOf("준비", "사이클", "근력", "정리")[index], 10, false, textSecondary).apply {
+                gravity = Gravity.CENTER
+            }, LinearLayout.LayoutParams(-1, dp(17)))
+            stages.addView(box, LinearLayout.LayoutParams(0, dp(68), 1f).apply { if (index > 0) leftMargin = dp(5) })
         }
         summary.addView(stages)
         summary.requestLayout()
@@ -439,9 +451,27 @@ class MainActivity : Activity() {
             try {
                 if (Build.VERSION.SDK_INT >= 26) startForegroundService(intent) else startService(intent)
             } catch (e: Exception) {
-                Toast.makeText(this, "알림 서비스를 시작하지 못했어요. 권한을 확인하세요.", Toast.LENGTH_LONG).show()
+                CrashReporter.log(this, "서비스 시작 오류: " + e.javaClass.simpleName + ": " + e.message)
+                Toast.makeText(this, "알림 서비스를 시작하지 못했어요. 알림 진단을 확인하세요.", Toast.LENGTH_LONG).show()
             }
         } else stopService(intent)
+    }
+
+    private fun showNotificationDiagnostics() {
+        val manager = getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager
+        val channel = manager.getNotificationChannel(WorkoutService.CHANNEL_PROGRESS)
+        val allowed = manager.areNotificationsEnabled() &&
+            (channel == null || channel.importance != android.app.NotificationManager.IMPORTANCE_NONE) &&
+            (Build.VERSION.SDK_INT < 33 || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED)
+        val lastError = getSharedPreferences("move60_service_diagnostics", MODE_PRIVATE).getString("latest_error", null)
+        val diagnostic = (if (allowed) "알림 권한: 허용" else "알림 권한: 확인 필요") +
+            "\n운동 알림 채널: " + (if (channel == null) "운동 시작 시 생성" else if (channel.importance == android.app.NotificationManager.IMPORTANCE_NONE) "차단됨" else "허용됨") +
+            "\n운동 상태: " + (if (session.running) "진행 중" else "대기 또는 정지") +
+            (if (lastError == null) "" else "\n최근 알림 오류: " + lastError) +
+            "\n\n운동 시작 버튼을 누른 상태에서만 진행 알림이 표시돼요."
+        AlertDialog.Builder(this).setTitle("운동 알림 진단").setMessage(diagnostic)
+            .setNegativeButton("닫기", null)
+            .setPositiveButton("알림 설정 열기") { _, _ -> openLockscreenSettings() }.show()
     }
 
     private fun openLockscreenSettings() {
@@ -506,7 +536,10 @@ class MainActivity : Activity() {
     }
     override fun onResume() {
         super.onResume()
-        if (::updateManager.isInitialized) updateManager.resumePendingInstall()
+        if (::updateManager.isInitialized) {
+            try { updateManager.resumePendingInstall() }
+            catch (e: Exception) { CrashReporter.log(this, "업데이트 복원 오류: " + e.javaClass.simpleName + ": " + e.message) }
+        }
     }
 
     override fun onDestroy() {

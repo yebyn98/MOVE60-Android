@@ -26,8 +26,8 @@ class WorkoutService : Service() {
     companion object {
         const val ACTION_SYNC = "com.move60.workout.ACTION_SYNC"
         const val EXTRA_SNAPSHOT = "snapshot"
-        const val CHANNEL_PROGRESS = "move60_native_timer_v8"
-        private const val CHANNEL_PHASE = "move60_native_phase_v8"
+        const val CHANNEL_PROGRESS = "move60_native_timer_v11"
+        private const val CHANNEL_PHASE = "move60_native_phase_v11"
         private const val ONGOING_ID = 601
         private const val PHASE_ID = 602
     }
@@ -69,13 +69,14 @@ class WorkoutService : Service() {
                 stopWork()
                 return START_NOT_STICKY
             }
-            val notification = buildNotification(System.currentTimeMillis())
+            val notification = buildFallbackNotification(System.currentTimeMillis())
             if (Build.VERSION.SDK_INT >= 34) startForeground(ONGOING_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
             else startForeground(ONGOING_ID, notification)
             updateAndSchedule(false)
             return START_STICKY
         } catch (e: Exception) {
-            stopWork()
+            logFailure("Service failed: " + e.javaClass.simpleName + ": " + e.message)
+            try { stopWork() } catch (_: Exception) { stopSelf() }
             return START_NOT_STICKY
         }
     }
@@ -157,6 +158,7 @@ class WorkoutService : Service() {
             .setContentIntent(pending)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setOnlyAlertOnce(true)
+            .apply { if (Build.VERSION.SDK_INT >= 31) setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE) }
     }
 
     private fun remoteView(layout: Int, c: Cue, now: Long): RemoteViews {
@@ -177,17 +179,20 @@ class WorkoutService : Service() {
         return result
     }
 
-    private fun buildNotification(now: Long): Notification {
+    private fun buildFallbackNotification(now: Long): Notification {
         val c = cue(now)
-        val publicVersion = builder(CHANNEL_PROGRESS)
-            .setContentTitle("MOVE60 · ${c.title}")
-            .setContentText("${c.effort} · ${c.round}")
-            .setStyle(Notification.DecoratedCustomViewStyle())
-            .setCustomContentView(remoteView(R.layout.notification_workout_compact, c, now))
-            .setCustomBigContentView(remoteView(R.layout.notification_workout_expanded, c, now))
+        return builder(CHANNEL_PROGRESS).setContentTitle("MOVE60 · " + c.title)
+            .setContentText(c.effort + " · " + c.round + " · 전체 " + (c.progress / 60) + "/60분")
             .setWhen(c.ends).setShowWhen(true)
             .setUsesChronometer(true).setChronometerCountDown(true)
+            .setProgress(3600, c.progress, false)
+            .setOngoing(true).setCategory(Notification.CATEGORY_SERVICE)
             .build()
+    }
+
+    private fun buildNotification(now: Long): Notification {
+        val c = cue(now)
+        val publicVersion = buildFallbackNotification(now)
         return builder(CHANNEL_PROGRESS)
             .setContentTitle("MOVE60 · ${c.title}")
             .setContentText("${c.effort} · ${c.round}")
@@ -213,7 +218,16 @@ class WorkoutService : Service() {
         }
         val c = cue(now)
         val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        nm.notify(ONGOING_ID, buildNotification(now))
+        try {
+            val card = buildNotification(now)
+            card.contentView?.apply(this, null)
+            card.bigContentView?.apply(this, null)
+            nm.notify(ONGOING_ID, card)
+        } catch (e: Exception) {
+            logFailure("Notification card error: " + e.javaClass.simpleName + ": " + e.message)
+            try { nm.notify(ONGOING_ID, buildFallbackNotification(now)) }
+            catch (ignored: Exception) { logFailure("Notification fallback error: " + ignored.message) }
+        }
         val phaseSignature = "${c.stageName}:${c.title}:${c.round}"
         if (transition && phaseSignature != lastPhase) {
             nm.notify(PHASE_ID, builder(CHANNEL_PHASE)
@@ -236,6 +250,11 @@ class WorkoutService : Service() {
                 .setAutoCancel(true).build()
         )
     }
+    private fun logFailure(message: String) {
+        try { getSharedPreferences("move60_service_diagnostics", MODE_PRIVATE).edit()
+            .putString("latest_error", message.take(800)).apply() } catch (_: Exception) {}
+    }
+
     private fun stopWork() {
         handler.removeCallbacks(boundary)
         if (Build.VERSION.SDK_INT >= 33) stopForeground(STOP_FOREGROUND_REMOVE) else stopForeground(true)
