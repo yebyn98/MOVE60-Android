@@ -135,6 +135,13 @@ class MainActivity : Activity() {
         addGap(content, 11)
         content.addView(makeTimerCard())
         addGap(content, 18)
+        val completedCard = card()
+        completedCard.addView(label("오늘의 운동 체크 현황", 17, true))
+        addGap(completedCard, 12)
+        trackingSummary = label("", 14, false, textSecondary)
+        completedCard.addView(trackingSummary)
+        content.addView(completedCard)
+        addGap(content, 18)
         val stageHeading = row().apply { gravity = Gravity.CENTER_VERTICAL }
         stageHeading.addView(label("운동 순서 · 체크리스트", 19, true), LinearLayout.LayoutParams(0, -2, 1f))
         sectionCount = label("", 12, false, textSecondary)
@@ -143,13 +150,6 @@ class MainActivity : Activity() {
         addGap(content, 10)
         stageStack = column()
         content.addView(stageStack)
-        addGap(content, 18)
-        val completedCard = card()
-        completedCard.addView(label("오늘의 운동 체크 현황", 17, true))
-        addGap(completedCard, 12)
-        trackingSummary = label("", 14, false, textSecondary)
-        completedCard.addView(trackingSummary)
-        content.addView(completedCard)
         addGap(content, 18)
         val settings = column().apply { setPadding(dp(5), dp(4), dp(5), dp(4)) }
         settings.addView(label("앱 설정", 13, true, textSecondary))
@@ -169,7 +169,7 @@ class MainActivity : Activity() {
         preferenceRow.addView(actionButton("알림 진단 ↗", false) { showNotificationDiagnostics() },
             LinearLayout.LayoutParams(-2, dp(40)))
         settings.addView(preferenceRow)
-        settings.addView(label("MOVE60 11.0 · 운동 알림이 보이지 않으면 알림 진단에서 확인하세요.", 11, false, textSecondary))
+        settings.addView(label("MOVE60 12.0 · 카드형 알림 또는 잠금화면 표시는 알림 진단에서 확인하세요.", 11, false, textSecondary))
         addGap(settings, 8)
         settings.addView(actionButton("오류 기록 확인 · 복사", false) { CrashReporter.showDiagnostics(this) })
         content.addView(settings)
@@ -464,9 +464,16 @@ class MainActivity : Activity() {
             (channel == null || channel.importance != android.app.NotificationManager.IMPORTANCE_NONE) &&
             (Build.VERSION.SDK_INT < 33 || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED)
         val lastError = getSharedPreferences("move60_service_diagnostics", MODE_PRIVATE).getString("latest_error", null)
+        val actualActive = try {
+            manager.activeNotifications.any { it.id == 601 && it.packageName == packageName }
+        } catch (_: Exception) { false }
+        val cardStatus = getSharedPreferences("timer", MODE_PRIVATE).getString("card_status", "아직 운동 알림 게시 기록 없음")
         val diagnostic = (if (allowed) "알림 권한: 허용" else "알림 권한: 확인 필요") +
             "\n운동 알림 채널: " + (if (channel == null) "운동 시작 시 생성" else if (channel.importance == android.app.NotificationManager.IMPORTANCE_NONE) "차단됨" else "허용됨") +
             "\n운동 상태: " + (if (session.running) "진행 중" else "대기 또는 정지") +
+            "\n실제 알림 게시 여부: " + (if (actualActive) "게시됨" else "게시되지 않음") +
+            "\n카드형 알림 상태: " + cardStatus +
+            "\n잠금화면 표시: 기기 설정에서도 '알림 내용 표시'를 허용해야 해요" +
             (if (lastError == null) "" else "\n최근 알림 오류: " + lastError) +
             "\n\n운동 시작 버튼을 누른 상태에서만 진행 알림이 표시돼요."
         AlertDialog.Builder(this).setTitle("운동 알림 진단").setMessage(diagnostic)

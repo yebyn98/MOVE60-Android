@@ -26,8 +26,8 @@ class WorkoutService : Service() {
     companion object {
         const val ACTION_SYNC = "com.move60.workout.ACTION_SYNC"
         const val EXTRA_SNAPSHOT = "snapshot"
-        const val CHANNEL_PROGRESS = "move60_native_timer_v11"
-        private const val CHANNEL_PHASE = "move60_native_phase_v11"
+        const val CHANNEL_PROGRESS = "move60_native_timer_v12"
+        private const val CHANNEL_PHASE = "move60_native_phase_v12"
         private const val ONGOING_ID = 601
         private const val PHASE_ID = 602
     }
@@ -45,7 +45,7 @@ class WorkoutService : Service() {
         manager.createNotificationChannel(NotificationChannel(
             CHANNEL_PROGRESS, "운동 진행 · 잠금화면 타이머", NotificationManager.IMPORTANCE_DEFAULT
         ).apply {
-            description = "MOVE60 카드형 진행 알림과 잠금화면 타이머"
+            description = "MOVE60 v12: 카드형 진행 알림과 잠금화면 카운트다운"
             lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             setSound(null, null)
             enableVibration(false)
@@ -69,9 +69,17 @@ class WorkoutService : Service() {
                 stopWork()
                 return START_NOT_STICKY
             }
-            val notification = buildFallbackNotification(System.currentTimeMillis())
-            if (Build.VERSION.SDK_INT >= 34) startForeground(ONGOING_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
-            else startForeground(ONGOING_ID, notification)
+            val now = System.currentTimeMillis()
+            // Promote the service with the designed notification immediately.
+            // If a device rejects the custom RemoteViews, keep the timer alive with a text fallback.
+            val first = try {
+                buildNotification(now)
+            } catch (e: Exception) {
+                logFailure("Initial notification card: " + e.javaClass.simpleName + ": " + e.message)
+                buildFallbackNotification(now)
+            }
+            if (Build.VERSION.SDK_INT >= 34) startForeground(ONGOING_ID, first, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+            else startForeground(ONGOING_ID, first)
             updateAndSchedule(false)
             return START_STICKY
         } catch (e: Exception) {
@@ -192,7 +200,18 @@ class WorkoutService : Service() {
 
     private fun buildNotification(now: Long): Notification {
         val c = cue(now)
-        val publicVersion = buildFallbackNotification(now)
+        // Android may choose a public version on the lock screen.
+        // Make it the same widget rather than falling back to plain text there.
+        val publicVersion = builder(CHANNEL_PROGRESS)
+            .setContentTitle("MOVE60 · ${c.title}")
+            .setContentText("${c.effort} · ${c.round}")
+            .setCustomContentView(remoteView(R.layout.notification_workout_compact, c, now))
+            .setCustomBigContentView(remoteView(R.layout.notification_workout_expanded, c, now))
+            .setStyle(Notification.DecoratedCustomViewStyle())
+            .setCategory(Notification.CATEGORY_PROGRESS)
+            .setVisibility(Notification.VISIBILITY_PUBLIC)
+            .setOngoing(true)
+            .build()
         return builder(CHANNEL_PROGRESS)
             .setContentTitle("MOVE60 · ${c.title}")
             .setContentText("${c.effort} · ${c.round}")
@@ -220,11 +239,13 @@ class WorkoutService : Service() {
         val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         try {
             val card = buildNotification(now)
-            card.contentView?.apply(this, null)
-            card.bigContentView?.apply(this, null)
+            // RemoteViews are rendered by SystemUI. Re-inflating with a null parent
+            // here can fail on OEM ROMs and incorrectly force the text-only fallback.
             nm.notify(ONGOING_ID, card)
+            prefs.edit().putString("card_status", "위젯형 알림 게시 요청 완료").apply()
         } catch (e: Exception) {
             logFailure("Notification card error: " + e.javaClass.simpleName + ": " + e.message)
+            prefs.edit().putString("card_status", "기본 텍스트 알림으로 대체").apply()
             try { nm.notify(ONGOING_ID, buildFallbackNotification(now)) }
             catch (ignored: Exception) { logFailure("Notification fallback error: " + ignored.message) }
         }

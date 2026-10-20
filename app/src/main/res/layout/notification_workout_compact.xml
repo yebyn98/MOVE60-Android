@@ -16,7 +16,11 @@
             android:textSize="13sp" android:textStyle="bold" android:textColor="#FFFFFF" />
         <Chronometer android:id="@+id/n_timer" android:layout_width="wrap_content"
             android:layout_height="wrap_content" android:fontFamily="sans-serif-medium"
-            android:text="00:00" android:textSize="21sp" android:textStyle="bold" android:textColor="#B4F56E" />
+            android:text="00:00" android:textSize="22sp" android:textStyle="bold"
+            android:background="@drawable/bg_notification_timer"
+            android:paddingLeft="8dp" android:paddingTop="5dp"
+            android:paddingRight="8dp" android:paddingBottom="5dp"
+            android:textColor="#B4F56E" />
     </LinearLayout>
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
         android:layout_marginTop="5dp" android:gravity="center_vertical" android:orientation="horizontal">
