@@ -504,6 +504,11 @@ class MainActivity : Activity() {
         val n = max(0, seconds)
         return "%02d:%02d".format(n / 60, n % 60)
     }
+    override fun onResume() {
+        super.onResume()
+        if (::updateManager.isInitialized) updateManager.resumePendingInstall()
+    }
+
     override fun onDestroy() {
         handler.removeCallbacks(ticker)
         updateManager.onDestroy()
