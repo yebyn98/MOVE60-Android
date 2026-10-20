@@ -57,6 +57,12 @@ if ! grep -q 'com.move60.workout' smoke-debug/notifications.txt; then
   echo "MOVE60 ongoing notification missing from NotificationManager"
   exit 1
 fi
+# Capture the notification shade to check whether SystemUI actually renders the custom card.
+adb shell input swipe 550 8 550 1400 420 || true
+sleep 2
+adb shell screencap -p /sdcard/move60-shade.png || true
+adb pull /sdcard/move60-shade.png smoke-debug/notification-shade.png >/dev/null 2>&1 || true
+adb shell input keyevent KEYCODE_BACK || true
 echo "Testing app relaunch with persisted active timer..."
 adb shell am force-stop com.move60.workout
 adb shell am start -W -n com.move60.workout/.MainActivity
