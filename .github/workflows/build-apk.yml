@@ -37,8 +37,41 @@ jobs:
           test -z "$(find app/src/main -name '*.java' -o -name '*.html' -print -quit)" || { echo "Legacy Java/HTML UI remains"; exit 1; }
           grep -q "class MainActivity" app/src/main/java/com/move60/workout/MainActivity.kt
           grep -q "class WorkoutService" app/src/main/java/com/move60/workout/WorkoutService.kt
+      - name: Restore fixed signing key from GitHub Secret
+        env:
+          MOVE60_SIGNING_BUNDLE_BASE64: ${{ secrets.MOVE60_SIGNING_BUNDLE_BASE64 }}
+        shell: bash
+        run: |
+          if [ -n "$MOVE60_SIGNING_BUNDLE_BASE64" ]; then
+            printf '%s' "$MOVE60_SIGNING_BUNDLE_BASE64" | base64 -d > "$RUNNER_TEMP/move60-signing.zip"
+            mkdir -p "$RUNNER_TEMP/move60-signing"
+            unzip -q "$RUNNER_TEMP/move60-signing.zip" -d "$RUNNER_TEMP/move60-signing"
+            test -f "$RUNNER_TEMP/move60-signing/move60.p12"
+            set -a
+            source "$RUNNER_TEMP/move60-signing/signing.env"
+            set +a
+            echo "MOVE60_KEYSTORE_PATH=$RUNNER_TEMP/move60-signing/move60.p12" >> "$GITHUB_ENV"
+            echo "MOVE60_STORE_PASSWORD=$MOVE60_STORE_PASSWORD" >> "$GITHUB_ENV"
+            echo "MOVE60_KEY_PASSWORD=$MOVE60_KEY_PASSWORD" >> "$GITHUB_ENV"
+            echo "MOVE60_KEY_ALIAS=$MOVE60_KEY_ALIAS" >> "$GITHUB_ENV"
+            echo 'MOVE60_SIGNED=true' >> "$GITHUB_ENV"
+          else
+            echo 'MOVE60_SIGNED=false' >> "$GITHUB_ENV"
+            echo 'No stable signing secret: build test APK only.'
+          fi
       - name: Build Kotlin native APK
         run: gradle --no-daemon --stacktrace :app:assembleDebug
+      - name: Build stable signed release APK
+        if: env.MOVE60_SIGNED == 'true'
+        run: gradle --no-daemon --stacktrace :app:assembleRelease
+      - name: Upload stable signed release APK
+        if: env.MOVE60_SIGNED == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: MOVE60-stable-signed-release-APK
+          path: app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 30
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
