@@ -42,8 +42,8 @@ jobs:
         shell: bash
         run: |
           if [ -z "$MOVE60_SIGNING_BUNDLE_BASE64" ]; then
-            echo 'MOVE60_SIGNED=false' >> "$GITHUB_ENV"
-            echo 'Stable signing not yet configured; building unsigned release is DISABLED.'
+            echo '::error::MOVE60_SIGNING_BUNDLE_BASE64 is unavailable in MOVE60-Android Actions secrets.'
+            exit 1
           else
             printf '%s' "$MOVE60_SIGNING_BUNDLE_BASE64" | base64 --decode > "$RUNNER_TEMP/move60-signing.zip"
             mkdir -p "$RUNNER_TEMP/move60-signing"
@@ -86,8 +86,8 @@ jobs:
         shell: bash
         run: |
           if [ -z "$MOVE60_UPDATES_PAT" ]; then
-            echo 'Public update token not configured. Signed APK is available as a private artifact.'
-            exit 0
+            echo '::error::MOVE60_UPDATES_PAT is unavailable in MOVE60-Android Actions secrets.'
+            exit 1
           fi
           git -c "http.extraheader=AUTHORIZATION: basic $(printf 'x-access-token:%s' "$MOVE60_UPDATES_PAT" | base64 -w0)" \
             clone --quiet https://github.com/yebyn98/MOVE60-Updates.git "$RUNNER_TEMP/move60-updates"
