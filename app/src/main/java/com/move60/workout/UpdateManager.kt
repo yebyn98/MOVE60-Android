@@ -91,75 +91,123 @@ class UpdateManager(private val activity: Activity) {
         }
     }
 
+
     private fun download(url: String, sha256: String, version: String) {
-        // Android prevents silent APK installs; each install must receive user consent.
-        if (Build.VERSION.SDK_INT >= 26 && !activity.packageManager.canRequestPackageInstalls()) {
+        try {
+            val p = activity.getSharedPreferences("move60_update", Context.MODE_PRIVATE)
+            val existing = p.getLong("downloadId", -1L)
+            if (existing>0 && p.getString("expectedHash", "")==sha256) {
+                p.edit().putBoolean("installerShown",false).apply()
+                observeDownload()
+                resumePendingInstall()
+                toast("기존 다운로드를 확인하고 있어요.")
+                return
+            }
+            val request=DownloadManager.Request(Uri.parse(url))
+                .setTitle("MOVE60 " + version + " 업데이트")
+                .setDescription("앱 업데이트 파일을 다운로드합니다")
+                .setMimeType("application/vnd.android.package-archive")
+                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                .setDestinationInExternalFilesDir(activity, Environment.DIRECTORY_DOWNLOADS,
+                    "MOVE60-update-" + version + ".apk")
+            val manager=activity.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+            val id=manager.enqueue(request)
+            p.edit().putLong("downloadId",id).putString("expectedHash",sha256)
+                .putBoolean("installerShown",false).apply()
+            observeDownload()
+            resumePendingInstall()
+            toast("다운로드를 시작했어요. 완료되면 설치를 안내할게요.")
+        } catch (_: Exception) {
+            inform("업데이트 다운로드를 시작하지 못했어요.")
+        }
+    }
+
+    private var verifying=false
+    private var permissionDialogShown=false
+    private fun observeDownload() {
+        if(receiver!=null)return
+        val listener=object:BroadcastReceiver() {
+            override fun onReceive(context:Context?,intent:Intent?) {
+                val p=activity.getSharedPreferences("move60_update",Context.MODE_PRIVATE)
+                if(intent?.action==DownloadManager.ACTION_DOWNLOAD_COMPLETE
+                    && intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID,-1L)==p.getLong("downloadId",-1L)) {
+                    resumePendingInstall()
+                }
+            }
+        }
+        try {
+            if(Build.VERSION.SDK_INT>=33)
+                activity.registerReceiver(listener,IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),Context.RECEIVER_EXPORTED)
+            else activity.registerReceiver(listener,IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE))
+            receiver=listener
+        }catch(_:Exception){}
+    }
+
+    /** Allows downloading in-app, then opening the system installer after user consent. */
+    fun resumePendingInstall() {
+        val p=activity.getSharedPreferences("move60_update",Context.MODE_PRIVATE)
+        val id=p.getLong("downloadId",-1L)
+        val expected=p.getString("expectedHash",null)
+        if(id<0||expected.isNullOrBlank()||verifying)return
+        val dm=activity.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+        val query=dm.query(DownloadManager.Query().setFilterById(id))?:return
+        val status=query.use { if(it.moveToFirst())it.getInt(it.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
+            else DownloadManager.STATUS_FAILED }
+        if(status==DownloadManager.STATUS_FAILED) {
+            p.edit().remove("downloadId").remove("expectedHash").remove("installerShown").apply()
+            inform("다운로드에 실패했어요. 다시 업데이트를 눌러 주세요.")
+            return
+        }
+        if(status!=DownloadManager.STATUS_SUCCESSFUL){observeDownload();return}
+        if(p.getBoolean("installerShown",false))return
+        if(Build.VERSION.SDK_INT>=26 && !activity.packageManager.canRequestPackageInstalls()){
+            if(permissionDialogShown)return
+            permissionDialogShown=true
             AlertDialog.Builder(activity)
-                .setTitle("업데이트 설치 권한")
-                .setMessage("MOVE60에서 새 버전을 설치할 수 있도록 '이 출처 허용'을 켜 주세요. 돌아온 뒤 업데이트를 다시 눌러 주세요.")
-                .setNegativeButton("취소", null)
-                .setPositiveButton("설정 열기") { _, _ ->
-                    activity.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${activity.packageName}")))
+                .setTitle("설치 권한 안내")
+                .setMessage("다운로드 완료! MOVE60의 '이 출처 허용'을 켜고 돌아오면 설치를 이어갈게요.")
+                .setNegativeButton("나중에"){_,_->permissionDialogShown=false}
+                .setPositiveButton("설정 열기"){_,_->
+                    try{activity.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                        Uri.parse("package:"+activity.packageName)))}
+                    catch(_:Exception){permissionDialogShown=false;inform("설정에서 MOVE60에 앱 설치 권한을 허용해 주세요.")}
                 }.show()
             return
         }
-        try {
-            val request = DownloadManager.Request(Uri.parse(url))
-                .setTitle("MOVE60 $version 업데이트")
-                .setDescription("업데이트 APK 다운로드 중")
-                .setMimeType("application/vnd.android.package-archive")
-                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "MOVE60-$version.apk")
-            val manager = activity.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-            val id = manager.enqueue(request)
-            receiver?.let { try { activity.unregisterReceiver(it) } catch (_: Exception) {} }
-            val listener = object : BroadcastReceiver() {
-                override fun onReceive(context: Context?, intent: Intent?) {
-                    if (intent?.action != DownloadManager.ACTION_DOWNLOAD_COMPLETE ||
-                        intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1) != id) return
-                    try { activity.unregisterReceiver(this) } catch (_: Exception) {}
-                    receiver = null
-                    thread(name = "move60-apk-check") {
-                        val fileUri = manager.getUriForDownloadedFile(id)
-                        if (fileUri == null) {
-                            inform("다운로드에 실패했어요. 다운로드 알림을 확인해 주세요.")
-                            return@thread
-                        }
-                        try {
-                            val digest = MessageDigest.getInstance("SHA-256")
-                            activity.contentResolver.openInputStream(fileUri).use { stream ->
-                                requireNotNull(stream) { "Downloaded file inaccessible" }
-                                val buffer = ByteArray(8192)
-                                while (true) {
-                                    val count = stream.read(buffer)
-                                    if (count < 0) break
-                                    digest.update(buffer, 0, count)
-                                }
-                            }
-                            val actual = digest.digest().joinToString("") { "%02x".format(it) }
-                            require(actual == sha256) { "SHA-256 mismatch" }
-                            activity.runOnUiThread {
-                                try {
-                                    activity.startActivity(Intent(Intent.ACTION_VIEW).apply {
-                                        setDataAndType(fileUri, "application/vnd.android.package-archive")
-                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                    })
-                                } catch (e: Exception) {
-                                    inform("다운로드는 완료됐어요. 파일 앱의 다운로드 폴더에서 MOVE60 APK를 열어 주세요.")
-                                }
-                            }
-                        } catch (e: Exception) {
-                            inform("APK 무결성을 확인하지 못해 설치를 중단했어요. 공개 배포 파일을 확인해 주세요.")
-                        }
+        permissionDialogShown=false
+        verifying=true
+        thread(name="move60-verify-download"){
+            try{
+                val uri=dm.getUriForDownloadedFile(id)?:error("Missing APK")
+                val hash=MessageDigest.getInstance("SHA-256")
+                activity.contentResolver.openInputStream(uri).use{input->
+                    requireNotNull(input)
+                    val buffer=ByteArray(8192)
+                    while(true){val n=input.read(buffer);if(n<0)break;hash.update(buffer,0,n)}
+                }
+                val actual=hash.digest().joinToString(""){"%02x".format(it)}
+                require(actual==expected){"Hash mismatch"}
+                activity.runOnUiThread{
+                    verifying=false
+                    if(activity.isDestroyed||activity.isFinishing)return@runOnUiThread
+                    try{
+                        p.edit().putBoolean("installerShown",true).apply()
+                        activity.startActivity(Intent(Intent.ACTION_VIEW).apply{
+                            setDataAndType(uri,"application/vnd.android.package-archive")
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        })
+                    }catch(_:Exception){
+                        p.edit().putBoolean("installerShown",false).apply()
+                        inform("설치 화면을 열지 못했어요. 업데이트를 다시 눌러 주세요.")
                     }
                 }
+            }catch(_:Exception){
+                activity.runOnUiThread{
+                    verifying=false
+                    p.edit().remove("downloadId").remove("expectedHash").remove("installerShown").apply()
+                    inform("다운로드 파일 무결성 확인에 실패했어요. 설치를 중단했어요.")
+                }
             }
-            receiver = listener
-            if (Build.VERSION.SDK_INT >= 33) activity.registerReceiver(listener, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE), Context.RECEIVER_EXPORTED)
-            else activity.registerReceiver(listener, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE))
-            toast("다운로드를 시작했어요. 완료되면 설치 화면이 열려요.")
-        } catch (exception: Exception) {
-            inform("다운로드를 시작하지 못했어요. 인터넷 연결과 설치 권한을 확인해 주세요.")
         }
     }
 
