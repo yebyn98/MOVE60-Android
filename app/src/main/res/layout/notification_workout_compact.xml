@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:orientation="vertical" android:padding="9dp"
+    android:background="@drawable/bg_notification_card">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:gravity="center_vertical" android:orientation="horizontal">
+        <TextView android:id="@+id/n_brand" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:background="@drawable/bg_notification_brand"
+            android:paddingLeft="7dp" android:paddingTop="3dp"
+            android:paddingRight="7dp" android:paddingBottom="3dp"
+            android:text="MOVE60" android:textSize="9sp" android:textStyle="bold" android:textColor="#0D1626" />
+        <TextView android:id="@+id/n_title" android:layout_width="0dp" android:layout_weight="1"
+            android:layout_height="wrap_content" android:layout_marginLeft="8dp" android:maxLines="1"
+            android:ellipsize="end" android:text="빠르게 페달링"
+            android:textSize="13sp" android:textStyle="bold" android:textColor="#FFFFFF" />
+        <Chronometer android:id="@+id/n_timer" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:fontFamily="sans-serif-medium"
+            android:text="00:00" android:textSize="21sp" android:textStyle="bold" android:textColor="#B4F56E" />
+    </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="5dp" android:gravity="center_vertical" android:orientation="horizontal">
+        <TextView android:id="@+id/n_stage_chip" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:text="실내 사이클"
+            android:textSize="10sp" android:textColor="#D7E0F0" />
+        <TextView android:id="@+id/n_badge" android:layout_width="0dp" android:layout_weight="1"
+            android:layout_height="wrap_content" android:layout_marginLeft="6dp"
+            android:text="3/18 구간" android:textSize="10sp" android:textColor="#AEBBD2" />
+        <TextView android:id="@+id/n_accent" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:text="RPE 7"
+            android:textSize="10sp" android:textStyle="bold" android:textColor="#B4F56E" />
+    </LinearLayout>
+    <ProgressBar android:id="@+id/n_progress"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent" android:layout_height="5dp"
+        android:layout_marginTop="6dp" android:max="3600" android:progress="1200"
+        android:progressDrawable="@drawable/bg_notification_progress" />
+    <!-- Present but hidden in the compact variant; RemoteViews setters share one binding path. -->
+    <TextView android:id="@+id/n_detail" android:layout_width="1dp" android:layout_height="0dp"
+        android:visibility="gone" />
+    <TextView android:id="@+id/n_day" android:layout_width="1dp" android:layout_height="0dp"
+        android:visibility="gone" />
+    <TextView android:id="@+id/n_total" android:layout_width="1dp" android:layout_height="0dp"
+        android:visibility="gone" />
+    <TextView android:id="@+id/n_remaining_label" android:layout_width="1dp" android:layout_height="0dp"
+        android:visibility="gone" />
+</LinearLayout>
