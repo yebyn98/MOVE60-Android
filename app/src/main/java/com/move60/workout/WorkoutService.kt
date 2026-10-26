@@ -342,6 +342,8 @@ class WorkoutService : Service() {
         stopSelf()
     }
     override fun onDestroy() {
+        accountActiveTime(System.currentTimeMillis())
+        prefs.edit().putLong("history_checkpoint_ms", 0L).apply()
         handler.removeCallbacks(boundary)
         super.onDestroy()
     }
