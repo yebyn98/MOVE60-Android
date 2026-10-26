@@ -119,9 +119,7 @@ class WorkoutService : Service() {
                 }
                 cursor = sliceEnd
             }
-            // Keep the sub-second remainder to avoid losing time at each sync.
-            val creditedMillis = (until - last) / 1000L * 1000L
-            prefs.edit().putLong("history_checkpoint_ms", last + creditedMillis).commit()
+            // Checkpoints are persisted after each successfully written daily slice.
         } catch (e: Exception) {
             logFailure("Workout history save failed: " + e.message)
         }
