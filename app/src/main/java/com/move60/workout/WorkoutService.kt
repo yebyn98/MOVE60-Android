@@ -117,7 +117,8 @@ class WorkoutService : Service() {
                     history.addActiveSeconds(date, seconds)
                     prefs.edit().putLong("history_checkpoint_ms", cursor + seconds * 1000L).commit()
                 }
-                cursor = sliceEnd
+                if (seconds == 0L) break
+                cursor += seconds * 1000L
             }
             // Checkpoints are persisted after each successfully written daily slice.
         } catch (e: Exception) {
