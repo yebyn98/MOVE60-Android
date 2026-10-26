@@ -113,7 +113,10 @@ class WorkoutService : Service() {
                 val nextMidnight = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
                 val sliceEnd = min(until, nextMidnight)
                 val seconds = (sliceEnd - cursor) / 1000L
-                if (seconds > 0L) history.addActiveSeconds(date, seconds)
+                if (seconds > 0L) {
+                    history.addActiveSeconds(date, seconds)
+                    prefs.edit().putLong("history_checkpoint_ms", cursor + seconds * 1000L).commit()
+                }
                 cursor = sliceEnd
             }
             // Keep the sub-second remainder to avoid losing time at each sync.
