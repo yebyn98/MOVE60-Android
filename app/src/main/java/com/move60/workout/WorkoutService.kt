@@ -62,10 +62,14 @@ class WorkoutService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         try {
             if (intent?.action == ACTION_SYNC) {
+                accountActiveTime(System.currentTimeMillis())
                 snapshot = JSONObject(intent.getStringExtra(EXTRA_SNAPSHOT) ?: "{}")
                 prefs.edit().putString("snapshot", snapshot.toString()).apply()
             } else {
                 snapshot = JSONObject(prefs.getString("snapshot", "{}") ?: "{}")
+            }
+            if (snapshot.optBoolean("running", false) && prefs.getLong("history_checkpoint_ms", 0L) == 0L) {
+                prefs.edit().putLong("history_checkpoint_ms", System.currentTimeMillis()).apply()
             }
             if (!snapshot.optBoolean("running", false) || snapshot.optBoolean("finished", false)) {
                 stopWork()
@@ -86,6 +90,26 @@ class WorkoutService : Service() {
             try { stopWork() } catch (_: Exception) { stopSelf() }
             return START_NOT_STICKY
         }
+    }
+
+    private fun accountActiveTime(now: Long) {
+        val old = snapshot
+        val running = old.optBoolean("running", false) && !old.optBoolean("finished", false)
+        val last = prefs.getLong("history_checkpoint_ms", 0L)
+        if (running && last > 0L && now > last) {
+            val seconds = ((now - last) / 1000L).coerceIn(0L, 3600L)
+            if (seconds > 0L) {
+                val date = java.time.Instant.ofEpochMilli(last)
+                    .atZone(java.time.ZoneId.of("Asia/Seoul")).toLocalDate()
+                try {
+                    WorkoutHistory(this).addActiveSeconds(date, seconds)
+                } catch (e: Exception) {
+                    logFailure("Workout history save failed: " + e.message)
+                    return
+                }
+            }
+        }
+        prefs.edit().putLong("history_checkpoint_ms", if (running) now else 0L).apply()
     }
 
     private fun duration(stage: Int): Int {
@@ -226,6 +250,7 @@ class WorkoutService : Service() {
     }
 
     private fun updateAndSchedule(transition: Boolean) {
+        accountActiveTime(System.currentTimeMillis())
         handler.removeCallbacks(boundary)
         val now = System.currentTimeMillis()
         reconcile(now)
