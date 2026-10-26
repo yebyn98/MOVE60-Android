@@ -132,12 +132,39 @@ class MainActivity : Activity() {
         }
     }
 
+
+    private fun showWorkoutCalendar() {
+        val history = WorkoutHistory(this)
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(12), dp(16), dp(12))
+        }
+        val totals = TextView(this).apply { textSize = 16f }
+        val selected = TextView(this).apply { textSize = 15f }
+        val calendar = CalendarView(this)
+        root.addView(totals)
+        root.addView(calendar)
+        root.addView(selected)
+        fun render(date: java.time.LocalDate) {
+            val month = java.time.YearMonth.from(date)
+            val seconds = history.totalActiveSeconds(month)
+            totals.text = "${month.year}년 ${month.monthValue}월 · ${history.trainedDays(month)}일 · ${seconds / 3600}시간 ${(seconds % 3600) / 60}분"
+            selected.text = "${date} · 운동 ${history.record(date).activeMinutes}분"
+        }
+        calendar.setOnDateChangeListener { _, year, month, day ->
+            render(java.time.LocalDate.of(year, month + 1, day))
+        }
+        render(data.localToday())
+        AlertDialog.Builder(this).setTitle("운동 달력").setView(root)
+            .setPositiveButton("닫기", null).show()
+    }
+
     private fun constructInterface() {
         content.removeAllViews()
         val header = row().apply { gravity = Gravity.CENTER_VERTICAL }
         header.addView(label("MOVE", 24, true), LinearLayout.LayoutParams(0, -2, 1f))
         header.addView(label("60", 24, true, mint))
-        header.addView(actionButton("운동 달력", false) { startActivity(Intent(this, WorkoutCalendarActivity::class.java)) }.apply { textSize = 11f }, LinearLayout.LayoutParams(-2, dp(35)).apply { leftMargin = dp(10) })
+        header.addView(actionButton("운동 달력", false) { showWorkoutCalendar() }.apply { textSize = 11f }, LinearLayout.LayoutParams(-2, dp(35)).apply { leftMargin = dp(10) })
         header.addView(actionButton("업데이트 ↗", false) { updateManager.check(true) }.apply {
             textSize = 11f
             minHeight = dp(34)
