@@ -97,7 +97,9 @@ class WorkoutService : Service() {
         val running = old.optBoolean("running", false) && !old.optBoolean("finished", false)
         val last = prefs.getLong("history_checkpoint_ms", 0L)
         if (running && last > 0L && now > last) {
-            val seconds = ((now - last) / 1000L).coerceIn(0L, 3600L)
+            val finalDeadline = old.optLong("deadlineAt", now)
+            val upperBound = if (finalDeadline > 0L) min(now, finalDeadline) else now
+            val seconds = ((upperBound - last).coerceAtLeast(0L) / 1000L).coerceIn(0L, 3600L)
             if (seconds > 0L) {
                 val date = java.time.Instant.ofEpochMilli(last)
                     .atZone(java.time.ZoneId.of("Asia/Seoul")).toLocalDate()
@@ -322,6 +324,7 @@ class WorkoutService : Service() {
     }
 
     private fun stopWork() {
+        prefs.edit().putLong("history_checkpoint_ms", 0L).apply()
         handler.removeCallbacks(boundary)
         if (Build.VERSION.SDK_INT >= 33) stopForeground(STOP_FOREGROUND_REMOVE) else stopForeground(true)
         stopSelf()
