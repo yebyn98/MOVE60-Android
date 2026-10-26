@@ -13,6 +13,8 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.SystemClock
+import android.os.Vibrator
+import android.os.VibrationEffect
 import android.view.View
 import android.widget.RemoteViews
 import org.json.JSONArray
@@ -253,6 +255,7 @@ class WorkoutService : Service() {
         }
         val phaseSignature = "${c.stageName}:${c.title}:${c.round}"
         if (transition && phaseSignature != lastPhase) {
+            vibratePhaseTransition()
             nm.notify(PHASE_ID, builder(CHANNEL_PHASE)
                 .setContentTitle("다음 운동 · ${c.title}")
                 .setContentText("${c.effort} · ${c.round}")
@@ -263,6 +266,21 @@ class WorkoutService : Service() {
         val stageDeadline = snapshot.optLong("deadlineAt", now + 1000)
         val nextTime = min(stageDeadline, c.ends)
         handler.postDelayed(boundary, (nextTime - now + 40).coerceIn(150L, 3_600_000L))
+    }
+
+    private fun vibratePhaseTransition() {
+        try {
+            val vibrator = getSystemService(VIBRATOR_SERVICE) as Vibrator
+            if (!vibrator.hasVibrator()) return
+            if (Build.VERSION.SDK_INT >= 26) {
+                vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 160, 100, 160), -1))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(350L)
+            }
+        } catch (e: Exception) {
+            logFailure("Phase vibration failed: " + e.message)
+        }
     }
 
     private fun showComplete() {
