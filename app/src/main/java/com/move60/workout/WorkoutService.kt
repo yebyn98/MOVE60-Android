@@ -62,6 +62,7 @@ class WorkoutService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         try {
             if (intent?.action == ACTION_SYNC) {
+                if (snapshot.length() == 0) snapshot = JSONObject(prefs.getString("snapshot", "{}") ?: "{}")
                 accountActiveTime(System.currentTimeMillis())
                 snapshot = JSONObject(intent.getStringExtra(EXTRA_SNAPSHOT) ?: "{}")
                 prefs.edit().putString("snapshot", snapshot.toString()).apply()
