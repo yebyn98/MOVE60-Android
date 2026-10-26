@@ -137,6 +137,7 @@ class MainActivity : Activity() {
         val header = row().apply { gravity = Gravity.CENTER_VERTICAL }
         header.addView(label("MOVE", 24, true), LinearLayout.LayoutParams(0, -2, 1f))
         header.addView(label("60", 24, true, mint))
+        header.addView(actionButton("운동 달력", false) { startActivity(Intent(this, WorkoutCalendarActivity::class.java)) }.apply { textSize = 11f }, LinearLayout.LayoutParams(-2, dp(35)).apply { leftMargin = dp(10) })
         header.addView(actionButton("업데이트 ↗", false) { updateManager.check(true) }.apply {
             textSize = 11f
             minHeight = dp(34)
