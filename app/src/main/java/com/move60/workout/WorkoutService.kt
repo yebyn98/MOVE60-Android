@@ -94,30 +94,33 @@ class WorkoutService : Service() {
 
     private fun accountActiveTime(now: Long) {
         val old = snapshot
-        val running = old.optBoolean("running", false) && !old.optBoolean("finished", false)
         val last = prefs.getLong("history_checkpoint_ms", 0L)
-        if (running && last > 0L && now > last) {
-            val finalDeadline = old.optLong("deadlineAt", now)
-            val currentStage = old.optInt("stage", 0).coerceIn(0, 3)
-            val stageDurations = old.optJSONArray("stageSeconds")
-            var finishDeadline = finalDeadline
-            if (finishDeadline > 0L) for (index in (currentStage + 1)..3) {
-                finishDeadline += (stageDurations?.optInt(index, 0) ?: 0) * 1000L
+        if (last <= 0L || !old.optBoolean("running", false) || old.optBoolean("finished", false)) return
+        val stage = old.optInt("stage", 0).coerceIn(0, 3)
+        val durations = old.optJSONArray("stageSeconds")
+        var end = old.optLong("deadlineAt", 0L)
+        if (end <= 0L) return
+        for (index in (stage + 1)..3) end += (durations?.optInt(index, 0) ?: 0) * 1000L
+        val until = min(now, end)
+        if (until <= last) return
+        val zone = java.time.ZoneId.of("Asia/Seoul")
+        val history = WorkoutHistory(this)
+        var cursor = last
+        try {
+            while (cursor < until) {
+                val date = java.time.Instant.ofEpochMilli(cursor).atZone(zone).toLocalDate()
+                val nextMidnight = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+                val sliceEnd = min(until, nextMidnight)
+                val seconds = (sliceEnd - cursor) / 1000L
+                if (seconds > 0L) history.addActiveSeconds(date, seconds)
+                cursor = sliceEnd
             }
-            val upperBound = if (finishDeadline > 0L) min(now, finishDeadline) else now
-            val seconds = ((upperBound - last).coerceAtLeast(0L) / 1000L).coerceIn(0L, 3600L)
-            if (seconds > 0L) {
-                val date = java.time.Instant.ofEpochMilli(last)
-                    .atZone(java.time.ZoneId.of("Asia/Seoul")).toLocalDate()
-                try {
-                    WorkoutHistory(this).addActiveSeconds(date, seconds)
-                } catch (e: Exception) {
-                    logFailure("Workout history save failed: " + e.message)
-                    return
-                }
-            }
+            // Keep the sub-second remainder to avoid losing time at each sync.
+            val creditedMillis = (until - last) / 1000L * 1000L
+            prefs.edit().putLong("history_checkpoint_ms", last + creditedMillis).commit()
+        } catch (e: Exception) {
+            logFailure("Workout history save failed: " + e.message)
         }
-        prefs.edit().putLong("history_checkpoint_ms", if (running) now else 0L).apply()
     }
 
     private fun duration(stage: Int): Int {
