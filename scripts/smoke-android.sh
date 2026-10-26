@@ -58,21 +58,34 @@ if ! grep -q 'com.move60.workout' smoke-debug/notifications.txt; then
   echo "MOVE60 ongoing notification missing from NotificationManager"
   exit 1
 fi
-# Capture the notification shade to check whether SystemUI actually renders the custom card.
-adb shell input swipe 550 8 550 1400 420 || true
-sleep 3
+# Expand notifications through SystemUI, not an emulator-dependent swipe coordinate.
+adb shell cmd statusbar expand-notifications || adb shell input swipe 550 8 550 1400 420 || true
+sleep 4
 adb shell screencap -p /sdcard/move60-shade.png || true
 adb pull /sdcard/move60-shade.png smoke-debug/notification-shade.png >/dev/null 2>&1 || true
-adb shell uiautomator dump /sdcard/move60-shade.xml >/dev/null 2>&1 || true
-adb pull /sdcard/move60-shade.xml smoke-debug/notification-shade.xml >/dev/null 2>&1 || true
+# UiAutomator sometimes times out on first boot; retry and preserve its error output.
+shade_found=0
+for attempt in 1 2 3; do
+  echo "Notification shade hierarchy check: $attempt"
+  adb shell cmd statusbar expand-notifications || true
+  if timeout 25s adb shell uiautomator dump /sdcard/move60-shade.xml > smoke-debug/uiautomator-shade.log 2>&1 &&
+     adb pull /sdcard/move60-shade.xml smoke-debug/notification-shade.xml >/dev/null 2>&1 &&
+     grep -q 'MOVE60' smoke-debug/notification-shade.xml; then
+    shade_found=1
+    break
+  fi
+  sleep 3
+done
 adb logcat -d -v threadtime > smoke-debug/logcat-after-shade.txt || true
 if grep -q -E 'FATAL EXCEPTION|BadForegroundServiceNotificationException|Error inflating class android.view.View|RemoteServiceException' smoke-debug/logcat-after-shade.txt; then
   echo "Fatal notification rendering error found after opening notification shade"
   grep -n -A 30 -B 5 -E 'FATAL EXCEPTION|BadForegroundServiceNotificationException|Error inflating class android.view.View|RemoteServiceException' smoke-debug/logcat-after-shade.txt | tail -n 120
   exit 1
 fi
-if ! grep -q 'MOVE60' smoke-debug/notification-shade.xml; then
-  echo "MOVE60 notification was posted but not rendered in the notification shade"
+if test "$shade_found" -ne 1; then
+  echo "Notification posted but MOVE60 not confirmed in visible notification shade"
+  cat smoke-debug/uiautomator-shade.log || true
+  cat smoke-debug/notification-shade.xml || true
   exit 1
 fi
 pid="$(adb shell pidof com.move60.workout | tr -d '\r' || true)"
