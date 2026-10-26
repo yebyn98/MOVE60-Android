@@ -98,7 +98,13 @@ class WorkoutService : Service() {
         val last = prefs.getLong("history_checkpoint_ms", 0L)
         if (running && last > 0L && now > last) {
             val finalDeadline = old.optLong("deadlineAt", now)
-            val upperBound = if (finalDeadline > 0L) min(now, finalDeadline) else now
+            val currentStage = old.optInt("stage", 0).coerceIn(0, 3)
+            val stageDurations = old.optJSONArray("stageSeconds")
+            var finishDeadline = finalDeadline
+            if (finishDeadline > 0L) for (index in (currentStage + 1)..3) {
+                finishDeadline += (stageDurations?.optInt(index, 0) ?: 0) * 1000L
+            }
+            val upperBound = if (finishDeadline > 0L) min(now, finishDeadline) else now
             val seconds = ((upperBound - last).coerceAtLeast(0L) / 1000L).coerceIn(0L, 3600L)
             if (seconds > 0L) {
                 val date = java.time.Instant.ofEpochMilli(last)
