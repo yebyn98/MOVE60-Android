@@ -13,6 +13,8 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.SystemClock
+import android.os.Vibrator
+import android.os.VibrationEffect
 import android.view.View
 import android.widget.RemoteViews
 import org.json.JSONArray
@@ -60,10 +62,15 @@ class WorkoutService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         try {
             if (intent?.action == ACTION_SYNC) {
+                if (snapshot.length() == 0) snapshot = JSONObject(prefs.getString("snapshot", "{}") ?: "{}")
+                accountActiveTime(System.currentTimeMillis())
                 snapshot = JSONObject(intent.getStringExtra(EXTRA_SNAPSHOT) ?: "{}")
                 prefs.edit().putString("snapshot", snapshot.toString()).apply()
             } else {
                 snapshot = JSONObject(prefs.getString("snapshot", "{}") ?: "{}")
+            }
+            if (snapshot.optBoolean("running", false) && prefs.getLong("history_checkpoint_ms", 0L) == 0L) {
+                prefs.edit().putLong("history_checkpoint_ms", System.currentTimeMillis()).apply()
             }
             if (!snapshot.optBoolean("running", false) || snapshot.optBoolean("finished", false)) {
                 stopWork()
@@ -83,6 +90,39 @@ class WorkoutService : Service() {
             logFailure("Service failed: " + e.javaClass.simpleName + ": " + e.message)
             try { stopWork() } catch (_: Exception) { stopSelf() }
             return START_NOT_STICKY
+        }
+    }
+
+    private fun accountActiveTime(now: Long) {
+        val old = snapshot
+        val last = prefs.getLong("history_checkpoint_ms", 0L)
+        if (last <= 0L || !old.optBoolean("running", false) || old.optBoolean("finished", false)) return
+        val stage = old.optInt("stage", 0).coerceIn(0, 3)
+        val durations = old.optJSONArray("stageSeconds")
+        var end = old.optLong("deadlineAt", 0L)
+        if (end <= 0L) return
+        for (index in (stage + 1)..3) end += (durations?.optInt(index, 0) ?: 0) * 1000L
+        val until = min(now, end)
+        if (until <= last) return
+        val zone = java.time.ZoneId.of("Asia/Seoul")
+        val history = WorkoutHistory(this)
+        var cursor = last
+        try {
+            while (cursor < until) {
+                val date = java.time.Instant.ofEpochMilli(cursor).atZone(zone).toLocalDate()
+                val nextMidnight = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+                val sliceEnd = min(until, nextMidnight)
+                val seconds = (sliceEnd - cursor) / 1000L
+                if (seconds > 0L) {
+                    history.addActiveSeconds(date, seconds)
+                    prefs.edit().putLong("history_checkpoint_ms", cursor + seconds * 1000L).commit()
+                }
+                if (seconds == 0L) break
+                cursor += seconds * 1000L
+            }
+            // Checkpoints are persisted after each successfully written daily slice.
+        } catch (e: Exception) {
+            logFailure("Workout history save failed: " + e.message)
         }
     }
 
@@ -224,6 +264,7 @@ class WorkoutService : Service() {
     }
 
     private fun updateAndSchedule(transition: Boolean) {
+        accountActiveTime(System.currentTimeMillis())
         handler.removeCallbacks(boundary)
         val now = System.currentTimeMillis()
         reconcile(now)
@@ -253,6 +294,7 @@ class WorkoutService : Service() {
         }
         val phaseSignature = "${c.stageName}:${c.title}:${c.round}"
         if (transition && phaseSignature != lastPhase) {
+            vibratePhaseTransition()
             nm.notify(PHASE_ID, builder(CHANNEL_PHASE)
                 .setContentTitle("다음 운동 · ${c.title}")
                 .setContentText("${c.effort} · ${c.round}")
@@ -263,6 +305,21 @@ class WorkoutService : Service() {
         val stageDeadline = snapshot.optLong("deadlineAt", now + 1000)
         val nextTime = min(stageDeadline, c.ends)
         handler.postDelayed(boundary, (nextTime - now + 40).coerceIn(150L, 3_600_000L))
+    }
+
+    private fun vibratePhaseTransition() {
+        try {
+            val vibrator = getSystemService(VIBRATOR_SERVICE) as Vibrator
+            if (!vibrator.hasVibrator()) return
+            if (Build.VERSION.SDK_INT >= 26) {
+                vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 160, 100, 160), -1))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(350L)
+            }
+        } catch (e: Exception) {
+            logFailure("Phase vibration failed: " + e.message)
+        }
     }
 
     private fun showComplete() {
@@ -279,11 +336,14 @@ class WorkoutService : Service() {
     }
 
     private fun stopWork() {
+        prefs.edit().putLong("history_checkpoint_ms", 0L).apply()
         handler.removeCallbacks(boundary)
         if (Build.VERSION.SDK_INT >= 33) stopForeground(STOP_FOREGROUND_REMOVE) else stopForeground(true)
         stopSelf()
     }
     override fun onDestroy() {
+        accountActiveTime(System.currentTimeMillis())
+        prefs.edit().putLong("history_checkpoint_ms", 0L).apply()
         handler.removeCallbacks(boundary)
         super.onDestroy()
     }

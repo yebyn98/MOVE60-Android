@@ -1,8 +1,10 @@
 name: MOVE60 Android runtime smoke test
 on:
   workflow_dispatch:
-  push:
+  pull_request:
     branches: [main]
+  push:
+    branches: [main, 'feature/workout-history-vnext']
     paths:
       - 'app/src/**'
       - 'app/build.gradle'
@@ -23,6 +25,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+      - name: Verify weekday durations and cycling intervals
+        run: node scripts/verify-plan.cjs
       - name: Build Kotlin debug APK
         run: gradle --no-daemon :app:assembleDebug
       - name: Enable KVM access for emulator
