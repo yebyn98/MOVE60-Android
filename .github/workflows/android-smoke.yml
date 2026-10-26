@@ -2,7 +2,7 @@ name: MOVE60 Android runtime smoke test
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, 'feature/workout-history-vnext']
     paths:
       - 'app/src/**'
       - 'app/build.gradle'
