@@ -194,14 +194,14 @@ class MainActivity : Activity() {
         content.addView(makeTimerCard())
         addGap(content, 18)
         val completedCard = card()
-        completedCard.addView(label("오늘의 운동 체크 현황", 17, true))
+        completedCard.addView(label("오늘의 운동 진행 현황", 17, true))
         addGap(completedCard, 12)
         trackingSummary = label("", 14, false, textSecondary)
         completedCard.addView(trackingSummary)
         content.addView(completedCard)
         addGap(content, 18)
         val stageHeading = row().apply { gravity = Gravity.CENTER_VERTICAL }
-        stageHeading.addView(label("운동 순서 · 체크리스트", 19, true), LinearLayout.LayoutParams(0, -2, 1f))
+        stageHeading.addView(label("운동 순서 · 상세 안내", 19, true), LinearLayout.LayoutParams(0, -2, 1f))
         sectionCount = label("", 12, false, textSecondary)
         stageHeading.addView(sectionCount)
         content.addView(stageHeading)
@@ -358,7 +358,7 @@ class MainActivity : Activity() {
         secondary.addView(actionButton("단계 시간 초기화", false) { session.resetStage(); afterAction() }, LinearLayout.LayoutParams(0, dp(44), 1f))
         secondary.addView(actionButton("오늘 전체 초기화", false) {
             AlertDialog.Builder(this).setTitle("오늘 운동 초기화")
-                .setMessage("체크리스트와 운동 시간을 모두 초기화할까요?")
+                .setMessage("오늘 운동 진행 상태를 초기화할까요?")
                 .setNegativeButton("취소", null)
                 .setPositiveButton("초기화") { _, _ -> session.resetAll(); afterAction() }
                 .show()
@@ -373,9 +373,7 @@ class MainActivity : Activity() {
         lastDay = session.day
         lastStage = session.stage
         val selectedPhase = session.phase()?.first ?: -1
-        val count = session.routine.stages.sumOf { it.tasks.size }
-        val finished = session.checked.size
-        sectionCount.text = "$finished / $count 체크"
+        sectionCount.text = "${session.completed.size} / 4 단계"
         for ((si, stage) in session.routine.stages.withIndex()) {
             val isCurrent = session.stage == si && !session.finished
             val done = si in session.completed || (session.finished && si <= session.stage)
@@ -397,24 +395,12 @@ class MainActivity : Activity() {
             block.addView(top)
             addGap(block, 10)
             for ((ti, task) in stage.tasks.withIndex()) {
-                val checkedKey = session.taskKey(si, ti)
                 val isPhase = si == 1 && session.stage == 1 && selectedPhase == ti && session.running
                 val item = row().apply {
                     gravity = Gravity.CENTER_VERTICAL
                     setPadding(dp(5), dp(4), dp(3), dp(4))
                     if (isPhase) background = rounded(Color.rgb(33, 69, 53), 10, mint)
                 }
-                val checkbox = CheckBox(this).apply {
-                    buttonTintList = android.content.res.ColorStateList.valueOf(mint)
-                    isChecked = checkedKey in session.checked
-                    contentDescription = "${task.name} 완료"
-                    setOnCheckedChangeListener { _, checked ->
-                        session.toggleChecked(checkedKey, checked)
-                        sectionCount.text = "${session.checked.size} / $count 체크"
-                        trackingSummary.text = "${session.checked.size} / $count 항목 완료 · ${session.completed.size} / 4 단계 완료"
-                    }
-                }
-                item.addView(checkbox)
                 val textBox = column()
                 textBox.addView(label(task.name, 13, true, if (isPhase) mint else textPrimary))
                 addGap(textBox, 3)
@@ -433,7 +419,7 @@ class MainActivity : Activity() {
             stageStack.addView(block)
             addGap(stageStack, 9)
         }
-        if (::trackingSummary.isInitialized) trackingSummary.text = "$finished / $count 항목 완료 · ${session.completed.size} / 4 단계 완료"
+        if (::trackingSummary.isInitialized) trackingSummary.text = "${session.completed.size} / 4 단계 완료 · 체크 없이 타이머 자동 진행"
     }
 
     private fun showDetails(stage: Int, task: WorkoutTask) {
@@ -444,7 +430,7 @@ class MainActivity : Activity() {
                 "안장을 맞추고 페달 아래 지점에서 무릎을 살짝 굽힙니다.",
                 "이 구간 ${task.seconds / 60}분, RPE ${task.rpe}: ${task.description}",
                 "상체를 편안하게 유지하고 페달을 부드럽게 밟습니다.",
-                "구간이 끝나면 다음 체크리스트 운동 강도로 전환합니다."
+                "구간이 끝나면 다음 운동 강도로 전환합니다."
             )
             stage == 0 -> listOf("작은 움직임부터 서서히 가동 범위를 넓힙니다.", "관절에 통증이 없는 범위에서 호흡을 유지합니다.")
             else -> listOf("한 번에 20~40초 편안하게 유지합니다.", "반동 없이 천천히 늘리고 호흡합니다.")
