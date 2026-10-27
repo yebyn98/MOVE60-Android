@@ -18,6 +18,10 @@ adb shell input keyevent 82 || true
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 # Permission popup otherwise hides the app and prevents meaningful UI interaction.
 adb shell pm grant com.move60.workout android.permission.POST_NOTIFICATIONS
+# Suppress flaky first-boot Google setup ANR dialogs on CI emulator.
+adb shell settings put global hide_error_dialogs 1 || true
+adb shell pm disable-user --user 0 com.google.android.googlesdksetup || true
+adb shell input keyevent KEYCODE_BACK || true
 adb logcat -c
 for i in 1 2 3; do
   echo "Cold launch check: $i"
@@ -30,6 +34,8 @@ done
 echo "Finding workout start button..."
 tapped=0
 for try in 1 2 3 4 5 6; do
+  # Dismiss unexpected system ANR dialog before inspecting MOVE60 UI.
+  adb shell input keyevent KEYCODE_BACK || true
   adb shell uiautomator dump /sdcard/move60-smoke.xml >/dev/null 2>&1 || true
   adb pull /sdcard/move60-smoke.xml smoke-debug/window.xml >/dev/null 2>&1 || true
   if python3 - <<'PY'
