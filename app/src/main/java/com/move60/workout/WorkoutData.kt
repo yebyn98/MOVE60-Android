@@ -48,6 +48,8 @@ class WorkoutData(context: Context) {
         val d = day.coerceIn(1, 5)
         val obj = plan.getJSONObject(d.toString())
         val warm = obj.getJSONArray("warmTasks").pairs().map { (name, note) -> WorkoutTask(name, note, "준비운동") }
+        val cardioOptions = obj.optJSONArray("cardioOptions")?.strings() ?: listOf("실내 사이클")
+        val cardioMachine = cardioOptions[Math.floorMod(weekOrdinal() + d, cardioOptions.size.toLong()).toInt()]
         val phases = mutableListOf<WorkoutTask>()
         val phaseData = obj.getJSONArray("cyclePhases")
         fun addPhase(phase: JSONObject, round: String = "") {
@@ -58,7 +60,7 @@ class WorkoutData(context: Context) {
             val minutes = phase.getInt("m")
             phases += WorkoutTask(
                 name = if (round.isNotEmpty()) "$round · $name" else name,
-                detail = "${minutes}분 · RPE $rpe · $note", kind = "실내 사이클",
+                detail = "${minutes}분 · RPE $rpe · $note", kind = cardioMachine,
                 seconds = minutes * 60, rpe = rpe, description = note, phaseIndex = index
             )
         }
@@ -88,12 +90,12 @@ class WorkoutData(context: Context) {
         val finish = stretches.pairs().map { (name, note) -> WorkoutTask(name, note, "마무리 스트레칭") }
         val stages = listOf(
             WorkoutStage("준비운동", "관절 가동성 · 워밍업", obj.getInt("warm"), warm),
-            WorkoutStage("실내 사이클", "실시간 구간과 정확히 일치하는 체크리스트", obj.getInt("cycle"), phases),
+            WorkoutStage(cardioMachine, "이번 주 유산소 · 실시간 구간 체크리스트", obj.getInt("cycle"), phases),
             WorkoutStage("근력운동", "이번 주 랜덤 운동 · 세트/횟수", obj.getInt("strength"), strength),
             WorkoutStage("마무리 스트레칭", "호흡 회복 · 유연성", obj.getInt("stretch"), finish)
         )
         require(stages.sumOf { it.minutes } == 60) { "Daily routine must be exactly 60 minutes" }
-        require(phases.sumOf { it.seconds } == stages[1].minutes * 60) { "Cycle phase mismatch" }
+        require(phases.sumOf { it.seconds } == stages[1].minutes * 60) { "Cardio phase mismatch" }
         if (d == 2) require(phases.size == 18) { "Tuesday requires 18 phases" }
         return DailyRoutine(d, obj.getString("day"), obj.getString("short"), obj.getString("focus"), obj.getString("desc"), obj.getString("tag"), stages)
     }
