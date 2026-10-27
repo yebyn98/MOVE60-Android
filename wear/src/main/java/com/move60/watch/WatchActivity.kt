@@ -7,6 +7,7 @@ import android.os.Looper
 import android.os.SystemClock
 import android.graphics.Color
 import android.view.Gravity
+import android.widget.Button
 import android.widget.Chronometer
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -21,6 +22,7 @@ class WatchActivity : Activity(), DataClient.OnDataChangedListener {
     private lateinit var timer: Chronometer
     private lateinit var status: TextView
     private val handler = Handler(Looper.getMainLooper())
+    private lateinit var playButton: Button
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -36,6 +38,16 @@ class WatchActivity : Activity(), DataClient.OnDataChangedListener {
         container.addView(title)
         container.addView(timer)
         container.addView(status)
+        playButton = Button(this).apply {
+            text = "▶ 시작"
+            setOnClickListener { sendCommand(if (text == "Ⅱ 일시정지") "pause" else "start") }
+        }
+        val nextButton = Button(this).apply {
+            text = "다음 단계 →"
+            setOnClickListener { sendCommand("next") }
+        }
+        container.addView(playButton)
+        container.addView(nextButton)
         setContentView(container)
     }
 
@@ -65,9 +77,25 @@ class WatchActivity : Activity(), DataClient.OnDataChangedListener {
             }
         }
     }
+    private fun sendCommand(command: String) {
+        status.text = "휴대폰에 요청 전달 중…"
+        Wearable.getNodeClient(this).connectedNodes.addOnSuccessListener { nodes ->
+            if (nodes.isEmpty()) {
+                status.text = "연결된 휴대폰이 없습니다"
+                return@addOnSuccessListener
+            }
+            for (node in nodes) {
+                Wearable.getMessageClient(this)
+                    .sendMessage(node.id, "/move60/command", command.toByteArray(Charsets.UTF_8))
+                    .addOnFailureListener { status.text = "요청 전송 실패 · 연결을 확인하세요" }
+            }
+        }.addOnFailureListener { status.text = "휴대폰 연결 확인 실패" }
+    }
+
     private fun showState(running: Boolean, stage: String, deadline: Long) {
         title.text = if (running) stage else "MOVE60"
         status.text = if (running) "휴대폰 운동과 동기화됨" else "운동 대기 중"
+        playButton.text = if (running) "Ⅱ 일시정지" else "▶ 시작"
         timer.stop()
         if (running) {
             timer.base = SystemClock.elapsedRealtime() + (deadline - System.currentTimeMillis()).coerceAtLeast(0L)
