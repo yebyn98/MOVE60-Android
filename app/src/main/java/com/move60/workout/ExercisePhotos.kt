@@ -76,7 +76,7 @@ object ExercisePhotos {
         }
         val imageHeight = (context.resources.displayMetrics.density * 210).toInt()
         parent.addView(animated, LinearLayout.LayoutParams(-1, imageHeight))
-        val control = Button(context).apply { text = "▶ 동작 재생" }
+        val control = Button(context).apply { this.text = "▶ 동작 재생" }
         parent.addView(control)
         val frames = arrayOfNulls<Bitmap>(2)
         var playing = false
