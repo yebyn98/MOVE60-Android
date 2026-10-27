@@ -99,7 +99,15 @@ jobs:
           retention-days: 14
       - name: Build stable signed release APK
         if: env.MOVE60_SIGNED == 'true'
-        run: gradle --no-daemon --stacktrace :app:assembleRelease
+        run: gradle --no-daemon --stacktrace :app:assembleRelease :wear:assembleRelease
+      - name: Upload signed Galaxy Watch4 APK
+        if: env.MOVE60_SIGNED == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: MOVE60-Galaxy-Watch4-signed-APK
+          path: wear/build/outputs/apk/release/wear-release.apk
+          if-no-files-found: error
+          retention-days: 30
       - name: Upload stable signed release APK
         if: env.MOVE60_SIGNED == 'true'
         uses: actions/upload-artifact@v4
