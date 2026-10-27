@@ -40,6 +40,7 @@ jobs:
           test -f app/src/main/java/com/move60/workout/ExercisePhotos.kt
           grep -q 'ExercisePhotos.addTo' app/src/main/java/com/move60/workout/MainActivity.kt
           grep -q 'handler.postDelayed(this, 900L)' app/src/main/java/com/move60/workout/ExercisePhotos.kt
+          ! grep -q 'id: String, text: (String) -> TextView' app/src/main/java/com/move60/workout/ExercisePhotos.kt
       - name: Check native Kotlin-only sources
         shell: bash
         run: |
