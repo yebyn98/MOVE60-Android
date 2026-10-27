@@ -30,6 +30,7 @@ class SessionStore(private val context: Context, private val data: WorkoutData) 
     init { load(day) }
     private fun key() = "move60_${data.weekKey()}_${day}"
     fun taskKey(stage: Int, index: Int) = "$stage-$index"
+    fun refreshRoutine() { routine = data.routine(day); save() }
     fun setDay(next: Int) { if (next == day) return; save(); load(next.coerceIn(1, 5)) }
 
     private fun load(d: Int) {
