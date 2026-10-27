@@ -249,6 +249,24 @@ class MainActivity : Activity() {
         preferenceRow.addView(soundSwitch, LinearLayout.LayoutParams(0, -2, 1f))
         preferenceRow.addView(actionButton("알림 진단 ↗", false) { showNotificationDiagnostics() },
             LinearLayout.LayoutParams(-2, dp(40)))
+        settings.addView(actionButton("유산소 · 근력 시간 비율 변경", false) {
+            if (session.running || session.elapsed() > 0) {
+                Toast.makeText(this, "운동 시작 전 초기 상태에서 변경해 주세요.", Toast.LENGTH_LONG).show()
+            } else {
+                val minutes = listOf(20, 25, 30, 35, 40)
+                AlertDialog.Builder(this).setTitle("60분 운동 시간 배분")
+                    .setSingleChoiceItems(minutes.map { "유산소 ${it}분 · 근력 ${50 - it}분" }.toTypedArray(),
+                        minutes.indexOf(data.cardioMinutes())) { dialog, which ->
+                        data.setCardioMinutes(minutes[which])
+                        session.refreshRoutine()
+                        renderSummary()
+                        renderStages()
+                        refreshTimer()
+                        dialog.dismiss()
+                    }.setNegativeButton("취소", null).show()
+            }
+        })
+        addGap(settings, 8)
         settings.addView(preferenceRow)
         addGap(settings, 8)
         settings.addView(actionButton("칼로리 계산 체중 설정 ↗", false) {
