@@ -54,6 +54,7 @@ class MainActivity : Activity() {
     private var lastStage = -1
     private var lastChecked = -1
     private var soundEnabled = true
+    private var calorieWeightKg = 63.0
     private var recoveryMode = false
     private val ticker = object : Runnable {
         override fun run() {
@@ -93,6 +94,7 @@ class MainActivity : Activity() {
             return
         }
         soundEnabled = getSharedPreferences("preferences", MODE_PRIVATE).getBoolean("sound", true)
+        calorieWeightKg = getSharedPreferences("preferences", MODE_PRIVATE).getFloat("calorie_weight_kg", 63f).toDouble()
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 25)
         }
@@ -176,7 +178,7 @@ class MainActivity : Activity() {
         addGap(content, 7)
         content.addView(label("나의 평일 운동 60분", 29, true))
         addGap(content, 4)
-        content.addView(label("실내 사이클 중심 · 유산소 + 근력 · 월~금", 13, false, textSecondary))
+        content.addView(label("다양한 유산소 머신 + 머신·프리웨이트 근력 · 월~금", 13, false, textSecondary))
         addGap(content, 18)
 
         dayStrip = row()
@@ -227,6 +229,25 @@ class MainActivity : Activity() {
         preferenceRow.addView(actionButton("알림 진단 ↗", false) { showNotificationDiagnostics() },
             LinearLayout.LayoutParams(-2, dp(40)))
         settings.addView(preferenceRow)
+        addGap(settings, 8)
+        settings.addView(actionButton("칼로리 계산 체중 설정 ↗", false) {
+            val input = EditText(this).apply {
+                inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+                setText(calorieWeightKg.toString())
+            }
+            AlertDialog.Builder(this).setTitle("칼로리 추정용 체중 (kg)")
+                .setMessage("운동 칼로리는 추정치이며 실제 소모량과 다를 수 있어요.")
+                .setView(input)
+                .setNegativeButton("취소", null)
+                .setPositiveButton("저장") { _, _ ->
+                    val value = input.text.toString().toDoubleOrNull()
+                    if (value != null && value in 25.0..300.0) {
+                        calorieWeightKg = value
+                        getSharedPreferences("preferences", MODE_PRIVATE).edit().putFloat("calorie_weight_kg", value.toFloat()).apply()
+                        renderSummary()
+                    } else Toast.makeText(this, "25~300kg 범위로 입력해 주세요.", Toast.LENGTH_SHORT).show()
+                }.show()
+        })
         settings.addView(label("MOVE60 14.0 · 안정형 기본 알림을 사용하며 카드형 알림은 분리되어 있어요.", 11, false, textSecondary))
         addGap(settings, 8)
         settings.addView(actionButton("오류 기록 확인 · 복사", false) { CrashReporter.showDiagnostics(this) })
@@ -290,12 +311,17 @@ class MainActivity : Activity() {
             }
             box.addView(label("${stage.minutes}분", 17, true, mint).apply { gravity = Gravity.CENTER },
                 LinearLayout.LayoutParams(-1, dp(25)))
-            box.addView(label(listOf("준비", "사이클", "근력", "정리")[index], 10, false, textSecondary).apply {
+            box.addView(label(listOf("준비", "유산소", "근력", "정리")[index], 10, false, textSecondary).apply {
                 gravity = Gravity.CENTER
             }, LinearLayout.LayoutParams(-1, dp(17)))
             stages.addView(box, LinearLayout.LayoutParams(0, dp(68), 1f).apply { if (index > 0) leftMargin = dp(5) })
         }
         summary.addView(stages)
+        addGap(summary, 13)
+        val kcal = CalorieEstimator.totalKcal(r, calorieWeightKg)
+        summary.addView(label("예상 소모 칼로리  약 ${kcal} kcal", 18, true, mint))
+        summary.addView(label("체중 ${calorieWeightKg.toInt()}kg 기준 · 준비 ${CalorieEstimator.stageKcal(r.stages[0], calorieWeightKg)} / 유산소 ${CalorieEstimator.stageKcal(r.stages[1], calorieWeightKg)} / 근력 ${CalorieEstimator.stageKcal(r.stages[2], calorieWeightKg)} / 정리 ${CalorieEstimator.stageKcal(r.stages[3], calorieWeightKg)} kcal", 11, false, textSecondary))
+        summary.addView(label("MET 기반 60분 추정치 · 실제 소모량은 운동 강도와 휴식 시간에 따라 달라져요.", 11, false, textSecondary))
         summary.requestLayout()
     }
 
