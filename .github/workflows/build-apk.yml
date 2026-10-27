@@ -61,7 +61,14 @@ jobs:
           echo "MOVE60_KEY_ALIAS=$MOVE60_KEY_ALIAS" >> "$GITHUB_ENV"
           echo 'MOVE60_SIGNED=true' >> "$GITHUB_ENV"
       - name: Build Kotlin debug APK for compilation verification
-        run: gradle --no-daemon --stacktrace :app:assembleDebug
+        run: gradle --no-daemon --stacktrace :app:assembleDebug :wear:assembleDebug
+      - name: Upload Wear OS companion APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: MOVE60-WearOS-debug-APK
+          path: wear/build/outputs/apk/debug/wear-debug.apk
+          if-no-files-found: error
+          retention-days: 14
       - name: Upload debug verification APK
         uses: actions/upload-artifact@v4
         with:
