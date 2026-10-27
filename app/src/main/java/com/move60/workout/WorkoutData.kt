@@ -21,6 +21,7 @@ data class DailyRoutine(
 )
 
 class WorkoutData(context: Context) {
+    private val choices = ExercisePreferences(context)
     private val root = JSONObject(context.assets.open("workouts.json").bufferedReader().use { it.readText() })
     private val plan = root.getJSONObject("plan")
     private val exercise = root.getJSONObject("exercise")
@@ -42,6 +43,17 @@ class WorkoutData(context: Context) {
             ex.getString(1), ex.getString(2), ex.getJSONArray(3).strings(),
             ex.getString(4), ex.getString(5)
         )
+    }
+
+    fun alternatives(day: Int, slot: Int): List<Pair<String, String>> =
+        pools.getJSONArray(day.toString()).getJSONArray(slot).strings().map { id ->
+            id to exercise.getJSONArray(id).getString(0)
+        }
+
+    fun replaceExercise(day: Int, slot: Int, id: String): Boolean {
+        if (alternatives(day, slot).none { it.first == id }) return false
+        choices.setChoice(day, slot, id)
+        return true
     }
 
     fun routine(day: Int): DailyRoutine {
@@ -85,6 +97,8 @@ class WorkoutData(context: Context) {
                 if (picked !in used) break
                 picked = options[Math.floorMod(base + j, options.size.toLong()).toInt()]
             }
+            val saved = choices.choice(d, slot)
+            if (saved != null && saved in options) picked = saved
             used += picked
             WorkoutTask(exercise.getJSONArray(picked).getString(0), repsForDay.getString(slot), "근력운동", id = picked)
         }
