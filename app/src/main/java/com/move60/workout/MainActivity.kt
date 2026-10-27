@@ -547,22 +547,44 @@ class MainActivity : Activity() {
         steps.forEachIndexed { index, step -> body.append("${index + 1}. $step\n") }
         body.append("\n주의할 점\n$caution\n\n대체 운동\n$alternative")
         val panel = column().apply { setPadding(dp(16), dp(8), dp(16), dp(8)) }
+        val scroll = ScrollView(this)
+        val detailContent = column()
+        scroll.addView(detailContent)
         if (stage == 2 && task.id.isNotEmpty()) {
-            panel.addView(label("운동별 시작·끝 자세 도식 · 기구 설정과 가동 범위는 설명을 확인하세요", 11, false, textSecondary))
-            panel.addView(ExerciseDiagram(this, task.id))
-            addGap(panel, 8)
-        }
-        panel.addView(ScrollView(this).apply {
-            addView(label(body.toString(), 13, false))
-        }, LinearLayout.LayoutParams(-1, dp(225)))
-        if (stage == 2 && task.id.isNotEmpty()) {
+            detailContent.addView(label("운동 가이드", 17, true, mint))
+            detailContent.addView(label("부위: ${info?.area ?: "근력"}  ·  기구: ${info?.equipment ?: "운동 기구"}", 12, false, textSecondary))
+            addGap(detailContent, 10)
+            detailContent.addView(label("시작 자세 → 수축 자세", 13, true))
+            detailContent.addView(ExerciseDiagram(this, task.id))
+            detailContent.addView(label("※ 운동별 움직임을 설명하는 도식입니다. 실제 운동 사진이나 GIF는 아닙니다.", 11, false, textSecondary))
+            addGap(detailContent, 12)
+            detailContent.addView(label("단계별 동작", 15, true, mint))
+            for ((index, step) in steps.withIndex()) {
+                val stepBox = column().apply {
+                    background = rounded(panelLight, 10, subtle)
+                    setPadding(dp(11), dp(10), dp(11), dp(10))
+                }
+                stepBox.addView(label("${index + 1}단계", 12, true, mint))
+                stepBox.addView(label(step, 13, false))
+                detailContent.addView(stepBox)
+                addGap(detailContent, 7)
+            }
+            detailContent.addView(label("주의 사항", 15, true, Color.rgb(255, 189, 117)))
+            detailContent.addView(label(caution, 13, false))
+            addGap(detailContent, 8)
+            detailContent.addView(label("대체 운동", 15, true, mint))
+            detailContent.addView(label(alternative, 13, false))
+            addGap(detailContent, 12)
             val slot = session.routine.stages[2].tasks.indexOfFirst { it.id == task.id }
-            panel.addView(label("최근 기록: ${exercisePrefs.log(task.id)}", 12, false, mint))
-            addGap(panel, 8)
-            panel.addView(actionButton("중량 · 세트 기록", false) { showSetLogger(task) })
-            addGap(panel, 6)
-            if (slot >= 0) panel.addView(actionButton("같은 부위 운동으로 교체", false) { showExerciseSwap(slot) })
+            detailContent.addView(label("최근 기록: ${exercisePrefs.log(task.id)}", 12, false, mint))
+            addGap(detailContent, 8)
+            detailContent.addView(actionButton("중량 · 세트 기록", false) { showSetLogger(task) })
+            addGap(detailContent, 6)
+            if (slot >= 0) detailContent.addView(actionButton("같은 부위 운동으로 교체", false) { showExerciseSwap(slot) })
+        } else {
+            detailContent.addView(label(body.toString(), 13, false))
         }
+        panel.addView(scroll, LinearLayout.LayoutParams(-1, dp(460)))
         AlertDialog.Builder(this).setTitle(task.name).setView(panel)
             .setPositiveButton("닫기", null).show()
     }
