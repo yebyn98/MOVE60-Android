@@ -554,9 +554,17 @@ class MainActivity : Activity() {
             detailContent.addView(label("운동 가이드", 17, true, mint))
             detailContent.addView(label("부위: ${info?.area ?: "근력"}  ·  기구: ${info?.equipment ?: "운동 기구"}", 12, false, textSecondary))
             addGap(detailContent, 10)
-            detailContent.addView(label("시작 자세 → 수축 자세", 13, true))
-            detailContent.addView(ExerciseDiagram(this, task.id))
-            detailContent.addView(label("※ 운동별 움직임을 설명하는 도식입니다. 실제 운동 사진이나 GIF는 아닙니다.", 11, false, textSecondary))
+            if (ExercisePhotos.hasPhotos(task.id)) {
+                ExercisePhotos.addTo(this, detailContent, task.id) { caption ->
+                    label(caption, 12, false, textSecondary)
+                }
+                detailContent.addView(label("동작 흐름 참고 도식", 13, true))
+                detailContent.addView(ExerciseDiagram(this, task.id))
+            } else {
+                detailContent.addView(label("시작 자세 → 수축 자세", 13, true))
+                detailContent.addView(ExerciseDiagram(this, task.id))
+                detailContent.addView(label("이 운동은 검증된 사진이 없어 도식만 제공합니다.", 11, false, textSecondary))
+            }
             addGap(detailContent, 12)
             detailContent.addView(label("단계별 동작", 15, true, mint))
             for ((index, step) in steps.withIndex()) {
