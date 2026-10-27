@@ -5,6 +5,8 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Handler
 import android.os.Looper
+import android.view.View
+import android.widget.Button
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -66,10 +68,63 @@ object ExercisePhotos {
             load(context.applicationContext, source, index, image)
         }
         parent.addView(row)
+        val motionTitle = text("동작 반복 미리보기 · 두 자세를 번갈아 표시")
+        parent.addView(motionTitle)
+        val animated = ImageView(context).apply {
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            contentDescription = "시작 자세와 끝 자세를 번갈아 표시하는 운동 동작 미리보기"
+        }
+        val imageHeight = (context.resources.displayMetrics.density * 210).toInt()
+        parent.addView(animated, LinearLayout.LayoutParams(-1, imageHeight))
+        val control = Button(context).apply { text = "▶ 동작 재생" }
+        parent.addView(control)
+        val frames = arrayOfNulls<Bitmap>(2)
+        var playing = false
+        var frame = 0
+        val handler = Handler(Looper.getMainLooper())
+        val animate = object : Runnable {
+            override fun run() {
+                if (!playing || animated.windowToken == null) return
+                frames[frame]?.let { animated.setImageBitmap(it) }
+                frame = 1 - frame
+                handler.postDelayed(this, 900L)
+            }
+        }
+        val detachListener = object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(v: View) {}
+            override fun onViewDetachedFromWindow(v: View) {
+                playing = false
+                handler.removeCallbacks(animate)
+                control.text = "▶ 동작 재생"
+            }
+        }
+        animated.addOnAttachStateChangeListener(detachListener)
+        for (index in 0..1) {
+            load(context.applicationContext, source, index, animated, false) { bitmap ->
+                frames[index] = bitmap
+                if (index == 0 && !playing) animated.setImageBitmap(bitmap)
+            }
+        }
+        control.setOnClickListener {
+            if (playing) {
+                playing = false
+                handler.removeCallbacks(animate)
+                control.text = "▶ 동작 재생"
+            } else if (frames.all { it != null }) {
+                playing = true
+                frame = 0
+                control.text = "Ⅱ 일시정지"
+                handler.removeCallbacks(animate)
+                handler.post(animate)
+            } else {
+                control.text = "사진 불러오는 중 · 잠시 후 다시 눌러주세요"
+            }
+        }
+        parent.addView(text("※ 실제 촬영 GIF가 아닌 두 자세 사진의 반복 미리보기입니다. 중간 동작은 표현하지 않습니다."))
         parent.addView(text("출처: free-exercise-db · 실제 기구 모델이나 운동 변형은 다를 수 있습니다."))
     }
 
-    private fun load(context: Context, source: String, index: Int, target: ImageView) {
+    private fun load(context: Context, source: String, index: Int, target: ImageView, display: Boolean = true, onLoaded: ((Bitmap) -> Unit)? = null) {
         val file = File(context.cacheDir, "exercise_photo_${source}_${index}.jpg")
         val handler = Handler(Looper.getMainLooper())
         Thread {
@@ -85,7 +140,10 @@ object ExercisePhotos {
                     } finally { conn.disconnect() }
                 }
                 val bitmap: Bitmap? = BitmapFactory.decodeFile(file.absolutePath)
-                if (bitmap != null) handler.post { target.setImageBitmap(bitmap) }
+                if (bitmap != null) handler.post {
+                    if (display) target.setImageBitmap(bitmap)
+                    onLoaded?.invoke(bitmap)
+                }
             } catch (_: Exception) {
                 // Offline: retain the bundled movement schematic as a fallback.
             }
