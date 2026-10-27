@@ -558,8 +558,6 @@ class MainActivity : Activity() {
                 ExercisePhotos.addTo(this, detailContent, task.id) { caption ->
                     label(caption, 12, false, textSecondary)
                 }
-                detailContent.addView(label("동작 흐름 참고 도식", 13, true))
-                detailContent.addView(ExerciseDiagram(this, task.id))
             } else {
                 detailContent.addView(label("시작 자세 → 수축 자세", 13, true))
                 detailContent.addView(ExerciseDiagram(this, task.id))
