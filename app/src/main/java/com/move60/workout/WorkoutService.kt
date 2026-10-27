@@ -33,7 +33,7 @@ class WorkoutService : Service() {
         private const val ONGOING_ID = 601
         private const val PHASE_ID = 602
     }
-    private val stageNames = listOf("준비운동", "실내 사이클", "근력운동", "마무리 스트레칭")
+    private val stageNames = listOf("준비운동", "유산소", "근력운동", "마무리 스트레칭")
     private val dayNames = listOf("월요일", "화요일", "수요일", "목요일", "금요일")
     private val handler = Handler(Looper.getMainLooper())
     private var snapshot = JSONObject()
@@ -166,7 +166,7 @@ class WorkoutService : Service() {
         var title = stageNames[stage]
         var detail = when (stage) {
             0 -> "관절을 천천히 풀고 호흡을 준비하세요"
-            1 -> "실내 사이클 리듬을 유지하세요"
+            1 -> "선택한 유산소 기구의 리듬을 유지하세요"
             2 -> "운동 자세와 세트·횟수를 확인하세요"
             else -> "호흡을 정리하며 천천히 스트레칭하세요"
         }
@@ -180,8 +180,8 @@ class WorkoutService : Service() {
                 val phase = phases.optJSONObject(i) ?: continue
                 val until = from + phase.optInt("seconds", 60) * 1000L
                 if (now < until) {
-                    title = phase.optString("name", "실내 사이클")
-                    detail = phase.optString("description", "페달링 진행 중")
+                    title = phase.optString("name", "유산소")
+                    detail = phase.optString("description", "유산소 운동 진행 중")
                     round = "${i + 1}/${phases.length()} 구간"
                     effort = "RPE ${phase.optString("rpe", "—")}"
                     countdownEnd = until
