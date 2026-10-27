@@ -137,6 +137,24 @@ class MainActivity : Activity() {
     }
 
 
+    private fun showPerformanceDashboard() {
+        val history = WorkoutHistory(this)
+        val month = java.time.YearMonth.now(java.time.ZoneId.of("Asia/Seoul"))
+        val days = history.month(month)
+        val trained = days.count { it.activeSeconds > 0L }
+        val minutes = days.sumOf { it.activeMinutes }
+        val estimated = (minutes * 4.5 * 3.5 * calorieWeightKg / 200.0).toInt()
+        val panel = column().apply { setPadding(dp(20), dp(18), dp(20), dp(18)) }
+        panel.addView(label("${month.year}년 ${month.monthValue}월 운동 요약", 19, true, mint))
+        addGap(panel, 12)
+        panel.addView(label("운동한 날  ${trained}일", 17, true))
+        panel.addView(label("누적 운동  ${minutes}분", 17, true))
+        panel.addView(label("추정 소모  약 ${estimated} kcal", 17, true))
+        addGap(panel, 10)
+        panel.addView(label("월간 실제 활동시간 기준, 평균 MET 4.5로 계산한 참고값입니다. 심박수 측정값이 아닙니다.", 12, false, textSecondary))
+        AlertDialog.Builder(this).setTitle("운동 성과").setView(panel).setPositiveButton("닫기", null).show()
+    }
+
     private fun showWorkoutCalendar() {
         val history = WorkoutHistory(this)
         val root = LinearLayout(this).apply {
@@ -168,6 +186,7 @@ class MainActivity : Activity() {
         val header = row().apply { gravity = Gravity.CENTER_VERTICAL }
         header.addView(label("MOVE", 24, true), LinearLayout.LayoutParams(0, -2, 1f))
         header.addView(label("60", 24, true, mint))
+        header.addView(actionButton("성과", false) { showPerformanceDashboard() }.apply { textSize = 11f }, LinearLayout.LayoutParams(-2, dp(35)).apply { leftMargin = dp(6) })
         header.addView(actionButton("운동 달력", false) { showWorkoutCalendar() }.apply { textSize = 11f }, LinearLayout.LayoutParams(-2, dp(35)).apply { leftMargin = dp(10) })
         header.addView(actionButton("업데이트 ↗", false) { updateManager.check(true) }.apply {
             textSize = 11f
