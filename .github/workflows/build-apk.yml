@@ -34,6 +34,12 @@ jobs:
           gradle-version: '8.9'
       - name: Validate weekday workouts
         run: node scripts/verify-plan.cjs
+      - name: Verify exercise photo animation integration
+        shell: bash
+        run: |
+          test -f app/src/main/java/com/move60/workout/ExercisePhotos.kt
+          grep -q 'ExercisePhotos.addTo' app/src/main/java/com/move60/workout/MainActivity.kt
+          grep -q 'handler.postDelayed(this, 900L)' app/src/main/java/com/move60/workout/ExercisePhotos.kt
       - name: Check native Kotlin-only sources
         shell: bash
         run: |
