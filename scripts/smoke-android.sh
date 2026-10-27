@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 mkdir -p smoke-debug
+wait_adb() {
+  for attempt in $(seq 1 20); do
+    if adb shell getprop sys.boot_completed 2>/dev/null | grep -q '^1'; then return 0; fi
+    echo "Waiting for emulator ADB recovery ($attempt/20)"
+    sleep 3
+  done
+  echo "Emulator failed to recover ADB connectivity" >&2
+  return 1
+}
 dump() { adb logcat -d -v threadtime > smoke-debug/logcat.txt || true; adb shell dumpsys notification --noredact > smoke-debug/notifications.txt || true; adb shell uiautomator dump /sdcard/move60-smoke.xml >/dev/null 2>&1 && adb pull /sdcard/move60-smoke.xml smoke-debug/window.xml >/dev/null || true; }
 trap 'if test "$?" -ne 0; then echo "=== Recent Android errors ==="; dump; grep -n -A 18 -B 5 -E "FATAL EXCEPTION|AndroidRuntime|RemoteServiceException|move60.workout" smoke-debug/logcat.txt | tail -n 150 || true; fi' EXIT
 adb wait-for-device
@@ -46,8 +55,10 @@ PY
 done
 if test "$tapped" -ne 1; then echo "Could not locate and tap workout start button"; cat smoke-debug/window.xml || true; exit 1; fi
 sleep 6
+wait_adb
 pid="$(adb shell pidof com.move60.workout | tr -d '\r' || true)"
 if test -z "$pid"; then echo "MOVE60 process died after exercise start"; exit 1; fi
+wait_adb
 dump
 if grep -q 'FATAL EXCEPTION' smoke-debug/logcat.txt; then
   echo "AndroidRuntime fatal error found"
