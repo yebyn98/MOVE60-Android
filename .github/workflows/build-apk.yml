@@ -136,7 +136,9 @@ jobs:
             clone --quiet https://github.com/yebyn98/MOVE60-Updates.git "$RUNNER_TEMP/move60-updates"
           cd "$RUNNER_TEMP/move60-updates"
           cp "$GITHUB_WORKSPACE/app/build/outputs/apk/release/app-release.apk" MOVE60-latest.apk
+          cp "$GITHUB_WORKSPACE/wear/build/outputs/apk/release/wear-release.apk" MOVE60-Watch4-latest.apk
           export SHA256="$(sha256sum MOVE60-latest.apk | awk '{print $1}')"
+          export WATCH_SHA256="$(sha256sum MOVE60-Watch4-latest.apk | awk '{print $1}')"
           python3 - <<'PY'
           import json, os, re, pathlib
           content=pathlib.Path(os.environ['GITHUB_WORKSPACE']+'/app/build.gradle').read_text()
@@ -144,12 +146,14 @@ jobs:
           name=re.search(r'versionName\s+\'([^\']+)\'',content).group(1)
           meta={'versionCode':code,'versionName':name,
                 'apkUrl':'https://raw.githubusercontent.com/yebyn98/MOVE60-Updates/main/MOVE60-latest.apk',
-                'sha256':os.environ['SHA256']}
+                'sha256':os.environ['SHA256'],
+                'watchApkUrl':'https://raw.githubusercontent.com/yebyn98/MOVE60-Updates/main/MOVE60-Watch4-latest.apk',
+                'watchSha256':os.environ['WATCH_SHA256']}
           pathlib.Path('latest.json').write_text(json.dumps(meta,ensure_ascii=False,indent=2)+'\n')
           PY
           git config user.name 'MOVE60 CI'
           git config user.email 'move60-ci@users.noreply.github.com'
-          git add MOVE60-latest.apk latest.json
+          git add MOVE60-latest.apk MOVE60-Watch4-latest.apk latest.json
           if ! git diff --cached --quiet; then
             git commit -qm "Publish MOVE60 version $(python3 -c 'import json;print(json.load(open("latest.json"))["versionName"])')"
             git -c "http.extraheader=AUTHORIZATION: basic $(printf 'x-access-token:%s' "$MOVE60_UPDATES_PAT" | base64 -w0)" push -q origin HEAD:main
