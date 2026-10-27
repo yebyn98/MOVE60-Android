@@ -441,7 +441,15 @@ class MainActivity : Activity() {
         lastDay = session.day
         lastStage = session.stage
         val selectedPhase = session.phase()?.first ?: -1
-        sectionCount.text = "${session.completed.size} / 4 단계"
+        val strengthTasks = session.routine.stages[2].tasks
+        val totalStrengthSets = strengthTasks.sumOf { task ->
+            Regex("(\\\\d+)\\\\s*세트").find(task.detail)?.groupValues?.get(1)?.toIntOrNull()?.coerceIn(1, 8) ?: 3
+        }
+        val completedStrengthSets = strengthTasks.sumOf { task ->
+            val sets = Regex("(\\\\d+)\\\\s*세트").find(task.detail)?.groupValues?.get(1)?.toIntOrNull()?.coerceIn(1, 8) ?: 3
+            (1..sets).count { set -> "strength-${session.day}-${task.id}-${set}" in session.checked }
+        }
+        sectionCount.text = "근력 세트 ${completedStrengthSets} / ${totalStrengthSets} · 단계 ${session.completed.size}/4"
         for ((si, stage) in session.routine.stages.withIndex()) {
             val isCurrent = session.stage == si && !session.finished
             val done = si in session.completed || (session.finished && si <= session.stage)
@@ -487,6 +495,7 @@ class MainActivity : Activity() {
                     val progress = label("세트 완료  ${checkedCount} / ${count}", 11, true, if (checkedCount == count) mint else textSecondary)
                     progress.setPadding(dp(12), dp(4), 0, dp(3))
                     block.addView(progress)
+                    val targetReps = task.detail.substringAfter("×", task.detail).trim()
                     val setRow = row().apply { gravity = Gravity.CENTER_VERTICAL }
                     for (set in 1..count) {
                         val key = "strength-${session.day}-${task.id}-${set}"
@@ -500,6 +509,9 @@ class MainActivity : Activity() {
                         })
                     }
                     block.addView(setRow)
+                    block.addView(label("세트당 목표: ${targetReps} · 완료한 세트만 선택하세요.", 11, false, textSecondary).apply {
+                        setPadding(dp(12), dp(6), 0, dp(4))
+                    })
                     addGap(block, 7)
                 }
             }
@@ -508,7 +520,7 @@ class MainActivity : Activity() {
             stageStack.addView(block)
             addGap(stageStack, 9)
         }
-        if (::trackingSummary.isInitialized) trackingSummary.text = "${session.completed.size} / 4 단계 완료 · 체크 없이 타이머 자동 진행"
+        if (::trackingSummary.isInitialized) trackingSummary.text = "근력 세트 ${completedStrengthSets}/${totalStrengthSets} 완료 · 체크와 타이머는 별도로 작동"
     }
 
     private fun showDetails(stage: Int, task: WorkoutTask) {
