@@ -120,8 +120,6 @@ object ExercisePhotos {
                 control.text = "사진 불러오는 중 · 잠시 후 다시 눌러주세요"
             }
         }
-        parent.addView(captionView("※ 실제 촬영 GIF가 아닌 두 자세 사진의 반복 미리보기입니다. 중간 동작은 표현하지 않습니다."))
-        parent.addView(captionView("출처: free-exercise-db · 실제 기구 모델이나 운동 변형은 다를 수 있습니다."))
     }
 
     private fun load(context: Context, source: String, index: Int, target: ImageView, display: Boolean = true, onLoaded: ((Bitmap) -> Unit)? = null) {
