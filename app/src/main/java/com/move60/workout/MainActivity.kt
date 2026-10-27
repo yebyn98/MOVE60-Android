@@ -269,7 +269,7 @@ class MainActivity : Activity() {
                     } else Toast.makeText(this, "25~300kg 범위로 입력해 주세요.", Toast.LENGTH_SHORT).show()
                 }.show()
         })
-        settings.addView(label("MOVE60 14.0 · 안정형 기본 알림을 사용하며 카드형 알림은 분리되어 있어요.", 11, false, textSecondary))
+        settings.addView(label("MOVE60 15.0 · 안정형 기본 알림을 사용하며 카드형 알림은 분리되어 있어요.", 11, false, textSecondary))
         addGap(settings, 8)
         settings.addView(actionButton("오류 기록 확인 · 복사", false) { CrashReporter.showDiagnostics(this) })
         content.addView(settings)
@@ -500,7 +500,7 @@ class MainActivity : Activity() {
         }
         panel.addView(ScrollView(this).apply {
             addView(label(body.toString(), 13, false))
-        }, LinearLayout.LayoutParams(-1, 0, 1f))
+        }, LinearLayout.LayoutParams(-1, dp(225)))
         if (stage == 2 && task.id.isNotEmpty()) {
             val slot = session.routine.stages[2].tasks.indexOfFirst { it.id == task.id }
             panel.addView(label("최근 기록: ${exercisePrefs.log(task.id)}", 12, false, mint))
