@@ -426,21 +426,22 @@ class MainActivity : Activity() {
         val info = data.detail(task.id)
         val steps = when {
             info != null -> info.steps
-            stage == 1 -> listOf(
-                "안장을 맞추고 페달 아래 지점에서 무릎을 살짝 굽힙니다.",
-                "이 구간 ${task.seconds / 60}분, RPE ${task.rpe}: ${task.description}",
-                "상체를 편안하게 유지하고 페달을 부드럽게 밟습니다.",
-                "구간이 끝나면 다음 운동 강도로 전환합니다."
-            )
+            stage == 1 -> when (task.kind) {
+                "로잉머신" -> listOf("발을 고정하고 허리를 중립으로 세웁니다.", "다리로 밀고 몸통을 살짝 젖힌 뒤 손잡이를 아랫가슴 쪽으로 당깁니다.", "팔·몸통·다리 순서로 돌아오며 ${task.seconds / 60}분간 RPE ${task.rpe}를 유지합니다.")
+                "일립티컬" -> listOf("발판에 발 전체를 올리고 손잡이를 가볍게 잡습니다.", "상체를 세운 채 팔과 다리를 함께 부드럽게 움직입니다.", "${task.seconds / 60}분간 RPE ${task.rpe}를 유지하며 어깨에 힘을 빼세요.")
+                "스텝밀" -> listOf("발바닥 전체로 계단을 밟고 상체를 세웁니다.", "손잡이에 체중을 싣지 말고 일정한 리듬을 유지합니다.", "${task.seconds / 60}분간 RPE ${task.rpe}를 유지하며 무릎 방향을 확인하세요.")
+                "평지 걷기" -> listOf("러닝머신의 경사를 낮게 설정하고 안전한 속도로 시작합니다.", "손잡이에 기대지 않고 자연스럽게 팔을 흔듭니다.", "${task.seconds / 60}분간 RPE ${task.rpe}를 유지하세요.")
+                else -> listOf("안장을 맞추고 페달 아래 지점에서 무릎을 살짝 굽힙니다.", "${task.seconds / 60}분간 RPE ${task.rpe}를 유지합니다.", "상체를 편안하게 유지하고 부드럽게 페달링합니다.")
+            }
             stage == 0 -> listOf("작은 움직임부터 서서히 가동 범위를 넓힙니다.", "관절에 통증이 없는 범위에서 호흡을 유지합니다.")
             else -> listOf("한 번에 20~40초 편안하게 유지합니다.", "반동 없이 천천히 늘리고 호흡합니다.")
         }
         val caution = info?.caution ?: if (stage == 1) "숨이 지나치게 차거나 어지러우면 강도를 낮추세요." else "통증이 생기면 강도를 줄이거나 중단하세요."
-        val alternative = info?.alternative ?: if (stage == 1) "실내 사이클 RPE 3~4" else "무리 없는 가벼운 동작"
+        val alternative = info?.alternative ?: if (stage == 1) "실내 사이클 또는 일립티컬 RPE 3~4" else "무리 없는 가벼운 동작"
         val body = StringBuilder()
             .append("${task.detail}\n")
             .append("\n운동 부위  ${info?.area ?: task.kind}\n")
-            .append("사용 장비  ${info?.equipment ?: if (stage == 1) "실내 사이클" else "필요에 따라 맨몸"}\n")
+            .append("사용 장비  ${info?.equipment ?: if (stage == 1) task.kind else "필요에 따라 맨몸"}\n")
             .append("\n동작 순서\n")
         steps.forEachIndexed { index, step -> body.append("${index + 1}. $step\n") }
         body.append("\n주의할 점\n$caution\n\n대체 운동\n$alternative")
