@@ -31,6 +31,7 @@ class MainActivity : Activity() {
     private val textSecondary = Color.rgb(166, 185, 205)
     private lateinit var updateManager: UpdateManager
     private lateinit var data: WorkoutData
+    private lateinit var exercisePrefs: ExercisePreferences
     private lateinit var session: SessionStore
     private lateinit var content: LinearLayout
     private lateinit var stageStack: LinearLayout
@@ -86,6 +87,7 @@ class MainActivity : Activity() {
         recoveryMode = CrashReporter.needsRecovery(this)
         try {
             data = WorkoutData(this)
+            exercisePrefs = ExercisePreferences(this)
             session = SessionStore(this, data)
             updateManager = UpdateManager(this)
         } catch (e: Exception) {
@@ -471,7 +473,59 @@ class MainActivity : Activity() {
             .append("\n동작 순서\n")
         steps.forEachIndexed { index, step -> body.append("${index + 1}. $step\n") }
         body.append("\n주의할 점\n$caution\n\n대체 운동\n$alternative")
-        AlertDialog.Builder(this).setTitle(task.name).setMessage(body.toString()).setPositiveButton("확인", null).show()
+        val panel = column().apply { setPadding(dp(16), dp(8), dp(16), dp(8)) }
+        if (stage == 2 && task.id.isNotEmpty()) {
+            panel.addView(label("동작 개념도 · 실제 머신별 자세는 설명을 확인하세요", 11, false, textSecondary))
+            panel.addView(ExerciseDiagram(this, task.id))
+            addGap(panel, 8)
+        }
+        panel.addView(ScrollView(this).apply {
+            addView(label(body.toString(), 13, false))
+        }, LinearLayout.LayoutParams(-1, 0, 1f))
+        if (stage == 2 && task.id.isNotEmpty()) {
+            val slot = session.routine.stages[2].tasks.indexOfFirst { it.id == task.id }
+            panel.addView(label("최근 기록: ${exercisePrefs.log(task.id)}", 12, false, mint))
+            addGap(panel, 8)
+            panel.addView(actionButton("중량 · 세트 기록", false) { showSetLogger(task) })
+            addGap(panel, 6)
+            if (slot >= 0) panel.addView(actionButton("같은 부위 운동으로 교체", false) { showExerciseSwap(slot) })
+        }
+        AlertDialog.Builder(this).setTitle(task.name).setView(panel)
+            .setPositiveButton("닫기", null).show()
+    }
+
+    private fun showSetLogger(task: WorkoutTask) {
+        val fields = column().apply { setPadding(dp(20), dp(10), dp(20), dp(10)) }
+        fun field(hint: String): EditText = EditText(this).apply {
+            this.hint = hint
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+            fields.addView(this)
+        }
+        val weight = field("중량 kg (맨몸이면 0)")
+        val reps = field("횟수")
+        val sets = field("세트")
+        AlertDialog.Builder(this).setTitle(task.name + " 수행 기록").setView(fields)
+            .setNegativeButton("취소", null).setPositiveButton("저장") { _, _ ->
+                val kg = weight.text.toString().toDoubleOrNull()
+                val r = reps.text.toString().toIntOrNull()
+                val n = sets.text.toString().toIntOrNull()
+                if (kg != null && kg in 0.0..500.0 && r != null && r in 1..100 && n != null && n in 1..20) {
+                    exercisePrefs.setLog(task.id, kg, r, n)
+                    Toast.makeText(this, "운동 기록 저장 완료", Toast.LENGTH_SHORT).show()
+                } else Toast.makeText(this, "중량·횟수·세트를 확인해 주세요.", Toast.LENGTH_SHORT).show()
+            }.show()
+    }
+
+    private fun showExerciseSwap(slot: Int) {
+        val options = data.alternatives(session.day, slot)
+        AlertDialog.Builder(this).setTitle("대체 운동 선택")
+            .setItems(options.map { it.second }.toTypedArray()) { _, index ->
+                if (data.replaceExercise(session.day, slot, options[index].first)) {
+                    session.refreshRoutine()
+                    renderStages()
+                    renderSummary()
+                }
+            }.setNegativeButton("취소", null).show()
     }
 
     private fun refreshTimer() {
