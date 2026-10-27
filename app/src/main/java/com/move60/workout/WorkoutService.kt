@@ -17,6 +17,8 @@ import android.os.Vibrator
 import android.os.VibrationEffect
 import android.view.View
 import android.widget.RemoteViews
+import com.google.android.gms.wearable.PutDataMapRequest
+import com.google.android.gms.wearable.Wearable
 import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.math.ceil
@@ -275,6 +277,14 @@ class WorkoutService : Service() {
         }
         val c = cue(now)
         WorkoutWidget.refresh(this)
+        try {
+            val data = PutDataMapRequest.create("/move60/workout")
+            data.dataMap.putBoolean("running", true)
+            data.dataMap.putString("stage", c.title)
+            data.dataMap.putLong("deadline", c.ends)
+            data.dataMap.putLong("updated", now)
+            Wearable.getDataClient(this).putDataItem(data.asPutDataRequest().setUrgent())
+        } catch (e: Exception) { logFailure("Watch sync failed: " + e.message) }
         val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         val enhancedCardEnabled = prefs.getBoolean("enhanced_card_enabled", false)
         try {
@@ -337,6 +347,15 @@ class WorkoutService : Service() {
     }
 
     private fun stopWork() {
+        try {
+            val data = PutDataMapRequest.create("/move60/workout")
+            data.dataMap.putBoolean("running", false)
+            data.dataMap.putString("stage", "")
+            data.dataMap.putLong("deadline", 0L)
+            data.dataMap.putLong("updated", System.currentTimeMillis())
+            Wearable.getDataClient(this).putDataItem(data.asPutDataRequest().setUrgent())
+        } catch (e: Exception) { logFailure("Watch stop sync failed: " + e.message) }
+        WorkoutWidget.refresh(this)
         prefs.edit().putLong("history_checkpoint_ms", 0L).apply()
         handler.removeCallbacks(boundary)
         if (Build.VERSION.SDK_INT >= 33) stopForeground(STOP_FOREGROUND_REMOVE) else stopForeground(true)
