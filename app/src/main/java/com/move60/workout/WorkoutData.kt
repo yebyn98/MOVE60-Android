@@ -22,6 +22,9 @@ data class DailyRoutine(
 
 class WorkoutData(context: Context) {
     private val choices = ExercisePreferences(context)
+    private val prefs = context.getSharedPreferences("move60_duration_v1", Context.MODE_PRIVATE)
+    fun setCardioMinutes(minutes: Int) { require(minutes in 20..40 && minutes % 5 == 0); prefs.edit().putInt("cardio_minutes", minutes).apply() }
+    fun cardioMinutes(): Int = prefs.getInt("cardio_minutes", 30)
     private val root = JSONObject(context.assets.open("workouts.json").bufferedReader().use { it.readText() })
     private val plan = root.getJSONObject("plan")
     private val exercise = root.getJSONObject("exercise")
@@ -85,6 +88,23 @@ class WorkoutData(context: Context) {
                 for (r in 1..repeat) for (j in 0 until parts.length()) addPhase(parts.getJSONObject(j), "$r/${repeat}회차")
             } else addPhase(p)
         }
+        val cardioTarget = cardioMinutes() * 60
+        val originalCardioSeconds = phases.sumOf { it.seconds }
+        if (originalCardioSeconds > cardioTarget) {
+            var remainingSeconds = cardioTarget
+            val trimmed = mutableListOf<WorkoutTask>()
+            for (phase in phases) {
+                if (remainingSeconds <= 0) break
+                val seconds = minOf(phase.seconds, remainingSeconds)
+                trimmed += phase.copy(seconds = seconds, detail = phase.detail.replace(Regex("^\\d+분"), "${seconds / 60}분"))
+                remainingSeconds -= seconds
+            }
+            phases.clear()
+            phases.addAll(trimmed)
+        } else if (originalCardioSeconds < cardioTarget) {
+            val extra = cardioTarget - originalCardioSeconds
+            phases += WorkoutTask("추가 유산소 · 편안한 페이스", "${extra / 60}분 · RPE 4", cardioMachine, seconds = extra, rpe = "4", description = "무리하지 않는 일정한 속도", phaseIndex = phases.size)
+        }
         val pool = pools.getJSONArray(d.toString())
         val repsForDay = reps.getJSONArray(d.toString())
         val used = mutableSetOf<String>()
@@ -105,13 +125,13 @@ class WorkoutData(context: Context) {
         val finish = stretches.pairs().map { (name, note) -> WorkoutTask(name, note, "마무리 스트레칭") }
         val stages = listOf(
             WorkoutStage("준비운동", "관절 가동성 · 워밍업", obj.getInt("warm"), warm),
-            WorkoutStage(cardioMachine, "이번 주 유산소 · 실시간 구간 체크리스트", obj.getInt("cycle"), phases),
-            WorkoutStage("근력운동", "이번 주 랜덤 운동 · 세트/횟수", obj.getInt("strength"), strength),
+            WorkoutStage(cardioMachine, "이번 주 유산소 · 실시간 구간 체크리스트", cardioMinutes(), phases),
+            WorkoutStage("근력운동", "이번 주 랜덤 운동 · 세트/횟수", 50 - cardioMinutes(), strength),
             WorkoutStage("마무리 스트레칭", "호흡 회복 · 유연성", obj.getInt("stretch"), finish)
         )
         require(stages.sumOf { it.minutes } == 60) { "Daily routine must be exactly 60 minutes" }
         require(phases.sumOf { it.seconds } == stages[1].minutes * 60) { "Cardio phase mismatch" }
-        if (d == 2) require(phases.size == 18) { "Tuesday requires 18 phases" }
+
         return DailyRoutine(d, obj.getString("day"), obj.getString("short"), obj.getString("focus"), obj.getString("desc"), obj.getString("tag"), stages)
     }
 
