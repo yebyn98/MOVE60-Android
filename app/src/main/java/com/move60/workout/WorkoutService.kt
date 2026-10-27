@@ -274,6 +274,7 @@ class WorkoutService : Service() {
             return
         }
         val c = cue(now)
+        WorkoutWidget.refresh(this)
         val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         val enhancedCardEnabled = prefs.getBoolean("enhanced_card_enabled", false)
         try {
