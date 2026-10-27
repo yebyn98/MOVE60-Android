@@ -515,7 +515,7 @@ class MainActivity : Activity() {
         body.append("\n주의할 점\n$caution\n\n대체 운동\n$alternative")
         val panel = column().apply { setPadding(dp(16), dp(8), dp(16), dp(8)) }
         if (stage == 2 && task.id.isNotEmpty()) {
-            panel.addView(label("동작 개념도 · 실제 머신별 자세는 설명을 확인하세요", 11, false, textSecondary))
+            panel.addView(label("운동별 시작·끝 자세 도식 · 기구 설정과 가동 범위는 설명을 확인하세요", 11, false, textSecondary))
             panel.addView(ExerciseDiagram(this, task.id))
             addGap(panel, 8)
         }
