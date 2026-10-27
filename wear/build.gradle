@@ -9,6 +9,23 @@ android {
         versionCode 1
         versionName '1.0'
     }
+  signingConfigs {
+    stable {
+      if (System.getenv('MOVE60_KEYSTORE_PATH')) {
+        storeFile file(System.getenv('MOVE60_KEYSTORE_PATH'))
+        storeType 'PKCS12'
+        storePassword System.getenv('MOVE60_STORE_PASSWORD')
+        keyAlias System.getenv('MOVE60_KEY_ALIAS')
+        keyPassword System.getenv('MOVE60_KEY_PASSWORD')
+      }
+    }
+  }
+  buildTypes {
+    release {
+      if (System.getenv('MOVE60_KEYSTORE_PATH')) signingConfig signingConfigs.stable
+      minifyEnabled false
+    }
+  }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = '17' }
 }
