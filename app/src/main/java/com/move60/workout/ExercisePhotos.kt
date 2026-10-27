@@ -50,9 +50,9 @@ object ExercisePhotos {
 
     fun hasPhotos(id: String) = exerciseIds.containsKey(id)
 
-    fun addTo(context: Context, parent: LinearLayout, id: String, text: (String) -> TextView) {
+    fun addTo(context: Context, parent: LinearLayout, id: String, captionView: (String) -> TextView) {
         val source = exerciseIds[id] ?: return
-        parent.addView(text("실제 운동 자세 사진 · 시작 / 끝"))
+        parent.addView(captionView("실제 운동 자세 사진 · 시작 / 끝"))
         val row = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
         for (index in 0..1) {
             val frame = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
@@ -63,12 +63,12 @@ object ExercisePhotos {
                 contentDescription = if (index == 0) "시작 자세 사진" else "끝 자세 사진"
             }
             frame.addView(image, LinearLayout.LayoutParams(-1, (context.resources.displayMetrics.density * 170).toInt()))
-            frame.addView(text(if (index == 0) "① 시작 자세" else "② 동작 끝"))
+            frame.addView(captionView(if (index == 0) "① 시작 자세" else "② 동작 끝"))
             row.addView(frame, LinearLayout.LayoutParams(0, -2, 1f))
             load(context.applicationContext, source, index, image)
         }
         parent.addView(row)
-        val motionTitle = text("동작 반복 미리보기 · 두 자세를 번갈아 표시")
+        val motionTitle = captionView("동작 반복 미리보기 · 두 자세를 번갈아 표시")
         parent.addView(motionTitle)
         val animated = ImageView(context).apply {
             scaleType = ImageView.ScaleType.FIT_CENTER
@@ -120,8 +120,8 @@ object ExercisePhotos {
                 control.text = "사진 불러오는 중 · 잠시 후 다시 눌러주세요"
             }
         }
-        parent.addView(text("※ 실제 촬영 GIF가 아닌 두 자세 사진의 반복 미리보기입니다. 중간 동작은 표현하지 않습니다."))
-        parent.addView(text("출처: free-exercise-db · 실제 기구 모델이나 운동 변형은 다를 수 있습니다."))
+        parent.addView(captionView("※ 실제 촬영 GIF가 아닌 두 자세 사진의 반복 미리보기입니다. 중간 동작은 표현하지 않습니다."))
+        parent.addView(captionView("출처: free-exercise-db · 실제 기구 모델이나 운동 변형은 다를 수 있습니다."))
     }
 
     private fun load(context: Context, source: String, index: Int, target: ImageView, display: Boolean = true, onLoaded: ((Bitmap) -> Unit)? = null) {
