@@ -3,7 +3,7 @@ android {
     namespace 'com.move60.watch'
     compileSdk 35
     defaultConfig {
-        applicationId 'com.move60.watch'
+        applicationId 'com.move60.workout'
         minSdk 30
         targetSdk 35
         versionCode 1
