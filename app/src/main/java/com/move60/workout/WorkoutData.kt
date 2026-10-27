@@ -54,9 +54,10 @@ class WorkoutData(context: Context) {
         val phaseData = obj.getJSONArray("cyclePhases")
         fun addPhase(phase: JSONObject, round: String = "") {
             val index = phases.size
-            val name = phase.getString("label")
+            val originalName = phase.getString("label")
+            val name = if (cardioMachine == "실내 사이클") originalName else originalName.replace("페달링", "운동").replace("페달", "동작")
             val rpe = phase.getString("rpe")
-            val note = phase.getString("detail")
+            val note = if (cardioMachine == "실내 사이클") phase.getString("detail") else phase.getString("detail").replace("저항", "강도").replace("페달", "동작")
             val minutes = phase.getInt("m")
             phases += WorkoutTask(
                 name = if (round.isNotEmpty()) "$round · $name" else name,
