@@ -443,10 +443,10 @@ class MainActivity : Activity() {
         val selectedPhase = session.phase()?.first ?: -1
         val strengthTasks = session.routine.stages[2].tasks
         val totalStrengthSets = strengthTasks.sumOf { task ->
-            Regex("(\\\\d+)\\\\s*세트").find(task.detail)?.groupValues?.get(1)?.toIntOrNull()?.coerceIn(1, 8) ?: 3
+            Regex("(\\d+)\\s*세트").find(task.detail)?.groupValues?.get(1)?.toIntOrNull()?.coerceIn(1, 8) ?: 3
         }
         val completedStrengthSets = strengthTasks.sumOf { task ->
-            val sets = Regex("(\\\\d+)\\\\s*세트").find(task.detail)?.groupValues?.get(1)?.toIntOrNull()?.coerceIn(1, 8) ?: 3
+            val sets = Regex("(\\d+)\\s*세트").find(task.detail)?.groupValues?.get(1)?.toIntOrNull()?.coerceIn(1, 8) ?: 3
             (1..sets).count { set -> "strength-${session.day}-${task.id}-${set}" in session.checked }
         }
         sectionCount.text = "근력 세트 ${completedStrengthSets} / ${totalStrengthSets} · 단계 ${session.completed.size}/4"
