@@ -481,6 +481,27 @@ class MainActivity : Activity() {
                 more.setOnClickListener { showDetails(si, task) }
                 item.addView(more)
                 block.addView(item)
+                if (si == 2) {
+                    val count = Regex("(\\d+)\\s*세트").find(task.detail)?.groupValues?.get(1)?.toIntOrNull()?.coerceIn(1, 8) ?: 3
+                    val checkedCount = (1..count).count { set -> "strength-${session.day}-${task.id}-${set}" in session.checked }
+                    val progress = label("세트 완료  ${checkedCount} / ${count}", 11, true, if (checkedCount == count) mint else textSecondary)
+                    progress.setPadding(dp(12), dp(4), 0, dp(3))
+                    block.addView(progress)
+                    val setRow = row().apply { gravity = Gravity.CENTER_VERTICAL }
+                    for (set in 1..count) {
+                        val key = "strength-${session.day}-${task.id}-${set}"
+                        val checked = key in session.checked
+                        val check = actionButton(if (checked) "✓ ${set}세트" else "□ ${set}세트", checked) {
+                            session.toggleChecked(key, key !in session.checked)
+                            renderStages()
+                        }
+                        setRow.addView(check, LinearLayout.LayoutParams(0, dp(42), 1f).apply {
+                            if (set > 1) leftMargin = dp(5)
+                        })
+                    }
+                    block.addView(setRow)
+                    addGap(block, 7)
+                }
             }
             addGap(block, 6)
             block.addView(actionButton("이 단계로 타이머 이동 ↗", false) { session.jumpTo(si); afterAction() })
