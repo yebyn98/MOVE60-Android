@@ -61,7 +61,11 @@ object CrashReporter {
         val detail = listOfNotNull(p.getString(KEY, null), p.getString("last_warning", null)).joinToString("\n\n")
         AlertDialog.Builder(activity).setTitle("MOVE60 오류 기록")
             .setMessage(detail.ifBlank { "저장된 오류 기록이 없어요." })
-            .setNegativeButton("닫기", null)
+            .setNegativeButton("삭제") { _, _ ->
+                p.edit().remove(KEY).remove("last_warning").remove("crash_epoch")
+                    .putBoolean("crash_acknowledged", true).apply()
+                android.widget.Toast.makeText(activity, "오류 기록을 삭제했어요.", android.widget.Toast.LENGTH_SHORT).show()
+            }
             .setPositiveButton("복사") { _, _ -> if (detail.isNotBlank()) copy(activity, detail) }.show()
     }
 

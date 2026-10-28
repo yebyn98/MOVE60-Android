@@ -43,6 +43,7 @@ class MainActivity : Activity() {
     private lateinit var timerBadge: TextView
     private lateinit var timerCueTitle: TextView
     private lateinit var timerCueDetail: TextView
+    private lateinit var heartRateValue: TextView
     private lateinit var progress: ProgressBar
     private lateinit var play: TextView
     private lateinit var previous: TextView
@@ -166,15 +167,21 @@ class MainActivity : Activity() {
         }
         val totals = TextView(this).apply { textSize = 16f }
         val selected = TextView(this).apply { textSize = 15f }
+        val performance = TextView(this).apply { textSize = 15f }
         val calendar = CalendarView(this)
         root.addView(totals)
         root.addView(calendar)
         root.addView(selected)
+        root.addView(performance)
         fun render(date: java.time.LocalDate) {
             val month = java.time.YearMonth.from(date)
             val seconds = history.totalActiveSeconds(month)
             totals.text = "${month.year}년 ${month.monthValue}월 · ${history.trainedDays(month)}일 · ${seconds / 3600}시간 ${(seconds % 3600) / 60}분"
             selected.text = "${date} · 운동 ${history.record(date).activeMinutes}분"
+            val days = history.month(month)
+            val minutes = days.sumOf { it.activeMinutes }
+            val estimated = (minutes * 4.5 * 3.5 * calorieWeightKg / 200.0).toInt()
+            performance.text = "월간 성과 · ${history.trainedDays(month)}일 / ${minutes}분 / 약 ${estimated} kcal\n선택 날짜의 실제 활동시간을 기준으로 표시합니다."
         }
         calendar.setOnDateChangeListener { _, year, month, day ->
             render(java.time.LocalDate.of(year, month + 1, day))
@@ -189,7 +196,7 @@ class MainActivity : Activity() {
         val header = row().apply { gravity = Gravity.CENTER_VERTICAL }
         header.addView(label("MOVE", 24, true), LinearLayout.LayoutParams(0, -2, 1f))
         header.addView(label("60", 24, true, mint))
-        header.addView(actionButton("성과", false) { showPerformanceDashboard() }.apply { textSize = 11f }, LinearLayout.LayoutParams(-2, dp(35)).apply { leftMargin = dp(6) })
+        header.addView(actionButton("🔔", false) { showNotificationDiagnostics() }.apply { textSize = 15f; contentDescription = "알림 진단" }, LinearLayout.LayoutParams(dp(42), dp(35)).apply { leftMargin = dp(6) })
         header.addView(actionButton("운동 달력", false) { showWorkoutCalendar() }.apply { textSize = 11f }, LinearLayout.LayoutParams(-2, dp(35)).apply { leftMargin = dp(10) })
         header.addView(actionButton("업데이트 ↗", false) { updateManager.check(true) }.apply {
             textSize = 11f
@@ -250,8 +257,6 @@ class MainActivity : Activity() {
             }
         }
         preferenceRow.addView(soundSwitch, LinearLayout.LayoutParams(0, -2, 1f))
-        preferenceRow.addView(actionButton("알림 진단 ↗", false) { showNotificationDiagnostics() },
-            LinearLayout.LayoutParams(-2, dp(40)))
         settings.addView(actionButton("유산소 · 근력 시간 비율 변경", false) {
             if (session.running || session.elapsed() > 0) {
                 Toast.makeText(this, "운동 시작 전 초기 상태에서 변경해 주세요.", Toast.LENGTH_LONG).show()
@@ -290,9 +295,21 @@ class MainActivity : Activity() {
                     } else Toast.makeText(this, "25~300kg 범위로 입력해 주세요.", Toast.LENGTH_SHORT).show()
                 }.show()
         })
-        settings.addView(label("MOVE60 15.0 · 안정형 기본 알림을 사용하며 카드형 알림은 분리되어 있어요.", 11, false, textSecondary))
         addGap(settings, 8)
-        settings.addView(actionButton("오류 기록 확인 · 복사", false) { CrashReporter.showDiagnostics(this) })
+        settings.addView(label("오늘 컨디션에 맞춘 루틴", 12, true, textSecondary))
+        val conditionRow = row()
+        listOf("피곤" to "세트당 반복 20% 감소 · RPE 1 낮춤", "보통" to "계획대로 진행", "좋음" to "자세 유지 시 마지막 세트 1회 추가").forEachIndexed { index, option ->
+            conditionRow.addView(actionButton(option.first, false) {
+                getSharedPreferences("preferences", MODE_PRIVATE).edit().putString("condition", option.first).apply()
+                Toast.makeText(this, option.second, Toast.LENGTH_LONG).show()
+                renderStages()
+            }, LinearLayout.LayoutParams(0, dp(42), 1f).apply { if (index > 0) leftMargin = dp(5) })
+        }
+        settings.addView(conditionRow)
+        addGap(settings, 8)
+        settings.addView(label("MOVE60 ${packageManager.getPackageInfo(packageName, 0).versionName}", 11, false, textSecondary))
+        addGap(settings, 8)
+        settings.addView(actionButton("오류 기록 확인 · 복사 · 삭제", false) { CrashReporter.showDiagnostics(this) })
         content.addView(settings)
         renderDayStrip()
         renderSummary()
@@ -404,6 +421,9 @@ class MainActivity : Activity() {
         cue.addView(timerCueTitle)
         addGap(cue, 6)
         cue.addView(timerCueDetail)
+        addGap(cue, 6)
+        heartRateValue = label("Watch4 심박수 · 연결 대기", 12, true, mint)
+        cue.addView(heartRateValue)
         box.addView(cue)
         addGap(box, 13)
         play = actionButton("▶ 운동 시작", true) {
@@ -633,12 +653,16 @@ class MainActivity : Activity() {
         timerLabel.text = if (session.finished) "오늘 운동 완료" else "$stageName · 남은 시간"
         timerBadge.text = if (session.finished) "완료" else if (session.running) "● 진행 중" else "대기 / 일시정지"
         val elapsed = session.elapsed()
+        progress.max = max(3600, elapsed)
         progress.progress = elapsed
-        timeMeta.text = "진행 ${elapsed / 60}분 · 남은 ${formatTime(3600 - elapsed)} / 60분"
+        timeMeta.text = "총 운동 ${formatTime(elapsed)} · 기본 목표 60분${if (elapsed > 3600) " · ${formatTime(elapsed - 3600)} 초과" else ""}"
+        val heart = getSharedPreferences("preferences", MODE_PRIVATE).getInt("watch_heart_rate", 0)
+        val heartAt = getSharedPreferences("preferences", MODE_PRIVATE).getLong("watch_heart_rate_at", 0L)
+        heartRateValue.text = if (heart > 0 && System.currentTimeMillis() - heartAt < 120_000L) "Watch4 심박수 · ${heart} bpm" else "Watch4 심박수 · 연결 대기"
         val phase = session.phase()
         when {
             session.finished -> {
-                timerCueTitle.text = "오늘 운동 60분 달성!"
+                timerCueTitle.text = "오늘 운동 완료!"
                 timerCueDetail.text = "수분을 보충하고 충분히 쉬세요."
             }
             phase != null -> {
