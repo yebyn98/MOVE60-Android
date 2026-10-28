@@ -10,6 +10,13 @@ class WatchCommandService : WearableListenerService() {
     override fun onMessageReceived(message: MessageEvent) {
         if (message.path != "/move60/command") return
         val command = message.data.toString(Charsets.UTF_8)
+        if (command.startsWith("heart:")) {
+            val bpm = command.substringAfter(':').toIntOrNull()?.coerceIn(30, 240) ?: return
+            getSharedPreferences("preferences", MODE_PRIVATE).edit()
+                .putInt("watch_heart_rate", bpm)
+                .putLong("watch_heart_rate_at", System.currentTimeMillis()).apply()
+            return
+        }
         if (command !in setOf("start", "pause", "next")) return
         val store = SessionStore(this, WorkoutData(this))
         store.reconcile()
@@ -17,10 +24,7 @@ class WatchCommandService : WearableListenerService() {
             "start" -> store.start()
             "pause" -> store.pause()
             "next" -> {
-                if (store.stage >= 3) return
-                val wasRunning = store.running
                 store.nextStage()
-                if (wasRunning) store.start()
             }
         }
         val sync = Intent(this, WorkoutService::class.java).apply {

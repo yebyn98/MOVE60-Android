@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-feature android:name="android.hardware.type.watch" />
+    <uses-permission android:name="android.permission.BODY_SENSORS" />
     <application android:label="MOVE60 Watch" android:theme="@android:style/Theme.Material.NoActionBar">
         <activity android:name=".WatchActivity" android:exported="true">
             <intent-filter>
@@ -8,5 +9,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <service android:name=".WorkoutTileService" android:label="MOVE60 운동"
+            android:description="운동 상태와 다음 단계 버튼"
+            android:exported="true"
+            android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
+            <intent-filter><action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" /></intent-filter>
+        </service>
     </application>
 </manifest>

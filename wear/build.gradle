@@ -6,8 +6,8 @@ android {
         applicationId 'com.move60.workout'
         minSdk 30
         targetSdk 35
-        versionCode 1
-        versionName '1.0'
+        versionCode 20
+        versionName '20.0'
     }
   signingConfigs {
     stable {
@@ -29,4 +29,9 @@ android {
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = '17' }
 }
-dependencies { implementation 'com.google.android.gms:play-services-wearable:19.0.0' }
+dependencies {
+    implementation 'com.google.android.gms:play-services-wearable:19.0.0'
+    implementation 'androidx.health:health-services-client:1.1.0'
+    implementation 'androidx.wear.tiles:tiles:1.6.2'
+    implementation 'androidx.wear.protolayout:protolayout:1.4.2'
+}
