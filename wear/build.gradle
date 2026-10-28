@@ -34,4 +34,5 @@ dependencies {
     implementation 'androidx.health:health-services-client:1.1.0'
     implementation 'androidx.wear.tiles:tiles:1.6.2'
     implementation 'androidx.wear.protolayout:protolayout:1.4.2'
+    implementation 'com.google.guava:guava:33.4.8-android'
 }
