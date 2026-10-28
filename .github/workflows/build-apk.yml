@@ -46,6 +46,30 @@ jobs:
         run: |
           test -z "$(find app/src/main -type f \( -name '*.java' -o -name '*.html' \) -print -quit)" || { echo "Legacy Java/HTML files exist"; exit 1; }
           test -f app/src/main/java/com/move60/workout/UpdateManager.kt
+      - name: Validate timer and notification release invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          service = Path("app/src/main/java/com/move60/workout/WorkoutService.kt").read_text()
+          ui = Path("app/src/main/java/com/move60/workout/MainActivity.kt").read_text()
+          smoke = Path("scripts/smoke-android.sh").read_text()
+          checks = {
+              "manual stage transition": "Only an explicit" in service and "nextStage()" in ui,
+              "foreground notification ID": "private const val ONGOING_ID = 601" in service,
+              "background workout history": "accountActiveTime(" in service and "history_checkpoint_ms" in service,
+              "timer shown before summary": ui.index("content.addView(makeTimerCard())") < ui.index("content.addView(summary)"),
+              "smoke test starts workout": "Tapped " in smoke and "Could not locate and tap workout start button" in smoke,
+              "smoke test checks notification": "id=601" in smoke and "notifications.txt" in smoke,
+              "smoke test checks process relaunch": "Testing app relaunch with persisted active timer" in smoke,
+              "smoke test checks fatal errors": "FATAL EXCEPTION" in smoke,
+          }
+          for name, ok in checks.items():
+              print(("PASS" if ok else "FAIL") + ": " + name)
+          if not all(checks.values()):
+              raise SystemExit("Release invariant check failed")
+          PY
       - name: Restore stable signing key from repository secret
         env:
           MOVE60_SIGNING_BUNDLE_BASE64: ${{ secrets.MOVE60_SIGNING_BUNDLE_BASE64 }}
