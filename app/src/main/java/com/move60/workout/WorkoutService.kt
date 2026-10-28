@@ -101,10 +101,7 @@ class WorkoutService : Service() {
         if (last <= 0L || !old.optBoolean("running", false) || old.optBoolean("finished", false)) return
         val stage = old.optInt("stage", 0).coerceIn(0, 3)
         val durations = old.optJSONArray("stageSeconds")
-        var end = old.optLong("deadlineAt", 0L)
-        if (end <= 0L) return
-        for (index in (stage + 1)..3) end += (durations?.optInt(index, 0) ?: 0) * 1000L
-        val until = min(now, end)
+        val until = now
         if (until <= last) return
         val zone = java.time.ZoneId.of("Asia/Seoul")
         val history = WorkoutHistory(this)
@@ -134,19 +131,8 @@ class WorkoutService : Service() {
     }
 
     private fun reconcile(now: Long) {
-        var stage = snapshot.optInt("stage", 0)
-        var deadline = snapshot.optLong("deadlineAt", now + 1000)
-        while (deadline <= now && stage < 4) {
-            stage++
-            if (stage >= 4) {
-                snapshot.put("running", false)
-                snapshot.put("finished", true)
-                break
-            }
-            deadline += duration(stage) * 1000L
-            snapshot.put("stage", stage)
-            snapshot.put("deadlineAt", deadline)
-        }
+        // Time reaching a plan target never changes the stage. Only an explicit
+        // phone/watch "next" command updates it in SessionStore.
         prefs.edit().putString("snapshot", snapshot.toString()).apply()
     }
 
@@ -159,12 +145,10 @@ class WorkoutService : Service() {
     private fun cue(now: Long): Cue {
         val stage = snapshot.optInt("stage", 0).coerceIn(0, 3)
         val day = snapshot.optInt("day", 1).coerceIn(1, 5)
-        val end = snapshot.optLong("deadlineAt", now + 1000)
-        val start = end - duration(stage) * 1000L
-        var previous = 0
-        repeat(stage) { previous += duration(it) }
-        val elapsed = ((now - start) / 1000).coerceIn(0L, duration(stage).toLong()).toInt()
-        val progress = (previous + elapsed).coerceIn(0, 3600)
+        val stageElapsed = snapshot.optInt("stageElapsedSeconds", 0).coerceAtLeast(0)
+        val progress = snapshot.optInt("activeSeconds", 0).coerceAtLeast(0)
+        val start = now - stageElapsed * 1000L
+        val end = start + duration(stage) * 1000L
         var title = stageNames[stage]
         var detail = when (stage) {
             0 -> "관절을 천천히 풀고 호흡을 준비하세요"
@@ -181,7 +165,7 @@ class WorkoutService : Service() {
             for (i in 0 until phases.length()) {
                 val phase = phases.optJSONObject(i) ?: continue
                 val until = from + phase.optInt("seconds", 60) * 1000L
-                if (now < until) {
+                if (now < until || i == phases.length() - 1) {
                     title = phase.optString("name", "유산소")
                     detail = phase.optString("description", "유산소 운동 진행 중")
                     round = "${i + 1}/${phases.length()} 구간"
@@ -217,9 +201,9 @@ class WorkoutService : Service() {
         result.setTextViewText(R.id.n_detail, c.detail)
         result.setTextViewText(R.id.n_badge, c.round)
         result.setTextViewText(R.id.n_accent, c.effort)
-        result.setTextViewText(R.id.n_total, "전체 ${c.progress / 60}/60분")
+        result.setTextViewText(R.id.n_total, "총 운동 ${c.progress / 60}분 · 목표 60분")
         result.setTextViewText(R.id.n_remaining_label, "남은 시간")
-        result.setProgressBar(R.id.n_progress, 3600, c.progress, false)
+        result.setProgressBar(R.id.n_progress, max(3600, c.progress), c.progress, false)
         val secondsLeft = max(0L, ceil((c.ends - now) / 1000.0).toLong())
         result.setChronometer(R.id.n_timer, SystemClock.elapsedRealtime() + secondsLeft * 1000L, null, true)
         if (Build.VERSION.SDK_INT >= 24) result.setChronometerCountDown(R.id.n_timer, true)
@@ -229,10 +213,10 @@ class WorkoutService : Service() {
     private fun buildFallbackNotification(now: Long): Notification {
         val c = cue(now)
         return builder(CHANNEL_PROGRESS).setContentTitle("MOVE60 · " + c.title)
-            .setContentText(c.effort + " · " + c.round + " · 전체 " + (c.progress / 60) + "/60분")
+            .setContentText(c.effort + " · " + c.round + " · 총 운동 " + (c.progress / 60) + "분")
             .setWhen(c.ends).setShowWhen(true)
             .setUsesChronometer(true).setChronometerCountDown(true)
-            .setProgress(3600, c.progress, false)
+            .setProgress(max(3600, c.progress), c.progress, false)
             .setOngoing(true).setCategory(Notification.CATEGORY_SERVICE)
             .build()
     }
@@ -313,9 +297,8 @@ class WorkoutService : Service() {
                 .setAutoCancel(true).build())
         }
         lastPhase = phaseSignature
-        val stageDeadline = snapshot.optLong("deadlineAt", now + 1000)
-        val nextTime = min(stageDeadline, c.ends)
-        handler.postDelayed(boundary, (nextTime - now + 40).coerceIn(150L, 3_600_000L))
+        val nextTime = max(now + 1000L, c.ends)
+        handler.postDelayed(boundary, (nextTime - now + 40).coerceIn(1000L, 60_000L))
     }
 
     private fun vibratePhaseTransition() {
