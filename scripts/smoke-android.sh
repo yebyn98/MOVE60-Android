@@ -33,7 +33,7 @@ for i in 1 2 3; do
 done
 echo "Finding workout start button..."
 tapped=0
-for try in 1 2 3 4 5 6; do
+for try in $(seq 1 12); do
   # Dismiss an unexpected system dialog only when MOVE60 is not foreground.
   # Sending BACK unconditionally closes MainActivity and makes the test inspect Launcher.
   foreground="$(adb shell dumpsys activity activities | grep -m1 'mResumedActivity' || true)"
@@ -51,7 +51,8 @@ if not p.is_file(): raise SystemExit(1)
 root=ET.parse(p).getroot()
 for n in root.iter("node"):
     txt=n.attrib.get("text","")
-    if "운동 시작" in txt or txt.strip() in ("시작", "▶ 시작"):
+    desc=n.attrib.get("content-desc","")
+    if "운동 시작" in txt or txt.strip() in ("시작", "▶ 시작", "▶ 운동 시작") or "운동 시작" in desc:
         coords=list(map(int,re.findall(r"\d+",n.attrib.get("bounds",""))))
         if len(coords)==4:
             x=(coords[0]+coords[2])//2
@@ -62,7 +63,10 @@ for n in root.iter("node"):
 raise SystemExit(1)
 PY
   then tapped=1; break; fi
-  if test "$try" -eq 4; then adb shell input swipe 550 500 550 1550 350; else adb shell input swipe 550 1580 550 520 350; fi
+  # The timer controls are below the fold on the tall workout summary.
+  # Always scroll downward; alternating directions repeatedly hid the start button.
+  adb shell input swipe 550 1850 550 420 450
+  sleep 1
 done
 if test "$tapped" -ne 1; then echo "Could not locate and tap workout start button"; cat smoke-debug/window.xml || true; exit 1; fi
 sleep 6
