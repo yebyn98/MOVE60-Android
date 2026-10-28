@@ -219,12 +219,14 @@ class MainActivity : Activity() {
         content.addView(label("${data.weekMonday().format(DateTimeFormatter.ofPattern("M/d"))} ~ ${weekEnd.format(DateTimeFormatter.ofPattern("M/d"))}  |  매주 월요일 운동 조합 자동 변경", 12, false, textSecondary))
         addGap(content, 17)
 
-        summary = column()
-        content.addView(summary)
-        addGap(content, 18)
+        // Keep the primary workout control above the long daily summary.
+        // This also makes the start/pause action reachable on small screens.
         content.addView(label("운동 타이머", 19, true))
         addGap(content, 11)
         content.addView(makeTimerCard())
+        addGap(content, 18)
+        summary = column()
+        content.addView(summary)
         addGap(content, 18)
         val completedCard = card()
         completedCard.addView(label("오늘의 운동 진행 현황", 17, true))
