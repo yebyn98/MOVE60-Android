@@ -34,8 +34,14 @@ done
 echo "Finding workout start button..."
 tapped=0
 for try in 1 2 3 4 5 6; do
-  # Dismiss unexpected system ANR dialog before inspecting MOVE60 UI.
-  adb shell input keyevent KEYCODE_BACK || true
+  # Dismiss an unexpected system dialog only when MOVE60 is not foreground.
+  # Sending BACK unconditionally closes MainActivity and makes the test inspect Launcher.
+  foreground="$(adb shell dumpsys activity activities | grep -m1 'mResumedActivity' || true)"
+  if ! echo "$foreground" | grep -q 'com.move60.workout'; then
+    adb shell input keyevent KEYCODE_BACK || true
+    adb shell am start -W -n com.move60.workout/.MainActivity >/dev/null || true
+    sleep 2
+  fi
   adb shell uiautomator dump /sdcard/move60-smoke.xml >/dev/null 2>&1 || true
   adb pull /sdcard/move60-smoke.xml smoke-debug/window.xml >/dev/null 2>&1 || true
   if python3 - <<'PY'
@@ -56,7 +62,6 @@ for n in root.iter("node"):
 raise SystemExit(1)
 PY
   then tapped=1; break; fi
-  if test "$try" -eq 2; then adb shell input keyevent KEYCODE_BACK || true; fi
   if test "$try" -eq 4; then adb shell input swipe 550 500 550 1550 350; else adb shell input swipe 550 1580 550 520 350; fi
 done
 if test "$tapped" -ne 1; then echo "Could not locate and tap workout start button"; cat smoke-debug/window.xml || true; exit 1; fi
