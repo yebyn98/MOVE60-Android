@@ -81,7 +81,7 @@ if grep -q 'FATAL EXCEPTION' smoke-debug/logcat.txt; then
   grep -n -A 30 'FATAL EXCEPTION' smoke-debug/logcat.txt | tail -n 80
   exit 1
 fi
-if ! grep -Eq 'pkg=com\\.move60\\.workout.*id=601|id=601.*pkg=com\\.move60\\.workout' smoke-debug/notifications.txt; then
+if ! grep -Eq 'pkg=com\.move60\.workout.*id=601|id=601.*pkg=com\.move60\.workout' smoke-debug/notifications.txt; then
   echo "MOVE60 ongoing notification missing from NotificationManager"
   exit 1
 fi
@@ -115,7 +115,7 @@ if test "$shade_found" -ne 1; then
   # assertion; preserve the screenshot and logs for visual review.
   echo "WARN: SystemUI hierarchy unavailable; checking NotificationManager instead"
   cat smoke-debug/uiautomator-shade.log || true
-  if ! grep -Eq 'pkg=com\\.move60\\.workout.*id=601|id=601.*pkg=com\\.move60\\.workout' smoke-debug/notifications.txt; then
+  if ! grep -Eq 'pkg=com\.move60\.workout.*id=601|id=601.*pkg=com\.move60\.workout' smoke-debug/notifications.txt; then
     echo "FAIL: MOVE60 notification absent from NotificationManager"
     exit 1
   fi
