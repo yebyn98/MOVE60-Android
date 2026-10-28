@@ -42,6 +42,7 @@ for try in $(seq 1 12); do
     adb shell am start -W -n com.move60.workout/.MainActivity >/dev/null || true
     sleep 2
   fi
+  rm -f smoke-debug/window.xml
   adb shell uiautomator dump /sdcard/move60-smoke.xml >/dev/null 2>&1 || true
   adb pull /sdcard/move60-smoke.xml smoke-debug/window.xml >/dev/null 2>&1 || true
   if python3 - <<'PY'
@@ -80,7 +81,7 @@ if grep -q 'FATAL EXCEPTION' smoke-debug/logcat.txt; then
   grep -n -A 30 'FATAL EXCEPTION' smoke-debug/logcat.txt | tail -n 80
   exit 1
 fi
-if ! grep -q 'com.move60.workout' smoke-debug/notifications.txt; then
+if ! grep -Eq 'pkg=com\\.move60\\.workout.*id=601|id=601.*pkg=com\\.move60\\.workout' smoke-debug/notifications.txt; then
   echo "MOVE60 ongoing notification missing from NotificationManager"
   exit 1
 fi
@@ -114,7 +115,7 @@ if test "$shade_found" -ne 1; then
   # assertion; preserve the screenshot and logs for visual review.
   echo "WARN: SystemUI hierarchy unavailable; checking NotificationManager instead"
   cat smoke-debug/uiautomator-shade.log || true
-  if ! grep -q 'com.move60.workout' smoke-debug/notifications.txt; then
+  if ! grep -Eq 'pkg=com\\.move60\\.workout.*id=601|id=601.*pkg=com\\.move60\\.workout' smoke-debug/notifications.txt; then
     echo "FAIL: MOVE60 notification absent from NotificationManager"
     exit 1
   fi
@@ -135,4 +136,4 @@ if grep -q 'FATAL EXCEPTION' smoke-debug/logcat.txt; then
   grep -n -A 30 'FATAL EXCEPTION' smoke-debug/logcat.txt | tail -n 100
   exit 1
 fi
-echo "Passed cold launch x3, workout start, rendered notification shade and active-session relaunch checks."
+echo "Passed cold launch x3, workout start, NotificationManager ongoing ID 601, notification crash check and active-session relaunch. SystemUI visual confirmation is best-effort."
