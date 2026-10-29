@@ -55,6 +55,8 @@ jobs:
           service = Path("app/src/main/java/com/move60/workout/WorkoutService.kt").read_text()
           ui = Path("app/src/main/java/com/move60/workout/MainActivity.kt").read_text()
           smoke = Path("scripts/smoke-android.sh").read_text()
+          watch = Path("wear/src/main/java/com/move60/watch/WatchActivity.kt").read_text()
+          watch_manifest = Path("wear/src/main/AndroidManifest.xml").read_text()
           checks = {
               "manual stage transition": "Only an explicit" in service and "nextStage()" in ui,
               "foreground notification ID": "private const val ONGOING_ID = 601" in service,
@@ -65,6 +67,9 @@ jobs:
               "smoke test checks notification": "id=601" in smoke and "notifications.txt" in smoke,
               "smoke test checks process relaunch": "Testing app relaunch with persisted active timer" in smoke,
               "smoke test checks fatal errors": "FATAL EXCEPTION" in smoke,
+              "watch heart rate permission callback": "onRequestPermissionsResult(" in watch and "registerHeartRateIfPermitted()" in watch,
+              "watch heart rate registration cleanup": "if (heartRateRegistered)" in watch and "unregisterMeasureCallbackAsync(" in watch,
+              "watch tile manifest registration": "WorkoutTileService" in watch_manifest and "BIND_TILE_PROVIDER" in watch_manifest,
           }
           for name, ok in checks.items():
               print(("PASS" if ok else "FAIL") + ": " + name)
