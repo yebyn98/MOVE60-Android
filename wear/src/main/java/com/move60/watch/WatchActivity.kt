@@ -74,12 +74,38 @@ class WatchActivity : Activity(), DataClient.OnDataChangedListener {
         }
     }
 
+    private var heartRateRegistered = false
+
+    private fun registerHeartRateIfPermitted() {
+        if (heartRateRegistered || checkSelfPermission(Manifest.permission.BODY_SENSORS) != PackageManager.PERMISSION_GRANTED) return
+        heartRateRegistered = true
+        try {
+            measureClient.registerMeasureCallback(DataType.HEART_RATE_BPM, heartRateCallback)
+                .addOnFailureListener {
+                    heartRateRegistered = false
+                    runOnUiThread { heartRate.text = "♥ 심박수 연결 실패" }
+                }
+        } catch (e: Exception) {
+            heartRateRegistered = false
+            heartRate.text = "♥ 심박수 연결 실패"
+        }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 60) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                registerHeartRateIfPermitted()
+            } else {
+                heartRate.text = "♥ 심박수 권한이 필요합니다"
+            }
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         Wearable.getDataClient(this).addListener(this)
-        if (checkSelfPermission(Manifest.permission.BODY_SENSORS) == PackageManager.PERMISSION_GRANTED) {
-            measureClient.registerMeasureCallback(DataType.HEART_RATE_BPM, heartRateCallback)
-        }
+        registerHeartRateIfPermitted()
         Wearable.getDataClient(this).getDataItems().addOnSuccessListener { items ->
             try {
                 for (item in items) if (item.uri.path == "/move60/workout") {
@@ -92,7 +118,10 @@ class WatchActivity : Activity(), DataClient.OnDataChangedListener {
     }
     override fun onPause() {
         Wearable.getDataClient(this).removeListener(this)
-        measureClient.unregisterMeasureCallbackAsync(DataType.HEART_RATE_BPM, heartRateCallback)
+        if (heartRateRegistered) {
+            heartRateRegistered = false
+            measureClient.unregisterMeasureCallbackAsync(DataType.HEART_RATE_BPM, heartRateCallback)
+        }
         super.onPause()
     }
     override fun onDataChanged(events: DataEventBuffer) {
