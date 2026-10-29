@@ -345,8 +345,13 @@ class WorkoutService : Service() {
         stopSelf()
     }
     override fun onDestroy() {
+        // Android may destroy a running foreground service without an explicit stop.
+        // Preserve the checkpoint so the next service start can account for elapsed
+        // workout time instead of silently losing the interval while the UI is closed.
         accountActiveTime(System.currentTimeMillis())
-        prefs.edit().putLong("history_checkpoint_ms", 0L).apply()
+        if (!snapshot.optBoolean("running", false) || snapshot.optBoolean("finished", false)) {
+            prefs.edit().putLong("history_checkpoint_ms", 0L).apply()
+        }
         handler.removeCallbacks(boundary)
         super.onDestroy()
     }
