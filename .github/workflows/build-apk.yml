@@ -59,6 +59,7 @@ jobs:
               "manual stage transition": "Only an explicit" in service and "nextStage()" in ui,
               "foreground notification ID": "private const val ONGOING_ID = 601" in service,
               "background workout history": "accountActiveTime(" in service and "history_checkpoint_ms" in service,
+              "checkpoint survives unexpected service death": 'if (!snapshot.optBoolean("running", false) || snapshot.optBoolean("finished", false)) {\n            prefs.edit().putLong("history_checkpoint_ms", 0L).apply()' in service,
               "timer shown before summary": ui.index("content.addView(makeTimerCard())") < ui.index("content.addView(summary)"),
               "smoke test starts workout": "Tapped " in smoke and "Could not locate and tap workout start button" in smoke,
               "smoke test checks notification": "id=601" in smoke and "notifications.txt" in smoke,
