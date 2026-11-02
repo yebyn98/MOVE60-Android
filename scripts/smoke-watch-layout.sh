@@ -12,7 +12,7 @@ adb install -r -g wear/build/outputs/apk/debug/wear-debug.apk
 adb install -r -g wear/build/outputs/apk/androidTest/debug/wear-debug-androidTest.apk
 adb logcat -c
 set +e
-adb shell am instrument -w -r com.move60.workout.test/androidx.test.runner.AndroidJUnitRunner | tee smoke-debug/watch/instrumentation.txt
+timeout 240s adb shell am instrument -w -r -e timeout_msec 45000 com.move60.workout.test/androidx.test.runner.AndroidJUnitRunner | tee smoke-debug/watch/instrumentation.txt
 result=${PIPESTATUS[0]}
 set -e
 adb logcat -d -v threadtime > smoke-debug/watch/logcat.txt

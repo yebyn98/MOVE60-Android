@@ -124,6 +124,13 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -memory 4096
           disable-animations: true
           script: bash scripts/smoke-android.sh
+      - name: Free disk space before Wear OS emulator
+        shell: bash
+        run: |
+          avdmanager delete avd -n test || true
+          sdkmanager --uninstall 'system-images;android-35;google_apis;x86_64'
+          sudo rm -rf /usr/share/dotnet
+          df -h /
       - name: Gate release with small round Wear OS workout and ambient UI
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -132,6 +139,7 @@ jobs:
           target: android-wear
           profile: wearos_small_round
           avd-name: move60_wear_gate
+          emulator-boot-timeout: 300
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -memory 3072
           disable-animations: true
           script: bash scripts/smoke-watch-layout.sh
