@@ -11,10 +11,16 @@ class WatchCommandService : WearableListenerService() {
         if (message.path != "/move60/command") return
         val command = message.data.toString(Charsets.UTF_8)
         if (command.startsWith("heart:")) {
-            val bpm = command.substringAfter(':').toIntOrNull()?.coerceIn(30, 240) ?: return
+            val fields = command.split(':')
+            val bpm = fields.getOrNull(1)?.toIntOrNull() ?: return
+            if (bpm != 0 && bpm !in 30..240) return
+            val now = System.currentTimeMillis()
+            // Preserve measurement time, so delayed/replayed messages cannot look live.
+            val measuredAt = fields.getOrNull(2)?.toLongOrNull() ?: now
+            if (measuredAt > now + 2_000L || now - measuredAt > 10_000L) return
             getSharedPreferences("preferences", MODE_PRIVATE).edit()
                 .putInt("watch_heart_rate", bpm)
-                .putLong("watch_heart_rate_at", System.currentTimeMillis()).apply()
+                .putLong("watch_heart_rate_at", measuredAt.coerceAtMost(now)).apply()
             return
         }
         if (command !in setOf("start", "pause", "next")) return

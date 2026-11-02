@@ -57,6 +57,7 @@ jobs:
           smoke = Path("scripts/smoke-android.sh").read_text()
           watch = Path("wear/src/main/java/com/move60/watch/WatchActivity.kt").read_text()
           watch_manifest = Path("wear/src/main/AndroidManifest.xml").read_text()
+          watch_sensor = Path("wear/src/main/java/com/move60/watch/HeartRateService.kt").read_text()
           checks = {
               "manual stage transition": "Only an explicit" in service and "nextStage()" in ui,
               "foreground notification ID": "private const val ONGOING_ID = 601" in service,
@@ -68,7 +69,11 @@ jobs:
               "smoke test checks process relaunch": "Testing app relaunch with persisted active timer" in smoke,
               "smoke test checks fatal errors": "FATAL EXCEPTION" in smoke,
               "watch heart rate permission callback": "onRequestPermissionsResult(" in watch and "registerHeartRateIfPermitted()" in watch,
-              "watch heart rate registration cleanup": "if (heartRateRegistered)" in watch and "unregisterMeasureCallbackAsync(" in watch,
+              "watch heart rate service cleanup": "sensorManager.unregisterListener(this)" in watch_sensor and "it.release()" in watch_sensor,
+              "watch heart rate service manifest": 'android:foregroundServiceType="health"' in watch_manifest and "FOREGROUND_SERVICE_HEALTH" in watch_manifest,
+              "watch screen remains on during workout": "FLAG_KEEP_SCREEN_ON" in watch,
+              "watch sensor samples preserve timestamps": "event.timestamp" in watch_sensor and "measuredAt" in watch_sensor,
+              "phone heart rate box": 'contentDescription = "실시간 심박수"' in ui and 'heartRateValue.text' in ui,
               "watch tile manifest registration": "WorkoutTileService" in watch_manifest and "BIND_TILE_PROVIDER" in watch_manifest,
           }
           for name, ok in checks.items():

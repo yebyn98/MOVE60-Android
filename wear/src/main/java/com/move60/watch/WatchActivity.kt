@@ -1,6 +1,13 @@
 package com.move60.watch
 
 import android.app.Activity
+import android.app.AlertDialog
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
+import android.view.WindowManager
+import android.widget.ScrollView
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -17,12 +24,6 @@ import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.Wearable
 import android.Manifest
 import android.content.pm.PackageManager
-import androidx.health.services.client.HealthServices
-import androidx.health.services.client.MeasureCallback
-import androidx.health.services.client.data.Availability
-import androidx.health.services.client.data.DataPointContainer
-import androidx.health.services.client.data.DataType
-import androidx.health.services.client.data.DeltaDataType
 
 /** Wear OS companion displays the current phone workout stage and countdown. */
 class WatchActivity : Activity(), DataClient.OnDataChangedListener {
@@ -32,20 +33,14 @@ class WatchActivity : Activity(), DataClient.OnDataChangedListener {
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var playButton: Button
     private lateinit var heartRate: TextView
-    private val measureClient by lazy { HealthServices.getClient(this).measureClient }
-    private val heartRateCallback = object : MeasureCallback {
-        override fun onRegistrationFailed(throwable: Throwable) {
-            runOnUiThread {
-                heartRateRegistered = false
-                heartRate.text = "♥ 심박수 연결 실패"
-            }
-        }
-
-        override fun onAvailabilityChanged(dataType: DeltaDataType<*, *>, availability: Availability) = Unit
-        override fun onDataReceived(data: DataPointContainer) {
-            val bpm = data.getData(DataType.HEART_RATE_BPM).lastOrNull()?.value?.toInt() ?: return
-            runOnUiThread { heartRate.text = "♥ $bpm bpm" }
-            sendHeartRate(bpm)
+    private val heartTicker = object : Runnable {
+        override fun run() {
+            val prefs = getSharedPreferences("live_heart_rate", MODE_PRIVATE)
+            val bpm = prefs.getInt("bpm", 0)
+            val age = System.currentTimeMillis() - prefs.getLong("measured_at", 0L)
+            heartRate.text = if (bpm in 30..240 && age in 0L..10_000L)
+                "♥ $bpm bpm · ${age / 1000}초 전" else "♥ 연결대기"
+            handler.postDelayed(this, 500L)
         }
     }
 
@@ -63,7 +58,7 @@ class WatchActivity : Activity(), DataClient.OnDataChangedListener {
         container.addView(title)
         container.addView(timer)
         container.addView(status)
-        heartRate = TextView(this).apply { text = "♥ 심박수 연결 중"; textSize = 16f; setTextColor(Color.rgb(255, 120, 130)); gravity = Gravity.CENTER }
+        heartRate = TextView(this).apply { text = "♥ 연결대기"; textSize = 16f; setTextColor(Color.rgb(255, 120, 130)); gravity = Gravity.CENTER }
         container.addView(heartRate)
         playButton = Button(this).apply {
             text = "▶ 시작"
@@ -75,22 +70,46 @@ class WatchActivity : Activity(), DataClient.OnDataChangedListener {
         }
         container.addView(playButton)
         container.addView(nextButton)
-        setContentView(container)
+        val backgroundAccess = TextView(this).apply {
+            text = "화면 밖 심박 측정 권한 설정"
+            textSize = 11f
+            setTextColor(Color.rgb(180, 245, 110))
+            gravity = Gravity.CENTER
+            setPadding(0, 8, 0, 8)
+            setOnClickListener { openSensorSettings() }
+        }
+        if (Build.VERSION.SDK_INT >= 33) container.addView(backgroundAccess)
+        setContentView(ScrollView(this).apply { isFillViewport = true; addView(container) })
         if (checkSelfPermission(Manifest.permission.BODY_SENSORS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(Manifest.permission.BODY_SENSORS), 60)
         }
     }
 
-    private var heartRateRegistered = false
-
     private fun registerHeartRateIfPermitted() {
-        if (heartRateRegistered || checkSelfPermission(Manifest.permission.BODY_SENSORS) != PackageManager.PERMISSION_GRANTED) return
-        heartRateRegistered = true
+        if (checkSelfPermission(Manifest.permission.BODY_SENSORS) != PackageManager.PERMISSION_GRANTED) return
         try {
-            measureClient.registerMeasureCallback(DataType.HEART_RATE_BPM, heartRateCallback)
+            startForegroundService(Intent(this, HeartRateService::class.java))
         } catch (e: Exception) {
-            heartRateRegistered = false
             heartRate.text = "♥ 심박수 연결 실패"
+        }
+    }
+
+    private fun openSensorSettings() {
+        startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            Uri.parse("package:$packageName")))
+    }
+
+    private fun explainBackgroundAccessOnce() {
+        val prefs = getSharedPreferences("watch_settings", MODE_PRIVATE)
+        if (Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(Manifest.permission.BODY_SENSORS) == PackageManager.PERMISSION_GRANTED &&
+            checkSelfPermission(Manifest.permission.BODY_SENSORS_BACKGROUND) != PackageManager.PERMISSION_GRANTED &&
+            !prefs.getBoolean("background_access_explained", false)) {
+            prefs.edit().putBoolean("background_access_explained", true).apply()
+            AlertDialog.Builder(this).setTitle("화면 밖 심박수 측정")
+                .setMessage("화면을 꺼도 심박수를 계속 전송하려면 앱 권한의 센서를 '항상 허용'으로 설정해 주세요.")
+                .setNegativeButton("나중에", null)
+                .setPositiveButton("설정 열기") { _, _ -> openSensorSettings() }.show()
         }
     }
 
@@ -99,6 +118,7 @@ class WatchActivity : Activity(), DataClient.OnDataChangedListener {
         if (requestCode == 60) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 registerHeartRateIfPermitted()
+                explainBackgroundAccessOnce()
             } else {
                 heartRate.text = "♥ 심박수 권한이 필요합니다"
             }
@@ -107,8 +127,19 @@ class WatchActivity : Activity(), DataClient.OnDataChangedListener {
 
     override fun onResume() {
         super.onResume()
+        HeartRateService.uiVisible = true
+        if (Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(Manifest.permission.BODY_SENSORS) == PackageManager.PERMISSION_GRANTED &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED &&
+            !getSharedPreferences("watch_settings", MODE_PRIVATE).getBoolean("notification_asked", false)) {
+            getSharedPreferences("watch_settings", MODE_PRIVATE).edit().putBoolean("notification_asked", true).apply()
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 63)
+        }
         Wearable.getDataClient(this).addListener(this)
         registerHeartRateIfPermitted()
+        handler.removeCallbacks(heartTicker)
+        handler.post(heartTicker)
+        explainBackgroundAccessOnce()
         Wearable.getDataClient(this).getDataItems().addOnSuccessListener { items ->
             try {
                 for (item in items) if (item.uri.path == "/move60/workout") {
@@ -120,12 +151,14 @@ class WatchActivity : Activity(), DataClient.OnDataChangedListener {
         }
     }
     override fun onPause() {
+        HeartRateService.uiVisible = false
         Wearable.getDataClient(this).removeListener(this)
-        if (heartRateRegistered) {
-            heartRateRegistered = false
-            measureClient.unregisterMeasureCallbackAsync(DataType.HEART_RATE_BPM, heartRateCallback)
-        }
+        handler.removeCallbacks(heartTicker)
         super.onPause()
+    }
+    override fun onDestroy() {
+        handler.removeCallbacksAndMessages(null)
+        super.onDestroy()
     }
     override fun onDataChanged(events: DataEventBuffer) {
         for (event in events) {
@@ -150,14 +183,9 @@ class WatchActivity : Activity(), DataClient.OnDataChangedListener {
             }
         }.addOnFailureListener { status.text = "휴대폰 연결 확인 실패" }
     }
-    private fun sendHeartRate(bpm: Int) {
-        Wearable.getNodeClient(this).connectedNodes.addOnSuccessListener { nodes ->
-            nodes.forEach { node -> Wearable.getMessageClient(this)
-                .sendMessage(node.id, "/move60/command", "heart:$bpm".toByteArray(Charsets.UTF_8)) }
-        }
-    }
-
     private fun showState(running: Boolean, stage: String, deadline: Long) {
+        if (running) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         title.text = if (running) stage else "MOVE60"
         status.text = if (running) "휴대폰 운동과 동기화됨" else "운동 대기 중"
         playButton.text = if (running) "Ⅱ 일시정지" else "▶ 시작"

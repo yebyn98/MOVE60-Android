@@ -458,7 +458,19 @@ class MainActivity : Activity() {
         timerValue = label("05:00", 61, true)
         timerValue.typeface = Typeface.create("sans-serif-condensed", Typeface.BOLD)
         timerValue.gravity = Gravity.CENTER
-        box.addView(timerValue)
+        val timeAndHeart = row().apply { gravity = Gravity.CENTER_VERTICAL }
+        timeAndHeart.addView(timerValue, LinearLayout.LayoutParams(0, -2, 1f))
+        val heartBox = column().apply {
+            gravity = Gravity.CENTER
+            contentDescription = "실시간 심박수"
+            background = rounded(Color.rgb(13, 25, 41), 12, subtle)
+            setPadding(dp(8), dp(12), dp(8), dp(12))
+        }
+        heartBox.addView(label("♥ 심박수", 11, true, textSecondary))
+        heartRateValue = label("연결대기", 17, true, mint).apply { gravity = Gravity.CENTER }
+        heartBox.addView(heartRateValue)
+        timeAndHeart.addView(heartBox, LinearLayout.LayoutParams(dp(100), -2).apply { leftMargin = dp(10) })
+        box.addView(timeAndHeart)
         addGap(box, 9)
         progress = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             max = 3600
@@ -481,9 +493,6 @@ class MainActivity : Activity() {
         cue.addView(timerCueTitle)
         addGap(cue, 6)
         cue.addView(timerCueDetail)
-        addGap(cue, 6)
-        heartRateValue = label("Watch4 심박수 · 연결 대기", 12, true, mint)
-        cue.addView(heartRateValue)
         box.addView(cue)
         addGap(box, 8)
         val secondary = row()
@@ -702,7 +711,8 @@ class MainActivity : Activity() {
         timeMeta.text = "총 운동 ${formatTime(elapsed)} · 기본 목표 60분${if (elapsed > 3600) " · ${formatTime(elapsed - 3600)} 초과" else ""}"
         val heart = getSharedPreferences("preferences", MODE_PRIVATE).getInt("watch_heart_rate", 0)
         val heartAt = getSharedPreferences("preferences", MODE_PRIVATE).getLong("watch_heart_rate_at", 0L)
-        heartRateValue.text = if (heart > 0 && System.currentTimeMillis() - heartAt < 120_000L) "Watch4 심박수 · ${heart} bpm" else "Watch4 심박수 · 연결 대기"
+        val heartAge = System.currentTimeMillis() - heartAt
+        heartRateValue.text = if (heart in 30..240 && heartAge in 0L..10_000L) "${heart} bpm" else "연결대기"
         val phase = session.phase()
         when {
             session.finished -> {
@@ -747,7 +757,10 @@ class MainActivity : Activity() {
                 CrashReporter.log(this, "서비스 시작 오류: " + e.javaClass.simpleName + ": " + e.message)
                 Toast.makeText(this, "알림 서비스를 시작하지 못했어요. 알림 진단을 확인하세요.", Toast.LENGTH_LONG).show()
             }
-        } else stopService(intent)
+        } else {
+            stopService(intent)
+            WatchStatePublisher.publish(this, false, "", 0L)
+        }
     }
 
     private fun showNotificationDiagnostics() {
