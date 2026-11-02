@@ -34,6 +34,13 @@ class WatchActivity : Activity(), DataClient.OnDataChangedListener {
     private lateinit var heartRate: TextView
     private val measureClient by lazy { HealthServices.getClient(this).measureClient }
     private val heartRateCallback = object : MeasureCallback {
+        override fun onRegistrationFailed(throwable: Throwable) {
+            runOnUiThread {
+                heartRateRegistered = false
+                heartRate.text = "♥ 심박수 연결 실패"
+            }
+        }
+
         override fun onAvailabilityChanged(dataType: DeltaDataType<*, *>, availability: Availability) = Unit
         override fun onDataReceived(data: DataPointContainer) {
             val bpm = data.getData(DataType.HEART_RATE_BPM).lastOrNull()?.value?.toInt() ?: return
@@ -81,10 +88,6 @@ class WatchActivity : Activity(), DataClient.OnDataChangedListener {
         heartRateRegistered = true
         try {
             measureClient.registerMeasureCallback(DataType.HEART_RATE_BPM, heartRateCallback)
-                .addOnFailureListener {
-                    heartRateRegistered = false
-                    runOnUiThread { heartRate.text = "♥ 심박수 연결 실패" }
-                }
         } catch (e: Exception) {
             heartRateRegistered = false
             heartRate.text = "♥ 심박수 연결 실패"

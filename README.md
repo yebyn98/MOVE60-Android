@@ -148,3 +148,50 @@ bash scripts/smoke-android.sh
 | v13 | 정식 빌드 + Android 에뮬레이터 실행/운동 시작 테스트 성공 기록 존재 | **삼성 One UI에서 카드 UI·잠금화면·지속 안정성은 별도로 검증 필요** |
 
 **다음 작업 우선순위:** (1) 삼성에서 앱 재실행/운동 시작 시 강제 종료 여부 재현·로그 확보 → (2) 실제 알림창 카드 렌더링 → (3) 잠금화면 표시·OS 정책 확인 → (4) 디자인 추가 개선. **안정성이 해결되기 전 시각 요소만 반복 수정하지 말 것.**
+
+## 7. Galaxy Watch4 설치 및 검증
+
+- 휴대폰 앱과 별도로 워치용 정식 APK를 설치한다. 휴대폰에서 APK를 열어도 워치에 자동 설치되지 않는다.
+- 워치 APK: https://raw.githubusercontent.com/yebyn98/MOVE60-Updates/main/MOVE60-Watch4-latest.apk
+- 버전/해시: 공개 `latest.json`의 `versionCode`, `versionName`, `watchSha256` 확인.
+- 휴대폰과 워치 모두 `com.move60.workout` 및 동일 고정 서명 사용. debug APK와 정식 APK를 섞어 연동 검증하지 않는다.
+- 빌드 환경: Java 17, Gradle 8.9, Android SDK 35. 워치 minSdk 30.
+- GitHub Actions가 `:app:assembleRelease :wear:assembleRelease` 실행 후 두 APK를 공개 배포한다.
+- 워치 산출물: `wear/build/outputs/apk/release/wear-release.apk`.
+- Android Studio로 직접 빌드할 필요는 없다. PC에는 Android SDK Platform-Tools(ADB)만 준비하면 된다.
+
+### PC에서 워치 APK 설치
+
+1. PC와 워치를 동일한 Wi-Fi에 연결한다.
+2. 워치 설정 → 워치 정보 → 소프트웨어 정보 → 소프트웨어 버전을 5번 눌러 개발자 옵션을 활성화한다. 메뉴명은 One UI 버전에 따라 다를 수 있다.
+3. 개발자 옵션에서 ADB 디버깅 및 무선 디버깅을 켠다.
+4. 무선 디버깅 → 새 기기 페어링에 나온 주소로 `adb pair` 실행 후 페어링 코드를 입력한다.
+5. 무선 디버깅 기본 화면에 표시된 연결 주소로 `adb connect` 실행. 페어링 포트와 연결 포트를 구분한다.
+6. 다운로드한 APK가 있는 폴더에서 아래 명령을 실행한다. IP/포트는 실제 워치 값으로 바꾼다.
+
+```bash
+adb pair WATCH_IP:PAIRING_PORT
+adb connect WATCH_IP:CONNECTION_PORT
+adb -s WATCH_IP:CONNECTION_PORT install -r MOVE60-Watch4-latest.apk
+adb -s WATCH_IP:CONNECTION_PORT shell am start -n com.move60.workout/com.move60.watch.WatchActivity
+```
+
+- 설치 성공 후 워치 앱 목록의 **MOVE60 Watch**를 열고 센서 권한을 허용한다.
+- 서명 충돌 등 설치 실패 시 오류 문구를 확보한다. 기존 앱 삭제/데이터 초기화를 기본 해결책으로 사용하지 않는다.
+- 참고: https://developer.android.com/training/wearables/get-started/debug-wifi
+
+### 기능 범위와 실기기 검증
+
+- 휴대폰이 운동 타이머의 기준이며 워치는 현재 단계·남은 시간을 표시하고 시작/일시정지/다음 단계 명령을 전송한다.
+- 심박수는 워치 앱 화면이 활성화된 동안 측정·전송한다. 앱 화면을 벗어나면 측정을 해제하며 백그라운드 지속 측정은 지원하지 않는다.
+- 타일은 **MOVE60 앱 열기 바로가기**이다. 타일 안에서 실시간 운동 상태/심박수를 표시하지 않는다.
+- 워치4 실기기에서 앱 실행 → 센서 권한 → 휴대폰 운동 시작 → 시간/단계 동기화 → 일시정지/재개 → 수동 다음 단계 → 종료 → 재연결을 확인한다.
+- 워치 착용 후 심박수가 워치와 휴대폰에 표시되는지 확인한다.
+- 워치 타일 추가 목록에서 MOVE60 타일을 추가하고 눌렀을 때 앱이 열리는지 확인한다.
+- 컴파일·휴대폰 에뮬레이터 통과와 워치 실기기 통과는 별개다. 실기기 검증 전에는 워치 기능 정상 완료로 표시하지 않는다.
+
+### v21.0 변경
+
+- Health Services의 `registerMeasureCallback`은 Task를 반환하지 않으므로 잘못 연결된 `addOnFailureListener`를 제거했다.
+- 등록 실패는 공식 `MeasureCallback.onRegistrationFailed`에서 처리한다.
+- 휴대폰·워치 버전 코드를 21로 올려 기존 정식 서명 앱에 덮어쓰기 가능하게 한다.
