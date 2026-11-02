@@ -110,9 +110,13 @@ class WatchDisplayTest {
                     running=true, hasSession=true, stageIndex=1, stageName="유산소",
                     detail="운동 진행", deadline=System.currentTimeMillis()+600_000L))
             }
-            Thread.sleep(1_000)
             val manager = context.getSystemService(NotificationManager::class.java)
-            val notification = manager.activeNotifications.firstOrNull { it.id == 604 }?.notification
+            var notification: Notification? = null
+            val until = System.currentTimeMillis() + 5_000L
+            while (notification == null && System.currentTimeMillis() < until) {
+                notification = manager.activeNotifications.firstOrNull { it.id == 604 }?.notification
+                if (notification == null) Thread.sleep(100)
+            }
             assertNotNull("Ongoing workout notification missing", notification)
             assertTrue(notification!!.flags and Notification.FLAG_ONGOING_EVENT != 0)
             assertNotNull(notification.contentIntent)

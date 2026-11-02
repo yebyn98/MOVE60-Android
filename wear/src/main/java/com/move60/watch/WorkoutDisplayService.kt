@@ -33,6 +33,7 @@ class WorkoutDisplayService : Service(), DataClient.OnDataChangedListener {
     }
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         state = WatchWorkoutState.load(this)
+        android.util.Log.i("MOVE60.WorkoutDisplay", "Start: ongoing=${state.ongoing}, stage=${state.stageIndex}")
         val notification = createNotification()
         if (Build.VERSION.SDK_INT >= 34)
             startForeground(ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
@@ -61,6 +62,7 @@ class WorkoutDisplayService : Service(), DataClient.OnDataChangedListener {
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true).setOnlyAlertOnce(true)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
         ongoing = OngoingActivity.Builder(this, ID, builder)
             .setStaticIcon(R.drawable.ic_workout)
             .setTouchIntent(open)
@@ -82,6 +84,7 @@ class WorkoutDisplayService : Service(), DataClient.OnDataChangedListener {
         for (event in events) if (event.type == DataEvent.TYPE_CHANGED) readState(event.dataItem)
     }
     override fun onDestroy() {
+        android.util.Log.i("MOVE60.WorkoutDisplay", "Stop")
         handler.removeCallbacksAndMessages(null)
         Wearable.getDataClient(this).removeListener(this)
         ongoing = null
