@@ -118,7 +118,7 @@ jobs:
         shell: bash
         run: |
           avdmanager delete avd -n test || true
-          sdkmanager --uninstall 'system-images;android-35;google_apis;x86_64'
+          sdkmanager --uninstall 'system-images;android-35;google_apis;x86_64' || true
           sudo rm -rf /usr/share/dotnet
           df -h /
       - name: Gate release with small round Wear OS workout and ambient UI
@@ -137,7 +137,7 @@ jobs:
         shell: bash
         run: |
           avdmanager delete avd -n move60_wear_gate || true
-          sdkmanager --uninstall 'system-images;android-34;android-wear;x86_64'
+          sdkmanager --uninstall 'system-images;android-34;android-wear;x86_64' || true
           df -h /
       - name: Gate release with workout start, rendered notification and re-entry
         uses: reactivecircus/android-emulator-runner@v2
