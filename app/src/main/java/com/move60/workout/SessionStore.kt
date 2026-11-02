@@ -194,6 +194,7 @@ class SessionStore(private val context: Context, private val data: WorkoutData) 
                 .put("rpe", t.rpe).put("description", t.description))
         }
         return JSONObject().put("running", running).put("finished", finished)
+            .put("sessionStartedAt", sessionStartedAt)
             .put("day", day).put("stage", stage).put("remaining", remaining)
             .put("deadlineAt", deadlineAt).put("activeSeconds", accumulatedActiveSeconds)
             .put("stageElapsedSeconds", stageElapsedSeconds)

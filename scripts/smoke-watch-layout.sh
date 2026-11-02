@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -euo pipefail
+mkdir -p smoke-debug/watch
+adb wait-for-device
+adb shell settings put global device_provisioned 1
+adb shell settings put secure user_setup_complete 1
+adb shell settings put system screen_off_timeout 300000
+adb shell input keyevent KEYCODE_WAKEUP
+adb shell wm size 396x396
+adb shell wm density 330
+adb install -r -g wear/build/outputs/apk/debug/wear-debug.apk
+adb install -r -g wear/build/outputs/apk/androidTest/debug/wear-debug-androidTest.apk
+adb logcat -c
+set +e
+adb shell am instrument -w -r com.move60.workout.test/androidx.test.runner.AndroidJUnitRunner | tee smoke-debug/watch/instrumentation.txt
+result=${PIPESTATUS[0]}
+set -e
+adb logcat -d -v threadtime > smoke-debug/watch/logcat.txt
+adb shell dumpsys notification --noredact > smoke-debug/watch/notifications.txt
+adb pull /sdcard/Android/data/com.move60.workout/files/. smoke-debug/watch/ >/dev/null 2>&1 || true
+test "$result" -eq 0
+grep -q 'OK (4 tests)' smoke-debug/watch/instrumentation.txt
+! grep -q -E 'FAILURES!!!|INSTRUMENTATION_FAILED' smoke-debug/watch/instrumentation.txt
+if grep -q 'FATAL EXCEPTION' smoke-debug/watch/logcat.txt; then
+  echo "Wear OS fatal runtime exception"
+  exit 1
+fi
+echo "PASS: small round Wear OS stage/buttons, ambient layout/restore, stable countdown and ongoing return"

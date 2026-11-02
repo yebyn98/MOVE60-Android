@@ -37,6 +37,7 @@ class WatchCommandService : WearableListenerService() {
             action = WorkoutService.ACTION_SYNC
             putExtra(WorkoutService.EXTRA_SNAPSHOT, store.snapshot())
         }
+        WatchStatePublisher.publishSnapshot(this, store.snapshot())
         if (store.running) {
             if (Build.VERSION.SDK_INT >= 26) startForegroundService(sync) else startService(sync)
         } else {
@@ -45,7 +46,6 @@ class WatchCommandService : WearableListenerService() {
                 .putString("snapshot", store.snapshot()).apply()
             stopService(Intent(this, WorkoutService::class.java))
             WorkoutWidget.refresh(this)
-            WatchStatePublisher.publish(this, false, "", 0L)
         }
     }
 }

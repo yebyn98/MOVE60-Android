@@ -262,12 +262,7 @@ class WorkoutService : Service() {
         val c = cue(now)
         WorkoutWidget.refresh(this)
         try {
-            val data = PutDataMapRequest.create("/move60/workout")
-            data.dataMap.putBoolean("running", true)
-            data.dataMap.putString("stage", c.title)
-            data.dataMap.putLong("deadline", c.ends)
-            data.dataMap.putLong("updated", now)
-            Wearable.getDataClient(this).putDataItem(data.asPutDataRequest().setUrgent())
+            WatchStatePublisher.publishSnapshot(this, snapshot.toString())
         } catch (e: Exception) { logFailure("Watch sync failed: " + e.message) }
         val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         val enhancedCardEnabled = prefs.getBoolean("enhanced_card_enabled", false)
@@ -331,12 +326,7 @@ class WorkoutService : Service() {
 
     private fun stopWork() {
         try {
-            val data = PutDataMapRequest.create("/move60/workout")
-            data.dataMap.putBoolean("running", false)
-            data.dataMap.putString("stage", "")
-            data.dataMap.putLong("deadline", 0L)
-            data.dataMap.putLong("updated", System.currentTimeMillis())
-            Wearable.getDataClient(this).putDataItem(data.asPutDataRequest().setUrgent())
+            WatchStatePublisher.publishSnapshot(this, snapshot.toString())
         } catch (e: Exception) { logFailure("Watch stop sync failed: " + e.message) }
         WorkoutWidget.refresh(this)
         prefs.edit().putLong("history_checkpoint_ms", 0L).apply()

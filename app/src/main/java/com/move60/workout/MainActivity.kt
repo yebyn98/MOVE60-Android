@@ -758,6 +758,7 @@ class MainActivity : Activity() {
 
     private fun syncService() {
         if (recoveryMode) return
+        WatchStatePublisher.publishSnapshot(this, session.snapshot())
         val intent = Intent(this, WorkoutService::class.java)
         if (session.running && !session.finished) {
             intent.action = WorkoutService.ACTION_SYNC
@@ -770,7 +771,6 @@ class MainActivity : Activity() {
             }
         } else {
             stopService(intent)
-            WatchStatePublisher.publish(this, false, "", 0L)
         }
     }
 

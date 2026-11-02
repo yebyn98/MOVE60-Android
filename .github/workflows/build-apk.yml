@@ -71,7 +71,7 @@ jobs:
               "watch heart rate permission callback": "onRequestPermissionsResult(" in watch and "registerHeartRateIfPermitted()" in watch,
               "watch heart rate service cleanup": "sensorManager.unregisterListener(this)" in watch_sensor and "it.release()" in watch_sensor,
               "watch heart rate service manifest": 'android:foregroundServiceType="health"' in watch_manifest and "FOREGROUND_SERVICE_HEALTH" in watch_manifest,
-              "watch screen remains on during workout": "FLAG_KEEP_SCREEN_ON" in watch,
+              "watch ambient and ongoing workout display": "AmbientLifecycleObserver" in watch and "WorkoutDisplayService" in watch_manifest,
               "watch sensor samples preserve timestamps": "event.timestamp" in watch_sensor and "measuredAt" in watch_sensor,
               "phone heart rate box": 'contentDescription = "실시간 심박수"' in ui and 'heartRateValue.text' in ui,
               "watch tile manifest registration": "WorkoutTileService" in watch_manifest and "BIND_TILE_PROVIDER" in watch_manifest,
@@ -96,7 +96,7 @@ jobs:
           echo "MOVE60_KEY_ALIAS=$MOVE60_KEY_ALIAS" >> "$GITHUB_ENV"
           echo 'MOVE60_SIGNED=true' >> "$GITHUB_ENV"
       - name: Build Kotlin debug APK for compilation verification
-        run: gradle --no-daemon --stacktrace :app:assembleDebug :wear:assembleDebug
+        run: gradle --no-daemon --stacktrace :app:assembleDebug :wear:assembleDebug :wear:assembleDebugAndroidTest
       - name: Upload Wear OS companion APK
         uses: actions/upload-artifact@v4
         with:
@@ -124,6 +124,17 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -memory 4096
           disable-animations: true
           script: bash scripts/smoke-android.sh
+      - name: Gate release with small round Wear OS workout and ambient UI
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: android-wear
+          profile: wearos_small_round
+          avd-name: move60_wear_gate
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -memory 3072
+          disable-animations: true
+          script: bash scripts/smoke-watch-layout.sh
       - name: Upload release-gate runtime evidence
         if: always()
         uses: actions/upload-artifact@v4
