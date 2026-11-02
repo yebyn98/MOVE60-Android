@@ -20,7 +20,8 @@ data class DailyRoutine(
     val desc: String, val tag: String, val stages: List<WorkoutStage>
 )
 
-class WorkoutData(context: Context) {
+class WorkoutData(private val context: Context) {
+    private fun contextPreferencesCondition() = context.getSharedPreferences("preferences", Context.MODE_PRIVATE).getString("condition", "보통")
     private val choices = ExercisePreferences(context)
     private val prefs = context.getSharedPreferences("move60_duration_v1", Context.MODE_PRIVATE)
     fun setCardioMinutes(minutes: Int) { require(minutes in 20..40 && minutes % 5 == 0); prefs.edit().putInt("cardio_minutes", minutes).apply() }
@@ -59,12 +60,12 @@ class WorkoutData(context: Context) {
         return true
     }
 
-    fun routine(day: Int): DailyRoutine {
+    fun routine(day: Int, week: Long = weekOrdinal()): DailyRoutine {
         val d = day.coerceIn(1, 5)
         val obj = plan.getJSONObject(d.toString())
         val warm = obj.getJSONArray("warmTasks").pairs().map { (name, note) -> WorkoutTask(name, note, "준비운동") }
         val cardioOptions = obj.optJSONArray("cardioOptions")?.strings() ?: listOf("실내 사이클")
-        val cardioMachine = cardioOptions[Math.floorMod(weekOrdinal() + d, cardioOptions.size.toLong()).toInt()]
+        val cardioMachine = cardioOptions[Math.floorMod(week + d, cardioOptions.size.toLong()).toInt()]
         val phases = mutableListOf<WorkoutTask>()
         val phaseData = obj.getJSONArray("cyclePhases")
         fun addPhase(phase: JSONObject, round: String = "") {
@@ -105,13 +106,31 @@ class WorkoutData(context: Context) {
             val extra = cardioTarget - originalCardioSeconds
             phases += WorkoutTask("추가 유산소 · 편안한 페이스", "${extra / 60}분 · RPE 4", cardioMachine, seconds = extra, rpe = "4", description = "무리하지 않는 일정한 속도", phaseIndex = phases.size)
         }
+        // Preserve the cardio budget while capping stair climbing to 10–15 minutes.
+        if (cardioMachine == "스텝밀") {
+            val stairMinutes = if (contextPreferencesCondition() == "피곤") 10 else 15
+            val stairs = minOf(stairMinutes, cardioMinutes())
+            val cycle = cardioMinutes() - stairs
+            phases.clear()
+            fun segment(machine: String, label: String, minutes: Int, rpe: String) {
+                if (minutes <= 0) return
+                phases += WorkoutTask("$machine · $label", "${minutes}분 · RPE $rpe", machine,
+                    seconds = minutes * 60, rpe = rpe, description = "편안한 자세와 일정한 호흡 유지", phaseIndex = phases.size)
+            }
+            segment("스텝밀", "도입", 2, "3")
+            segment("스텝밀", "유지", stairs - 4, "4~5")
+            segment("스텝밀", "정리", 2, "3")
+            segment("실내 사이클", "전환 · 도입", minOf(3, cycle), "3")
+            segment("실내 사이클", "유지", cycle - 5, "4~5")
+            segment("실내 사이클", "정리", minOf(2, (cycle-3).coerceAtLeast(0)), "3")
+        }
         val pool = pools.getJSONArray(d.toString())
         val repsForDay = reps.getJSONArray(d.toString())
         val used = mutableSetOf<String>()
         val strength = (0 until pool.length()).map { slot ->
             val options = pool.getJSONArray(slot).strings()
             val hash = fnv1a("exercise-choice-v4-$d-$slot")
-            val base = (hash + weekOrdinal())
+            val base = (hash + week)
             var picked = options[Math.floorMod(base, options.size.toLong()).toInt()]
             for (j in 1 until options.size) {
                 if (picked !in used) break
@@ -125,7 +144,7 @@ class WorkoutData(context: Context) {
         val finish = stretches.pairs().map { (name, note) -> WorkoutTask(name, note, "마무리 스트레칭") }
         val stages = listOf(
             WorkoutStage("준비운동", "관절 가동성 · 워밍업", obj.getInt("warm"), warm),
-            WorkoutStage(cardioMachine, "이번 주 유산소 · 실시간 구간 체크리스트", cardioMinutes(), phases),
+            WorkoutStage(if (cardioMachine == "스텝밀") "스텝밀 + 실내 사이클" else cardioMachine, "이번 주 유산소 · 실시간 구간 체크리스트", cardioMinutes(), phases),
             WorkoutStage("근력운동", "이번 주 랜덤 운동 · 세트/횟수", 50 - cardioMinutes(), strength),
             WorkoutStage("마무리 스트레칭", "호흡 회복 · 유연성", obj.getInt("stretch"), finish)
         )
@@ -146,3 +165,4 @@ class WorkoutData(context: Context) {
 
 private fun JSONArray.strings() = (0 until length()).map { getString(it) }
 private fun JSONArray.pairs() = (0 until length()).map { getJSONArray(it).let { a -> a.getString(0) to a.getString(1) } }
+

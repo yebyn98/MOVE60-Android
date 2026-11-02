@@ -96,7 +96,7 @@ jobs:
           echo "MOVE60_KEY_ALIAS=$MOVE60_KEY_ALIAS" >> "$GITHUB_ENV"
           echo 'MOVE60_SIGNED=true' >> "$GITHUB_ENV"
       - name: Build Kotlin debug APK for compilation verification
-        run: gradle --no-daemon --stacktrace :app:assembleDebug :wear:assembleDebug :wear:assembleDebugAndroidTest
+        run: gradle --no-daemon --stacktrace :app:assembleDebug :wear:assembleDebug :wear:assembleDebugAndroidTest :app:assembleDebugAndroidTest
       - name: Upload Wear OS companion APK
         uses: actions/upload-artifact@v4
         with:
@@ -148,7 +148,9 @@ jobs:
           profile: pixel_6
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -memory 4096
           disable-animations: true
-          script: bash scripts/smoke-android.sh
+          script: |
+            bash scripts/smoke-android.sh
+            bash scripts/smoke-phone-features.sh
       - name: Upload release-gate runtime evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -218,3 +220,4 @@ jobs:
             git commit -qm "Publish MOVE60 version $(python3 -c 'import json;print(json.load(open("latest.json"))["versionName"])')"
             git -c "http.extraheader=AUTHORIZATION: basic $(printf 'x-access-token:%s' "$MOVE60_UPDATES_PAT" | base64 -w0)" push -q origin HEAD:main
           fi
+

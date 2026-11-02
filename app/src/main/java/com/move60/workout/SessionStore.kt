@@ -198,6 +198,7 @@ class SessionStore(private val context: Context, private val data: WorkoutData) 
             .put("day", day).put("stage", stage).put("remaining", remaining)
             .put("deadlineAt", deadlineAt).put("activeSeconds", accumulatedActiveSeconds)
             .put("stageElapsedSeconds", stageElapsedSeconds)
-            .put("stageSeconds", times).put("phases", phases).toString()
+            .put("cardioMachine", routine.stages[1].name).put("stageSeconds", times).put("phases", phases).toString()
     }
 }
+

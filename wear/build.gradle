@@ -6,8 +6,8 @@ android {
         applicationId 'com.move60.workout'
         minSdk 30
         targetSdk 35
-        versionCode 24
-        versionName '24.0'
+        versionCode 25
+        versionName '25.0'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
   signingConfigs {
@@ -44,3 +44,4 @@ dependencies {
     implementation 'androidx.wear.protolayout:protolayout:1.4.2'
     implementation 'com.google.guava:guava:33.4.8-android'
 }
+

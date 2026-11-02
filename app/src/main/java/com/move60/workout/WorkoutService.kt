@@ -113,6 +113,7 @@ class WorkoutService : Service() {
                 val sliceEnd = min(until, nextMidnight)
                 val seconds = (sliceEnd - cursor) / 1000L
                 if (seconds > 0L) {
+                    EnergyLedger(this).add(date, cursor, cursor + seconds * 1000L, old)
                     history.addActiveSeconds(date, seconds)
                     prefs.edit().putLong("history_checkpoint_ms", cursor + seconds * 1000L).commit()
                 }
@@ -347,3 +348,4 @@ class WorkoutService : Service() {
     }
     override fun onBind(intent: Intent?): IBinder? = null
 }
+

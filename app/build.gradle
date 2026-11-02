@@ -6,8 +6,9 @@ android {
     applicationId 'com.move60.workout'
     minSdk 26
     targetSdk 35
-    versionCode 24
-    versionName '24.0'
+    versionCode 25
+    versionName '25.0'
+    testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
   }
   signingConfigs {
     stable {
@@ -33,4 +34,11 @@ android {
   kotlinOptions { jvmTarget = '17' }
 }
 
-dependencies { implementation 'com.google.android.gms:play-services-wearable:19.0.0' }
+dependencies {
+    implementation 'com.google.android.gms:play-services-wearable:19.0.0'
+    androidTestImplementation 'androidx.test:runner:1.6.2'
+    androidTestImplementation 'androidx.test:core:1.6.1'
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.6.1'
+}
+

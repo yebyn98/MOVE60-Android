@@ -47,6 +47,7 @@ class MainActivity : Activity() {
     private lateinit var progress: ProgressBar
     private lateinit var dockStage: TextView
     private lateinit var dockTime: TextView
+    private lateinit var dockCalories: TextView
     private lateinit var dockHeartRate: TextView
     private lateinit var play: TextView
     private lateinit var previous: TextView
@@ -67,14 +68,13 @@ class MainActivity : Activity() {
             if (changed) {
                 session.save()
                 syncService()
-                if (soundEnabled) playTone()
             }
             val phase = session.phase()?.first ?: -1
             val phaseKey = "${session.day}:${session.stage}:$phase"
-            if (phaseKey != lastPhaseKey || changed || lastDay != session.day || lastStage != session.stage) {
+            if (phaseKey != lastPhaseKey || lastDay != session.day || lastStage != session.stage) {
                 val previousPhase = lastPhaseKey
                 lastPhaseKey = phaseKey
-                if (previousPhase.isNotEmpty() && previousPhase != phaseKey && !changed && session.running && soundEnabled) playTone()
+                if (previousPhase.isNotEmpty() && previousPhase != phaseKey && session.running && soundEnabled) playTone()
                 renderStages()
                 renderSummary()
             }
@@ -101,9 +101,6 @@ class MainActivity : Activity() {
         }
         soundEnabled = getSharedPreferences("preferences", MODE_PRIVATE).getBoolean("sound", true)
         calorieWeightKg = getSharedPreferences("preferences", MODE_PRIVATE).getFloat("calorie_weight_kg", 63f).toDouble()
-        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 25)
-        }
         val root = column().apply {
             setBackgroundColor(this@MainActivity.background)
             setOnApplyWindowInsetsListener { view, insets ->
@@ -142,7 +139,7 @@ class MainActivity : Activity() {
         handler.post(ticker)
         if (!recoveryMode) {
             if (session.running) syncService()
-            updateManager.check(false)
+            // Updates are opened from the dedicated settings screen.
         } else {
             handler.postDelayed({
                 if (!isFinishing && !isDestroyed) {
@@ -154,7 +151,7 @@ class MainActivity : Activity() {
                             CrashReporter.acknowledge(this)
                             recoveryMode = false
                             if (session.running) syncService()
-                            updateManager.check(false)
+                            // Updates are opened from the dedicated settings screen.
                         }.show()
                 }
             }, 750L)
@@ -168,7 +165,7 @@ class MainActivity : Activity() {
         val days = history.month(month)
         val trained = days.count { it.activeSeconds > 0L }
         val minutes = days.sumOf { it.activeMinutes }
-        val estimated = (minutes * 4.5 * 3.5 * calorieWeightKg / 200.0).toInt()
+        val estimated = days.sumOf { EnergyLedger(this).estimate(it.date) }.toInt()
         val panel = column().apply { setPadding(dp(20), dp(18), dp(20), dp(18)) }
         panel.addView(label("${month.year}년 ${month.monthValue}월 운동 요약", 19, true, mint))
         addGap(panel, 12)
@@ -179,40 +176,62 @@ class MainActivity : Activity() {
         panel.addView(label("일별 운동 시간", 13, true, textSecondary))
         panel.addView(MonthlyActivityChart(this, days.map { it.activeMinutes }))
         addGap(panel, 10)
-        panel.addView(label("월간 실제 활동시간 기준, 평균 MET 4.5로 계산한 참고값입니다. 심박수 측정값이 아닙니다.", 12, false, textSecondary))
+        panel.addView(label("실제 활동시간과 입력한 완료 세트 기반 추정치입니다. 이전 기록은 평균 MET 4.5를 사용합니다.", 12, false, textSecondary))
         AlertDialog.Builder(this).setTitle("운동 성과").setView(panel).setPositiveButton("닫기", null).show()
     }
 
     private fun showWorkoutCalendar() {
         val history = WorkoutHistory(this)
-        val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(12), dp(16), dp(12))
-        }
-        val totals = TextView(this).apply { textSize = 16f }
-        val selected = TextView(this).apply { textSize = 15f }
-        val performance = TextView(this).apply { textSize = 15f }
-        val calendar = CalendarView(this)
-        root.addView(totals)
-        root.addView(calendar)
-        root.addView(selected)
-        root.addView(performance)
-        fun render(date: java.time.LocalDate) {
-            val month = java.time.YearMonth.from(date)
-            val seconds = history.totalActiveSeconds(month)
-            totals.text = "${month.year}년 ${month.monthValue}월 · ${history.trainedDays(month)}일 · ${seconds / 3600}시간 ${(seconds % 3600) / 60}분"
-            selected.text = "${date} · 운동 ${history.record(date).activeMinutes}분"
+        val ledger = EnergyLedger(this)
+        val root = column().apply { setPadding(dp(16), dp(12), dp(16), dp(12)) }
+        val navigation = row().apply { gravity = Gravity.CENTER_VERTICAL }
+        val monthLabel = label("", 18, true, mint).apply { gravity = Gravity.CENTER }
+        var month = java.time.YearMonth.from(data.localToday())
+        var selectedDate = data.localToday()
+        val grid = GridLayout(this).apply { columnCount = 7; contentDescription = "운동 기록 달력" }
+        val totals = label("", 13, false, textSecondary)
+        val selected = label("", 14, true)
+        fun render() {
+            monthLabel.text = "${month.year}년 ${month.monthValue}월"
+            grid.removeAllViews()
+            listOf("월", "화", "수", "목", "금", "토", "일").forEach { name ->
+                grid.addView(label(name, 12, true, textSecondary).apply { gravity = Gravity.CENTER },
+                    GridLayout.LayoutParams().apply { width = 0; height = dp(30); columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f) })
+            }
+            repeat(month.atDay(1).dayOfWeek.value - 1) {
+                grid.addView(View(this), GridLayout.LayoutParams().apply { width = 0; height = dp(46); columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f) })
+            }
+            for (day in 1..month.lengthOfMonth()) {
+                val date = month.atDay(day)
+                val trained = history.record(date).activeSeconds > 0L
+                val cell = column().apply {
+                    gravity = Gravity.CENTER
+                    contentDescription = "$date · ${if (trained) "운동 기록 있음" else "운동 기록 없음"}"
+                    if (date == selectedDate) background = rounded(subtle, 8)
+                    isClickable = true
+                    isFocusable = true
+                    setOnClickListener { selectedDate = date; render() }
+                }
+                cell.addView(label(day.toString(), 13, date == selectedDate).apply { gravity = Gravity.CENTER })
+                cell.addView(View(this).apply { tag = "calendar-dot-$date"; background = rounded(mint, 4); visibility = if (trained) View.VISIBLE else View.INVISIBLE }, LinearLayout.LayoutParams(dp(5), dp(5)).apply { topMargin = dp(3) })
+                grid.addView(cell, GridLayout.LayoutParams().apply { width = 0; height = dp(46); columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f) })
+            }
             val days = history.month(month)
-            val minutes = days.sumOf { it.activeMinutes }
-            val estimated = (minutes * 4.5 * 3.5 * calorieWeightKg / 200.0).toInt()
-            performance.text = "월간 성과 · ${history.trainedDays(month)}일 / ${minutes}분 / 약 ${estimated} kcal\n선택 날짜의 실제 활동시간을 기준으로 표시합니다."
+            val kcal = days.sumOf { ledger.estimate(it.date) }.toInt()
+            totals.text = "${history.trainedDays(month)}일 · ${history.totalActiveSeconds(month) / 60}분 · 약 ${kcal} kcal\n● 운동한 날"
+            selected.text = "$selectedDate · ${history.record(selectedDate).activeMinutes}분 · 약 ${ledger.estimate(selectedDate).toInt()} kcal"
         }
-        calendar.setOnDateChangeListener { _, year, month, day ->
-            render(java.time.LocalDate.of(year, month + 1, day))
-        }
-        render(data.localToday())
-        AlertDialog.Builder(this).setTitle("운동 달력").setView(root)
-            .setPositiveButton("닫기", null).show()
+        navigation.addView(actionButton("‹", false) { month = month.minusMonths(1); selectedDate = month.atDay(1); render() }, LinearLayout.LayoutParams(dp(44), dp(44)))
+        navigation.addView(monthLabel, LinearLayout.LayoutParams(0, dp(44), 1f))
+        navigation.addView(actionButton("›", false) { month = month.plusMonths(1); selectedDate = month.atDay(1); render() }, LinearLayout.LayoutParams(dp(44), dp(44)))
+        root.addView(navigation)
+        root.addView(grid)
+        addGap(root, 12)
+        root.addView(totals)
+        addGap(root, 8)
+        root.addView(selected)
+        render()
+        AlertDialog.Builder(this).setTitle("운동 달력").setView(root).setPositiveButton("닫기", null).show()
     }
 
     private fun constructInterface() {
@@ -220,13 +239,10 @@ class MainActivity : Activity() {
         val header = row().apply { gravity = Gravity.CENTER_VERTICAL }
         header.addView(label("MOVE", 24, true), LinearLayout.LayoutParams(0, -2, 1f))
         header.addView(label("60", 24, true, mint))
-        header.addView(actionButton("🔔", false) { showNotificationDiagnostics() }.apply { textSize = 15f; contentDescription = "알림 진단" }, LinearLayout.LayoutParams(dp(42), dp(35)).apply { leftMargin = dp(6) })
-        header.addView(actionButton("운동 달력", false) { showWorkoutCalendar() }.apply { textSize = 11f }, LinearLayout.LayoutParams(-2, dp(35)).apply { leftMargin = dp(10) })
-        header.addView(actionButton("업데이트 ↗", false) { updateManager.check(true) }.apply {
-            textSize = 11f
-            minHeight = dp(34)
-            setPadding(dp(9), dp(5), dp(9), dp(5))
-        }, LinearLayout.LayoutParams(-2, dp(35)).apply { leftMargin = dp(13) })
+        header.addView(actionButton("운동 달력", false) { showWorkoutCalendar() }.apply { textSize = 11f; tag = "phone_calendar" }, LinearLayout.LayoutParams(-2, dp(40)).apply { leftMargin = dp(8) })
+        header.addView(actionButton("앱 설정", false) {
+            startActivity(Intent(this, SettingsActivity::class.java).putExtra("day", session.day))
+        }.apply { textSize = 11f; tag = "phone_settings" }, LinearLayout.LayoutParams(-2, dp(40)).apply { leftMargin = dp(8) })
         content.addView(header)
         addGap(content, 21)
         content.addView(label("WEEKDAY WORKOUT", 11, true, mint))
@@ -268,75 +284,6 @@ class MainActivity : Activity() {
         stageStack = column()
         content.addView(stageStack)
         addGap(content, 18)
-        val settings = column().apply { setPadding(dp(5), dp(4), dp(5), dp(4)) }
-        settings.addView(label("앱 설정", 13, true, textSecondary))
-        addGap(settings, 8)
-        val preferenceRow = row().apply { gravity = Gravity.CENTER_VERTICAL }
-        val soundSwitch = Switch(this).apply {
-            text = "구간 전환 알림음"
-            textSize = 12f
-            setTextColor(textSecondary)
-            isChecked = soundEnabled
-            setOnCheckedChangeListener { _, enabled ->
-                soundEnabled = enabled
-                getSharedPreferences("preferences", MODE_PRIVATE).edit().putBoolean("sound", enabled).apply()
-            }
-        }
-        preferenceRow.addView(soundSwitch, LinearLayout.LayoutParams(0, -2, 1f))
-        settings.addView(actionButton("유산소 · 근력 시간 비율 변경", false) {
-            if (session.running || session.elapsed() > 0) {
-                Toast.makeText(this, "운동 시작 전 초기 상태에서 변경해 주세요.", Toast.LENGTH_LONG).show()
-            } else {
-                val minutes = listOf(20, 25, 30, 35, 40)
-                AlertDialog.Builder(this).setTitle("60분 운동 시간 배분")
-                    .setSingleChoiceItems(minutes.map { "유산소 ${it}분 · 근력 ${50 - it}분" }.toTypedArray(),
-                        minutes.indexOf(data.cardioMinutes())) { dialog, which ->
-                        data.setCardioMinutes(minutes[which])
-                        session.refreshRoutine()
-                        renderSummary()
-                        renderStages()
-                        refreshTimer()
-                        dialog.dismiss()
-                    }.setNegativeButton("취소", null).show()
-            }
-        })
-        addGap(settings, 8)
-        settings.addView(preferenceRow)
-        addGap(settings, 8)
-        settings.addView(actionButton("칼로리 계산 체중 설정 ↗", false) {
-            val input = EditText(this).apply {
-                inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
-                setText(calorieWeightKg.toString())
-            }
-            AlertDialog.Builder(this).setTitle("칼로리 추정용 체중 (kg)")
-                .setMessage("운동 칼로리는 추정치이며 실제 소모량과 다를 수 있어요.")
-                .setView(input)
-                .setNegativeButton("취소", null)
-                .setPositiveButton("저장") { _, _ ->
-                    val value = input.text.toString().toDoubleOrNull()
-                    if (value != null && value in 25.0..300.0) {
-                        calorieWeightKg = value
-                        getSharedPreferences("preferences", MODE_PRIVATE).edit().putFloat("calorie_weight_kg", value.toFloat()).apply()
-                        renderSummary()
-                    } else Toast.makeText(this, "25~300kg 범위로 입력해 주세요.", Toast.LENGTH_SHORT).show()
-                }.show()
-        })
-        addGap(settings, 8)
-        settings.addView(label("오늘 컨디션에 맞춘 루틴", 12, true, textSecondary))
-        val conditionRow = row()
-        listOf("피곤" to "세트당 반복 20% 감소 · RPE 1 낮춤", "보통" to "계획대로 진행", "좋음" to "자세 유지 시 마지막 세트 1회 추가").forEachIndexed { index, option ->
-            conditionRow.addView(actionButton(option.first, false) {
-                getSharedPreferences("preferences", MODE_PRIVATE).edit().putString("condition", option.first).apply()
-                Toast.makeText(this, option.second, Toast.LENGTH_LONG).show()
-                renderStages()
-            }, LinearLayout.LayoutParams(0, dp(42), 1f).apply { if (index > 0) leftMargin = dp(5) })
-        }
-        settings.addView(conditionRow)
-        addGap(settings, 8)
-        settings.addView(label("MOVE60 ${packageManager.getPackageInfo(packageName, 0).versionName}", 11, false, textSecondary))
-        addGap(settings, 8)
-        settings.addView(actionButton("오류 기록 확인 · 복사 · 삭제", false) { CrashReporter.showDiagnostics(this) })
-        content.addView(settings)
         renderDayStrip()
         renderSummary()
         renderStages()
@@ -435,19 +382,25 @@ class MainActivity : Activity() {
         }
         state.addView(dockHeartRate, LinearLayout.LayoutParams(-2, -2).apply { leftMargin = dp(8) })
         dock.addView(state)
+        dockCalories = label("오늘 누적 0 kcal · 추정", 12, true, mint).apply { contentDescription = "오늘 누적 운동 칼로리" }
+        dock.addView(dockCalories)
         addGap(dock, 8)
         play = actionButton("▶ 운동 시작", true) {
-            if (session.running) session.pause() else session.start()
+            if (session.running) session.pause() else {
+                if (session.finished || session.elapsed() == 0) session.refreshRoutine()
+                session.start()
+                SetRecordStore(this).beginSession(session.day, session.sessionStartedAt)
+            }
             syncService()
             renderSummary()
             renderStages()
             refreshTimer()
-        }.apply { contentDescription = "운동 시작 또는 일시정지" }
+        }.apply { contentDescription = "운동 시작 또는 일시정지"; tag = "phone_play" }
         dock.addView(play, LinearLayout.LayoutParams(-1, -2))
         addGap(dock, 7)
         val buttons = row()
         previous = actionButton("← 이전 단계", false) { session.jumpTo(session.stage - 1); afterAction() }
-        next = actionButton("다음 단계 →", false) { session.nextStage(); afterAction() }
+        next = actionButton("다음 단계 →", false) { session.nextStage(); afterAction() }.apply { tag = "phone_next" }
         buttons.addView(previous, LinearLayout.LayoutParams(0, -2, 1f))
         buttons.addView(next, LinearLayout.LayoutParams(0, -2, 1f).apply { leftMargin = dp(7) })
         dock.addView(buttons)
@@ -578,23 +531,75 @@ class MainActivity : Activity() {
                     val progress = label("세트 완료  ${checkedCount} / ${count}", 11, true, if (checkedCount == count) mint else textSecondary)
                     progress.setPadding(dp(12), dp(4), 0, dp(3))
                     block.addView(progress)
-                    val targetReps = task.detail.substringAfter("×", task.detail).trim()
-                    val setRow = row().apply { gravity = Gravity.CENTER_VERTICAL }
+                    val setRecords = SetRecordStore(this)
+                    val labels = row()
+                    listOf("세트", "중량 kg", "횟수", "RPE", "완료").forEachIndexed { index, title ->
+                        labels.addView(label(title, 10, true, textSecondary).apply { gravity = Gravity.CENTER },
+                            LinearLayout.LayoutParams(0, dp(28), if (index == 1) 1.3f else 1f))
+                    }
+                    block.addView(labels)
                     for (set in 1..count) {
                         val key = "strength-${session.day}-${task.id}-${set}"
-                        val checked = key in session.checked
-                        val check = actionButton(if (checked) "✓ ${set}세트" else "□ ${set}세트", checked) {
-                            session.toggleChecked(key, key !in session.checked)
-                            renderStages()
+                        val saved = setRecords.read(session.day, task.id, set, token = session.sessionStartedAt)
+                        val fields = row().apply { gravity = Gravity.CENTER_VERTICAL }
+                        fields.addView(label("${set}", 12, true).apply { gravity = Gravity.CENTER }, LinearLayout.LayoutParams(0, dp(48), 1f))
+                        fun input(value: String, hint: String, decimal: Boolean = false): EditText = EditText(this).apply {
+                            setText(value)
+                            this.hint = hint
+                            textSize = 13f
+                            setTextColor(textPrimary)
+                            setHintTextColor(textSecondary)
+                            setSingleLine(true)
+                            setSelectAllOnFocus(true)
+                            setPadding(dp(3), dp(4), dp(3), dp(4))
+                            inputType = android.text.InputType.TYPE_CLASS_NUMBER or if (decimal) android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL else 0
+                            contentDescription = "${task.name} ${set}세트 $hint"
                         }
-                        setRow.addView(check, LinearLayout.LayoutParams(0, dp(42), 1f).apply {
-                            if (set > 1) leftMargin = dp(5)
-                        })
+                        val kg = input(saved.kg, "kg", true).apply { tag = "set-${task.id}-$set-kg" }
+                        val reps = input(saved.reps, "회").apply { tag = "set-${task.id}-$set-reps" }
+                        val effort = input(saved.rpe, "RPE").apply { tag = "set-${task.id}-$set-rpe" }
+                        fields.addView(kg, LinearLayout.LayoutParams(0, dp(48), 1.3f))
+                        fields.addView(reps, LinearLayout.LayoutParams(0, dp(48), 1f))
+                        fields.addView(effort, LinearLayout.LayoutParams(0, dp(48), 1f))
+                        val check = CheckBox(this).apply {
+                            tag = "set-${task.id}-$set-check"
+                            isChecked = key in session.checked || saved.completed
+                            buttonTintList = android.content.res.ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()), intArrayOf(mint, textSecondary))
+                            contentDescription = "${task.name} ${set}세트 완료"
+                            gravity = Gravity.CENTER
+                            setPadding(0, 0, 0, 0)
+                        }
+                        fun saveEntry() {
+                            val record = SetRecordStore.Record(kg.text.toString(), reps.text.toString(), effort.text.toString(), check.isChecked)
+                            setRecords.write(session.day, task.id, set, record, token = session.sessionStartedAt)
+                            if (!record.valid && check.isChecked) check.isChecked = false
+                            refreshTimer()
+                        }
+                        listOf(kg, reps, effort).forEach { field ->
+                            field.addTextChangedListener(object : android.text.TextWatcher {
+                                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+                                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { saveEntry() }
+                                override fun afterTextChanged(s: android.text.Editable?) = Unit
+                            })
+                        }
+                        check.setOnCheckedChangeListener { _, checked ->
+                            val record = SetRecordStore.Record(kg.text.toString(), reps.text.toString(), effort.text.toString(), checked)
+                            if (checked && !record.valid) {
+                                check.isChecked = false
+                                Toast.makeText(this, "중량(맨몸 0)·횟수·RPE를 확인해 주세요.", Toast.LENGTH_SHORT).show()
+                            } else {
+                                session.toggleChecked(key, checked)
+                                setRecords.write(session.day, task.id, set, record, token = session.sessionStartedAt)
+                                val doneSets = (1..count).count { n -> "strength-${session.day}-${task.id}-$n" in session.checked }
+                                progress.text = "세트 완료  ${doneSets} / ${count}"
+                                progress.setTextColor(if (doneSets == count) mint else textSecondary)
+                                refreshTimer()
+                            }
+                        }
+                        fields.addView(check, LinearLayout.LayoutParams(0, dp(48), 1f))
+                        block.addView(fields)
                     }
-                    block.addView(setRow)
-                    block.addView(label("세트당 목표: ${targetReps} · 완료한 세트만 선택하세요.", 11, false, textSecondary).apply {
-                        setPadding(dp(12), dp(6), 0, dp(4))
-                    })
+                    block.addView(label("맨몸은 0kg · RPE 1~10 · 입력값 자동 저장", 10, false, textSecondary))
                     addGap(block, 7)
                 }
             }
@@ -663,7 +668,7 @@ class MainActivity : Activity() {
             val slot = session.routine.stages[2].tasks.indexOfFirst { it.id == task.id }
             detailContent.addView(label("최근 기록: ${exercisePrefs.log(task.id)}", 12, false, mint))
             addGap(detailContent, 8)
-            detailContent.addView(actionButton("중량 · 세트 기록", false) { showSetLogger(task) })
+            detailContent.addView(label("중량·횟수는 운동 화면의 각 세트에서 입력하세요.", 12, false, textSecondary))
             addGap(detailContent, 6)
             if (slot >= 0) detailContent.addView(actionButton("같은 부위 운동으로 교체", false) { showExerciseSwap(slot) })
         } else {
@@ -672,28 +677,6 @@ class MainActivity : Activity() {
         panel.addView(scroll, LinearLayout.LayoutParams(-1, dp(460)))
         AlertDialog.Builder(this).setTitle(task.name).setView(panel)
             .setPositiveButton("닫기", null).show()
-    }
-
-    private fun showSetLogger(task: WorkoutTask) {
-        val fields = column().apply { setPadding(dp(20), dp(10), dp(20), dp(10)) }
-        fun field(hint: String): EditText = EditText(this).apply {
-            this.hint = hint
-            inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
-            fields.addView(this)
-        }
-        val weight = field("중량 kg (맨몸이면 0)")
-        val reps = field("횟수")
-        val sets = field("세트")
-        AlertDialog.Builder(this).setTitle(task.name + " 수행 기록").setView(fields)
-            .setNegativeButton("취소", null).setPositiveButton("저장") { _, _ ->
-                val kg = weight.text.toString().toDoubleOrNull()
-                val r = reps.text.toString().toIntOrNull()
-                val n = sets.text.toString().toIntOrNull()
-                if (kg != null && kg in 0.0..500.0 && r != null && r in 1..100 && n != null && n in 1..20) {
-                    exercisePrefs.setLog(task.id, kg, r, n)
-                    Toast.makeText(this, "운동 기록 저장 완료", Toast.LENGTH_SHORT).show()
-                } else Toast.makeText(this, "중량·횟수·세트를 확인해 주세요.", Toast.LENGTH_SHORT).show()
-            }.show()
     }
 
     private fun showExerciseSwap(slot: Int) {
@@ -751,7 +734,19 @@ class MainActivity : Activity() {
         dockTime.text = "${formatTime(session.remaining)} 남음\n${formatTime(elapsed)} 누적"
         play.text = if (session.finished) "↻ 새 운동 시작" else if (session.running) "Ⅱ 일시정지" else "▶ 운동 시작"
         previous.alpha = if (session.stage == 0) .4f else 1f
-        next.alpha = if (session.stage == 3) .4f else 1f
+        next.text = if (session.stage == 3) "운동 종료" else "다음 단계 →"
+        next.isEnabled = !session.finished
+        next.alpha = if (session.finished) .4f else 1f
+        val strengthTasks = session.routine.stages[2].tasks
+        val totalSets = strengthTasks.sumOf { task -> Regex("(\\d+)\\s*세트").find(task.detail)?.groupValues?.get(1)?.toIntOrNull() ?: 3 }
+        val doneSets = strengthTasks.sumOf { task ->
+            val count = Regex("(\\d+)\\s*세트").find(task.detail)?.groupValues?.get(1)?.toIntOrNull() ?: 3
+            (1..count).count { n -> "strength-${session.day}-${task.id}-$n" in session.checked }
+        }
+        sectionCount.text = "근력 세트 $doneSets / $totalSets · 단계 ${session.completed.size}/4"
+        val volume = SetRecordStore(this).completed(data.localToday()).sumOf { it.volume }.toInt()
+        trackingSummary.text = "근력 세트 $doneSets/$totalSets 완료 · 오늘 운동량 ${volume} kg·회"
+        dockCalories.text = "오늘 누적 ${"%.1f".format(EnergyLedger(this).estimate(data.localToday(), org.json.JSONObject(session.snapshot())))} kcal · 추정"
     }
 
     private fun afterAction() { syncService(); renderStages(); renderSummary(); refreshTimer() }
@@ -885,6 +880,17 @@ class MainActivity : Activity() {
     }
     override fun onResume() {
         super.onResume()
+        if (::session.isInitialized && ::summary.isInitialized && ::stageStack.isInitialized && ::timerValue.isInitialized && ::sectionCount.isInitialized) {
+            soundEnabled = getSharedPreferences("preferences", MODE_PRIVATE).getBoolean("sound", true)
+            calorieWeightKg = getSharedPreferences("preferences", MODE_PRIVATE).getFloat("calorie_weight_kg", 63f).toDouble()
+            if (!session.running && session.elapsed() == 0 && data.routine(session.day) != session.routine) {
+                session.refreshRoutine()
+                session.resetAll()
+            }
+            renderSummary()
+            renderStages()
+            refreshTimer()
+        }
         if (::updateManager.isInitialized && !recoveryMode) {
             try { updateManager.resumePendingInstall() }
             catch (e: Exception) { CrashReporter.log(this, "업데이트 복원 오류: " + e.javaClass.simpleName + ": " + e.message) }
@@ -897,3 +903,4 @@ class MainActivity : Activity() {
         super.onDestroy()
     }
 }
+
