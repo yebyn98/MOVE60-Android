@@ -47,6 +47,7 @@ class MainActivity : Activity() {
     private lateinit var progress: ProgressBar
     private lateinit var dockStage: TextView
     private lateinit var dockTime: TextView
+    private lateinit var dockHeartRate: TextView
     private lateinit var play: TextView
     private lateinit var previous: TextView
     private lateinit var next: TextView
@@ -424,6 +425,15 @@ class MainActivity : Activity() {
         dockTime = label("", 12, false, textSecondary)
         state.addView(dockStage, LinearLayout.LayoutParams(0, -2, 1f))
         state.addView(dockTime, LinearLayout.LayoutParams(-2, -2).apply { leftMargin = dp(8) })
+        dockHeartRate = label("♥ 연결대기", 12, true, mint).apply {
+            contentDescription = "하단 실시간 심박수"
+            gravity = Gravity.CENTER
+            minHeight = dp(40)
+            minWidth = dp(76)
+            setPadding(dp(8), dp(6), dp(8), dp(6))
+            background = rounded(panelLight, 9, subtle)
+        }
+        state.addView(dockHeartRate, LinearLayout.LayoutParams(-2, -2).apply { leftMargin = dp(8) })
         dock.addView(state)
         addGap(dock, 8)
         play = actionButton("▶ 운동 시작", true) {
@@ -713,6 +723,7 @@ class MainActivity : Activity() {
         val heartAt = getSharedPreferences("preferences", MODE_PRIVATE).getLong("watch_heart_rate_at", 0L)
         val heartAge = System.currentTimeMillis() - heartAt
         heartRateValue.text = if (heart in 30..240 && heartAge in 0L..10_000L) "${heart} bpm" else "연결대기"
+        dockHeartRate.text = "♥ ${heartRateValue.text}"
         val phase = session.phase()
         when {
             session.finished -> {
@@ -737,7 +748,7 @@ class MainActivity : Activity() {
             }
         }
         dockStage.text = if (session.finished) "오늘 운동 완료" else stageName
-        dockTime.text = "${formatTime(session.remaining)} 남음 · ${formatTime(elapsed)} 누적"
+        dockTime.text = "${formatTime(session.remaining)} 남음\n${formatTime(elapsed)} 누적"
         play.text = if (session.finished) "↻ 새 운동 시작" else if (session.running) "Ⅱ 일시정지" else "▶ 운동 시작"
         previous.alpha = if (session.stage == 0) .4f else 1f
         next.alpha = if (session.stage == 3) .4f else 1f
