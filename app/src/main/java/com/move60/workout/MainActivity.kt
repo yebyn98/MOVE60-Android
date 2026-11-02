@@ -45,6 +45,8 @@ class MainActivity : Activity() {
     private lateinit var timerCueDetail: TextView
     private lateinit var heartRateValue: TextView
     private lateinit var progress: ProgressBar
+    private lateinit var dockStage: TextView
+    private lateinit var dockTime: TextView
     private lateinit var play: TextView
     private lateinit var previous: TextView
     private lateinit var next: TextView
@@ -101,14 +103,35 @@ class MainActivity : Activity() {
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 25)
         }
-        val scroll = ScrollView(this).apply { isFillViewport = true; isVerticalScrollBarEnabled = false; setBackgroundColor(this@MainActivity.background) }
+        val root = column().apply {
+            setBackgroundColor(this@MainActivity.background)
+            setOnApplyWindowInsetsListener { view, insets ->
+                if (Build.VERSION.SDK_INT >= 30) {
+                    val bars = insets.getInsets(android.view.WindowInsets.Type.systemBars() or android.view.WindowInsets.Type.displayCutout())
+                    view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+                } else {
+                    @Suppress("DEPRECATION")
+                    view.setPadding(insets.systemWindowInsetLeft, insets.systemWindowInsetTop,
+                        insets.systemWindowInsetRight, insets.systemWindowInsetBottom)
+                }
+                insets
+            }
+        }
+        val scroll = ScrollView(this).apply {
+            isFillViewport = true
+            isVerticalScrollBarEnabled = false
+            contentDescription = "운동 내용 스크롤"
+        }
         content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(18), dp(52), dp(18), dp(90))
+            setPadding(dp(18), dp(24), dp(18), dp(24))
         }
         scroll.addView(content)
-        setContentView(scroll)
+        root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+        setContentView(root)
+        root.requestApplyInsets()
         try {
+            root.addView(makeWorkoutControls(), LinearLayout.LayoutParams(-1, -2))
             constructInterface()
         } catch (e: Exception) {
             CrashReporter.log(this, "화면 구성 오류: " + e.stackTraceToString().take(4000))
@@ -219,8 +242,8 @@ class MainActivity : Activity() {
         content.addView(label("${data.weekMonday().format(DateTimeFormatter.ofPattern("M/d"))} ~ ${weekEnd.format(DateTimeFormatter.ofPattern("M/d"))}  |  매주 월요일 운동 조합 자동 변경", 12, false, textSecondary))
         addGap(content, 17)
 
-        // Keep the primary workout control above the long daily summary.
-        // This also makes the start/pause action reachable on small screens.
+        // Keep detailed timer information above the long daily summary.
+        // Workout actions live outside the ScrollView in the bottom dock.
         content.addView(label("운동 타이머", 19, true))
         addGap(content, 11)
         content.addView(makeTimerCard())
@@ -386,6 +409,41 @@ class MainActivity : Activity() {
         summary.requestLayout()
     }
 
+    /** A sibling of the weighted ScrollView, so controls never scroll or cover content. */
+    private fun makeWorkoutControls(): LinearLayout {
+        val dock = column().apply {
+            contentDescription = "고정 운동 컨트롤"
+            setBackgroundColor(Color.rgb(13, 23, 37))
+            setPadding(dp(18), dp(10), dp(18), dp(12))
+            elevation = dp(8).toFloat()
+        }
+        val state = row().apply { gravity = Gravity.CENTER_VERTICAL }
+        dockStage = label("준비운동", 14, true, mint)
+        dockStage.setSingleLine(true)
+        dockStage.ellipsize = android.text.TextUtils.TruncateAt.END
+        dockTime = label("", 12, false, textSecondary)
+        state.addView(dockStage, LinearLayout.LayoutParams(0, -2, 1f))
+        state.addView(dockTime, LinearLayout.LayoutParams(-2, -2).apply { leftMargin = dp(8) })
+        dock.addView(state)
+        addGap(dock, 8)
+        play = actionButton("▶ 운동 시작", true) {
+            if (session.running) session.pause() else session.start()
+            syncService()
+            renderSummary()
+            renderStages()
+            refreshTimer()
+        }.apply { contentDescription = "운동 시작 또는 일시정지" }
+        dock.addView(play, LinearLayout.LayoutParams(-1, -2))
+        addGap(dock, 7)
+        val buttons = row()
+        previous = actionButton("← 이전 단계", false) { session.jumpTo(session.stage - 1); afterAction() }
+        next = actionButton("다음 단계 →", false) { session.nextStage(); afterAction() }
+        buttons.addView(previous, LinearLayout.LayoutParams(0, -2, 1f))
+        buttons.addView(next, LinearLayout.LayoutParams(0, -2, 1f).apply { leftMargin = dp(7) })
+        dock.addView(buttons)
+        return dock
+    }
+
     private fun makeTimerCard(): LinearLayout {
         val box = card()
         val head = row().apply { gravity = Gravity.CENTER_VERTICAL }
@@ -427,22 +485,6 @@ class MainActivity : Activity() {
         heartRateValue = label("Watch4 심박수 · 연결 대기", 12, true, mint)
         cue.addView(heartRateValue)
         box.addView(cue)
-        addGap(box, 13)
-        play = actionButton("▶ 운동 시작", true) {
-            if (session.running) session.pause() else session.start()
-            syncService()
-            renderSummary()
-            renderStages()
-            refreshTimer()
-        }
-        box.addView(play)
-        addGap(box, 9)
-        val buttons = row()
-        previous = actionButton("← 이전 단계", false) { session.jumpTo(session.stage - 1); afterAction() }
-        next = actionButton("다음 단계 →", false) { session.nextStage(); afterAction() }
-        buttons.addView(previous, LinearLayout.LayoutParams(0, dp(47), 1f))
-        buttons.addView(next, LinearLayout.LayoutParams(0, dp(47), 1f).apply { leftMargin = dp(7) })
-        box.addView(buttons)
         addGap(box, 8)
         val secondary = row()
         secondary.addView(actionButton("단계 시간 초기화", false) { session.resetStage(); afterAction() }, LinearLayout.LayoutParams(0, dp(44), 1f))
@@ -684,6 +726,8 @@ class MainActivity : Activity() {
                 }
             }
         }
+        dockStage.text = if (session.finished) "오늘 운동 완료" else stageName
+        dockTime.text = "${formatTime(session.remaining)} 남음 · ${formatTime(elapsed)} 누적"
         play.text = if (session.finished) "↻ 새 운동 시작" else if (session.running) "Ⅱ 일시정지" else "▶ 운동 시작"
         previous.alpha = if (session.stage == 0) .4f else 1f
         next.alpha = if (session.stage == 3) .4f else 1f

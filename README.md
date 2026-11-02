@@ -195,3 +195,11 @@ adb -s WATCH_IP:CONNECTION_PORT shell am start -n com.move60.workout/com.move60.
 - Health Services의 `registerMeasureCallback`은 Task를 반환하지 않으므로 잘못 연결된 `addOnFailureListener`를 제거했다.
 - 등록 실패는 공식 `MeasureCallback.onRegistrationFailed`에서 처리한다.
 - 휴대폰·워치 버전 코드를 21로 올려 기존 정식 서명 앱에 덮어쓰기 가능하게 한다.
+
+## 8. v22.0 휴대폰 하단 고정 컨트롤
+
+- 시작/일시정지, 이전/다음 단계와 현재 단계·남은 시간·누적 시간을 본문 ScrollView 밖의 하단 영역에 배치한다.
+- 시스템 바와 디스플레이 컷아웃 여백을 반영하고, 본문과 하단 컨트롤을 겹치지 않게 배치한다.
+- 초기화 동작은 기존 상세 타이머 카드에 유지한다.
+- 런타임 테스트는 실제 본문 스크롤 전후 컨트롤 좌표 고정·본문 이동·겹침 없음과 일시정지/다음/이전/재개를 검사한다. 증거: smoke-debug/fixed-controls-*.xml, fixed-controls-scrolled.png.
+- 삼성 실기기의 제스처/3버튼 내비게이션, 큰 글꼴 및 가로 화면은 별도 확인이 필요하다.

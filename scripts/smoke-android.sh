@@ -71,6 +71,7 @@ PY
 done
 if test "$tapped" -ne 1; then echo "Could not locate and tap workout start button"; cat smoke-debug/window.xml || true; exit 1; fi
 sleep 6
+python3 scripts/verify-fixed-controls.py
 wait_adb
 pid="$(adb shell pidof com.move60.workout | tr -d '\r' || true)"
 if test -z "$pid"; then echo "MOVE60 process died after exercise start"; exit 1; fi
