@@ -71,10 +71,6 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.setDecorFitsSystemWindows(false)
-        window.insetsController?.apply {
-            hide(WindowInsets.Type.systemBars())
-            systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        }
         // Allow ambient mode: keeping the display fully awake prevents wrist-down transitions.
         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         root = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
@@ -141,6 +137,10 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener {
             LinearLayout.LayoutParams(-1, dp(18)))
         safeArea.addView(ambientPanel, FrameLayout.LayoutParams(-1, -1))
         setContentView(root)
+        window.insetsController?.apply {
+            hide(WindowInsets.Type.systemBars())
+            systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
         if (packageManager.hasSystemFeature(PackageManager.FEATURE_WATCH))
             lifecycle.addObserver(AmbientLifecycleObserver(this, callbacks))
         applyWorkoutState(WatchWorkoutState.load(this))

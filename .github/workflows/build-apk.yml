@@ -114,16 +114,6 @@ jobs:
       - name: Enable KVM access for release-gate emulator
         run: |
           if test -e /dev/kvm; then sudo chmod 666 /dev/kvm; fi
-      - name: Gate release with workout start, rendered notification and re-entry
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 35
-          arch: x86_64
-          target: google_apis
-          profile: pixel_6
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -memory 4096
-          disable-animations: true
-          script: bash scripts/smoke-android.sh
       - name: Free disk space before Wear OS emulator
         shell: bash
         run: |
@@ -143,6 +133,22 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -memory 3072
           disable-animations: true
           script: bash scripts/smoke-watch-layout.sh
+      - name: Free disk space before phone emulator
+        shell: bash
+        run: |
+          avdmanager delete avd -n move60_wear_gate || true
+          sdkmanager --uninstall 'system-images;android-34;android-wear;x86_64'
+          df -h /
+      - name: Gate release with workout start, rendered notification and re-entry
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -memory 4096
+          disable-animations: true
+          script: bash scripts/smoke-android.sh
       - name: Upload release-gate runtime evidence
         if: always()
         uses: actions/upload-artifact@v4
