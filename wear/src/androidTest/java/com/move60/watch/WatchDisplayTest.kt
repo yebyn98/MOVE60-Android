@@ -25,7 +25,7 @@ class WatchDisplayTest {
             .putBoolean("notification_asked", true).commit()
     }
     private fun capture(name: String) {
-        Thread.sleep(350)
+        Thread.sleep(2_000)
         val screenshot = requireNotNull(instrumentation.uiAutomation.takeScreenshot())
         File(context.getExternalFilesDir(null), name).outputStream().use {
             screenshot.compress(Bitmap.CompressFormat.PNG, 100, it)

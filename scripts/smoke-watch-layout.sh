@@ -5,7 +5,11 @@ adb wait-for-device
 adb shell settings put global device_provisioned 1
 adb shell settings put secure user_setup_complete 1
 adb shell settings put system screen_off_timeout 300000
+adb shell pm disable-user --user 0 com.google.android.wearable.setupwizard || true
+adb shell am force-stop com.google.android.wearable.setupwizard || true
 adb shell input keyevent KEYCODE_WAKEUP
+# Give first-boot Wear services and the startup surface time to settle.
+sleep 20
 adb shell wm size 396x396
 adb shell wm density 330
 adb install -r -g wear/build/outputs/apk/debug/wear-debug.apk
