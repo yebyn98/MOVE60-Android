@@ -20,6 +20,8 @@ class WatchDisplayTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val context get() = instrumentation.targetContext
     @Before fun prepare() {
+        context.getSharedPreferences("watch_workout",0).edit().clear().commit()
+        context.getSharedPreferences("watch_rest_alerts_v26",0).edit().clear().commit()
         context.getSharedPreferences("watch_settings", 0).edit()
             .putBoolean("background_access_explained", true)
             .putBoolean("notification_asked", true).commit()
@@ -125,4 +127,56 @@ class WatchDisplayTest {
             capture("watch-ongoing-return.png")
         }
     }
+    @Test fun newerSnapshotRejectsOutOfOrderStateAndPreservesPausedRest() {
+        val data = com.google.android.gms.wearable.DataMap().apply {
+            putInt("protocol",26); putLong("sequence",200L); putLong("session",123L)
+            putLong("controlVersion",7L); putInt("stageIndex",2); putString("stageName","근력운동")
+            putString("setLabel","레그프레스 · 2/4종목 · 2/3세트"); putString("exerciseId","legPress")
+            putInt("setNumber",2); putInt("restPaused",45); putLong("restId",99L)
+            putBoolean("hasSession",true); putBoolean("running",false)
+        }
+        val state = WatchWorkoutState.fromData(data)
+        assertTrue(state.save(context))
+        assertFalse(state.copy(sequence=100L,finished=true).save(context))
+        val restored = WatchWorkoutState.load(context)
+        assertEquals(200L,restored.sequence)
+        assertEquals(45,restored.restSeconds(999_999L))
+        assertEquals("legPress",restored.exerciseId)
+        assertEquals(2,restored.setNumber)
+        assertFalse(restored.finished)
+    }
+    @Test fun restAlertIsDeduplicatedAndLateReconnectDoesNotVibrate() {
+        val state = WatchWorkoutState(running=true,restId=100L,restDeadline=1_000L)
+        assertFalse(WatchRestAlert.deliver(context,state,500L))
+        assertTrue(WatchRestAlert.deliver(context,state,1_001L))
+        assertFalse(WatchRestAlert.deliver(context,state,1_002L))
+        assertFalse(WatchRestAlert.deliver(context,state.copy(restId=200L),30_000L))
+        assertFalse(WatchRestAlert.deliver(context,state.copy(restId=300L,running=false),1_001L))
+    }
+    @Test fun strengthSetAndRestActionsFitRoundScreen() {
+        ActivityScenario.launch(WatchActivity::class.java).use { scenario ->
+            scenario.onActivity { activity ->
+                activity.applyWorkoutState(WatchWorkoutState(protocol=26,running=true,hasSession=true,stageIndex=2,
+                    stageName="근력운동",setLabel="레그프레스 · 2/4종목 · 2/3세트",canComplete=true))
+            }
+            instrumentation.waitForIdleSync()
+            scenario.onActivity { activity ->
+                assertEquals("세트 완료",activity.window.decorView.findViewWithTag<Button>("watch_next").text.toString())
+                assertButtonInsideCircle(activity,activity.window.decorView.findViewWithTag("watch_next"))
+            }
+            capture("watch-v26-set.png")
+            scenario.onActivity { activity ->
+                activity.applyWorkoutState(WatchWorkoutState(protocol=26,running=true,hasSession=true,stageIndex=2,
+                    stageName="근력운동",restId=100L,restDeadline=System.currentTimeMillis()+60_000L))
+            }
+            instrumentation.waitForIdleSync()
+            scenario.onActivity { activity ->
+                assertEquals("휴식 건너뛰기",activity.window.decorView.findViewWithTag<Button>("watch_next").text.toString())
+                assertButtonInsideCircle(activity,activity.window.decorView.findViewWithTag("watch_next"))
+            }
+            capture("watch-v26-rest.png")
+        }
+    }
+
 }
+

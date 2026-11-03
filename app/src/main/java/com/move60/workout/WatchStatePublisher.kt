@@ -9,8 +9,21 @@ import kotlin.math.ceil
 /** Publishes full stage state, including a stable deadline and paused remaining time. */
 object WatchStatePublisher {
     fun publishSnapshot(context: Context, snapshot: String) {
+        Wearable.getDataClient(context).putDataItem(createRequest(context,snapshot).asPutDataRequest().setUrgent())
+    }
+    fun createRequest(context: Context, snapshot: String): PutDataMapRequest {
         val state = JSONObject(snapshot)
+        val current = SessionStore(context, WorkoutData(context))
+        // Enrich only the matching session. Older service callbacks must never publish an old stage.
+        if (state.optInt("day",-1) != current.day || state.optLong("sessionStartedAt") != current.sessionStartedAt || state.optInt("stage") != current.stage ||
+            state.optLong("controlVersion") < current.controlVersion) {
+            return createRequest(context, current.snapshot())
+        }
+        TrainingProgress.enrich(context, state, current)
         val now = System.currentTimeMillis()
+        val prefs = context.getSharedPreferences("watch_publish_v26", Context.MODE_PRIVATE)
+        val sequence = maxOf(now, prefs.getLong("sequence",0L)+1L)
+        prefs.edit().putLong("sequence",sequence).apply()
         val index = state.optInt("stage", 0).coerceIn(0, 3)
         val names = listOf("준비운동", "유산소", "근력운동", "마무리 스트레칭")
         val running = state.optBoolean("running") && !state.optBoolean("finished")
@@ -32,8 +45,21 @@ object WatchStatePublisher {
                 elapsed -= phase.optInt("seconds", 60)
             }
         }
+        if (index == 2) detail = state.optString("setLabel", names[index])
         val request = PutDataMapRequest.create("/move60/workout")
         request.dataMap.apply {
+            putInt("day",current.day)
+            putInt("protocol", 26)
+            putLong("sequence", sequence)
+            putLong("session",state.optLong("sessionStartedAt"))
+            putLong("controlVersion",state.optLong("controlVersion"))
+            putLong("restDeadline",state.optLong("restDeadline"))
+            putInt("restPaused",state.optInt("restPaused"))
+            putLong("restId",state.optLong("restId"))
+            putString("exerciseId",state.optString("exerciseId"))
+            putInt("setNumber",state.optInt("setNumber"))
+            putString("setLabel",state.optString("setLabel"))
+            putBoolean("canComplete",state.optBoolean("canComplete"))
             putBoolean("running", running)
             putBoolean("finished", state.optBoolean("finished"))
             putBoolean("hasSession", running || state.optLong("sessionStartedAt") > 0L ||
@@ -46,6 +72,7 @@ object WatchStatePublisher {
             putLong("deadline", if (running) deadline else 0L)
             putLong("updated", now)
         }
-        Wearable.getDataClient(context).putDataItem(request.asPutDataRequest().setUrgent())
+        return request
     }
 }
+

@@ -40,6 +40,27 @@ class WorkoutService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private var snapshot = JSONObject()
     private var lastPhase = ""
+    private val restTicker = object : Runnable {
+        override fun run() {
+            val store = SessionStore(this@WorkoutService, WorkoutData(this@WorkoutService))
+            val now = System.currentTimeMillis()
+            if (store.running && store.restId > 0L && store.restDeadline > 0L && now >= store.restDeadline) {
+                val alerts = getSharedPreferences("rest_alerts_v26", MODE_PRIVATE)
+                if (alerts.getLong("notified",0L) != store.restId) {
+                    alerts.edit().putLong("notified",store.restId).apply()
+                    if (now-store.restDeadline < 10_000L) {
+                        val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+                        manager.notify(603, Notification.Builder(this@WorkoutService,"move60_rest_v26")
+                            .setSmallIcon(R.drawable.ic_fitness).setContentTitle("휴식 완료")
+                            .setContentText(TrainingProgress.next(store)?.label ?: "다음 운동을 진행하세요")
+                            .setAutoCancel(true).build())
+                    }
+                    WatchStatePublisher.publishSnapshot(this@WorkoutService, store.snapshot())
+                }
+            }
+            handler.postDelayed(this,1000L)
+        }
+    }
     private val boundary = Runnable { updateAndSchedule(true) }
     private val prefs by lazy { getSharedPreferences("timer", MODE_PRIVATE) }
 
@@ -54,6 +75,12 @@ class WorkoutService : Service() {
             setSound(null, null)
             enableVibration(false)
         })
+        manager.createNotificationChannel(NotificationChannel("move60_rest_v26","세트 휴식 완료",NotificationManager.IMPORTANCE_DEFAULT).apply {
+            enableVibration(true)
+            vibrationPattern = longArrayOf(0,150,100,150)
+            setSound(null,null)
+        })
+        handler.post(restTicker)
         manager.createNotificationChannel(NotificationChannel(
             CHANNEL_PHASE, "운동 구간 전환", NotificationManager.IMPORTANCE_DEFAULT
         ).apply {
@@ -343,9 +370,10 @@ class WorkoutService : Service() {
         if (!snapshot.optBoolean("running", false) || snapshot.optBoolean("finished", false)) {
             prefs.edit().putLong("history_checkpoint_ms", 0L).apply()
         }
-        handler.removeCallbacks(boundary)
+        handler.removeCallbacksAndMessages(null)
         super.onDestroy()
     }
     override fun onBind(intent: Intent?): IBinder? = null
 }
+
 

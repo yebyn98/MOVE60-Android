@@ -26,9 +26,16 @@ import androidx.wear.ambient.AmbientLifecycleObserver
 import com.google.android.gms.wearable.*
 
 /** Interactive and ambient workout UI, laid out inside the round screen's safe square. */
-class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener {
+class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, MessageClient.OnMessageReceivedListener {
     private val handler = Handler(Looper.getMainLooper())
     private var workout = WatchWorkoutState()
+    private var connected = false
+    private var ready = false
+    private var pending = ""
+    private var sentVersion = -1L
+    private var lastConnectionCheck = 0L
+    private var lastResync = 0L
+    private var requestStatus = ""
     private var ambient = false
     private var visible = false
     private var displayServiceStarted = false
@@ -108,7 +115,17 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener {
         playButton = button("시작", "watch_play") {
             sendCommand(if (workout.running) "pause" else "start")
         }
-        nextButton = button("다음 단계", "watch_next") { sendCommand("next") }
+        nextButton = button("다음 단계", "watch_next") {
+            sendCommand(if (workout.stageIndex == 2 && workout.restSeconds() > 0) "rest_skip"
+                else if (workout.stageIndex == 2 && workout.canComplete) "complete" else "next")
+        }
+        nextButton.setOnLongClickListener {
+            AlertDialog.Builder(this).setTitle("운동 조작")
+                .setItems(arrayOf("휴식 +15초", "다음 단계로 이동")) { _, which ->
+                    sendCommand(if (which == 0) "rest_add" else "next")
+                }.setNegativeButton("닫기",null).show()
+            true
+        }
         buttons.addView(playButton, LinearLayout.LayoutParams(0, dp(44), 1f))
         buttons.addView(nextButton, LinearLayout.LayoutParams(0, dp(44), 1f).apply { leftMargin = dp(4) })
         body.addView(buttons, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(4) })
@@ -198,12 +215,15 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener {
         stage.text = if (workout.finished) "운동 완료" else workout.stageLabel
         stage.contentDescription = "현재 단계 ${stage.text} · 길게 눌러 설정"
         detail.text = when {
+            requestStatus.isNotBlank() -> requestStatus
+            workout.stageIndex == 2 && workout.restSeconds() > 0 -> "세트 휴식 · 길게 눌러 +15초"
+            workout.stageIndex == 2 && workout.hasSession -> workout.setLabel.ifBlank { workout.detail }
             workout.finished -> "오늘 운동을 마쳤어요"
             workout.running -> workout.detail.ifBlank { "운동 중" }
             workout.hasSession -> "일시정지"
             else -> "휴대폰 운동과 연결 대기"
         }
-        val remaining = workout.secondsRemaining()
+        val remaining = if (workout.restSeconds() > 0) workout.restSeconds() else workout.secondsRemaining()
         timer.text = "%02d:%02d".format(remaining / 60, remaining % 60)
         val prefs = getSharedPreferences("live_heart_rate", MODE_PRIVATE)
         val bpm = prefs.getInt("bpm", 0)
@@ -212,8 +232,16 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener {
         heartRate.contentDescription = if (bpm in 30..240 && age in 0L..10_000L)
             "심박수 $bpm, ${age / 1000}초 전 측정" else "심박수 연결대기"
         playButton.text = if (workout.running) "일시정지" else if (workout.finished) "새 운동" else "시작"
-        nextButton.text = if (workout.stageIndex == 3) "운동 완료" else "다음 단계"
-        nextButton.isEnabled = !workout.finished
+        nextButton.text = when {
+            workout.stageIndex == 3 -> "운동 완료"
+            workout.stageIndex == 2 && workout.restSeconds() > 0 -> "휴식 건너뛰기"
+            workout.stageIndex == 2 && workout.canComplete -> "세트 완료"
+            else -> "다음 단계"
+        }
+        val enabled = connected && ready && pending.isBlank() && workout.protocol >= 26
+        playButton.isEnabled = enabled
+        nextButton.isEnabled = !workout.finished && enabled
+        nextButton.contentDescription = nextButton.text.toString()+" · 길게 눌러 추가 조작"
     }
     fun setAmbientMode(enabled: Boolean) {
         ambient = enabled
@@ -232,8 +260,9 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener {
         ambientClock.text = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
         ambientStage.text = if (workout.finished) "운동 완료" else workout.stageLabel
         // Ambient refresh is infrequent. Do not show stale seconds or live BPM.
-        val minutes = (workout.secondsRemaining() + 59) / 60
-        ambientTime.text = if (workout.running) "남은 약 ${minutes}분" else if (workout.hasSession) "일시정지" else "운동 대기"
+        val rest = workout.restSeconds()
+        val minutes = ((if (rest > 0) rest else workout.secondsRemaining()) + 59) / 60
+        ambientTime.text = if (workout.running && rest > 0) "휴식 약 "+minutes+"분" else if (workout.running) "남은 약 ${minutes}분" else if (workout.hasSession) "일시정지" else "운동 대기"
     }
     private fun showWatchSettings() {
         AlertDialog.Builder(this).setTitle("MOVE60 설정")
@@ -290,6 +319,9 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener {
         visible = true
         HeartRateService.uiVisible = true
         Wearable.getDataClient(this).addListener(this)
+        Wearable.getMessageClient(this).addListener(this)
+        ready = false
+        checkConnection()
         registerHeartRateIfPermitted()
         applyWorkoutState(WatchWorkoutState.load(this))
         if (!ambient) handler.post(ticker)
@@ -309,6 +341,7 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener {
         visible = false
         HeartRateService.uiVisible = false
         Wearable.getDataClient(this).removeListener(this)
+        Wearable.getMessageClient(this).removeListener(this)
         handler.removeCallbacks(ticker)
         super.onPause()
     }
@@ -319,19 +352,71 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener {
     private fun readState(item: DataItem) {
         if (item.uri.path != "/move60/workout") return
         val state = WatchWorkoutState.fromData(DataMapItem.fromDataItem(item).dataMap)
-        state.save(this)
+        if (!state.save(this)) return
         applyWorkoutState(state)
     }
     override fun onDataChanged(events: DataEventBuffer) {
         for (event in events) if (event.type == DataEvent.TYPE_CHANGED) readState(event.dataItem)
     }
-    private fun sendCommand(command: String) {
-        detail.text = "휴대폰에 요청 중"
+    private fun checkConnection() {
+        lastConnectionCheck = System.currentTimeMillis()
         Wearable.getNodeClient(this).connectedNodes.addOnSuccessListener { nodes ->
-            if (nodes.isEmpty()) { detail.text = "휴대폰 연결 확인"; return@addOnSuccessListener }
-            for (node in nodes) Wearable.getMessageClient(this)
-                .sendMessage(node.id, "/move60/command", command.toByteArray(Charsets.UTF_8))
-                .addOnFailureListener { detail.text = "요청 전송 실패" }
-        }.addOnFailureListener { detail.text = "휴대폰 연결 확인" }
+            val wasConnected = connected
+            connected = nodes.isNotEmpty()
+            if (!connected) {
+                ready = false
+                pending = ""
+                requestStatus = "휴대폰 연결 끊김 · 기록 상태 유지"
+            } else if (!wasConnected || !ready || System.currentTimeMillis()-lastResync > 30_000L) {
+                lastResync = System.currentTimeMillis()
+                requestStatus = "휴대폰 상태 확인 중"
+                val request = org.json.JSONObject().put("op","resync").put("id","resync").toString()
+                Wearable.getMessageClient(this).sendMessage(nodes.first().id,"/move60/command",request.toByteArray())
+            }
+        }.addOnFailureListener { connected=false; ready=false; requestStatus="휴대폰 연결 확인" }
+    }
+    override fun onMessageReceived(event: MessageEvent) {
+        if (event.path != "/move60/ack") return
+        val ack = try { org.json.JSONObject(event.data.toString(Charsets.UTF_8)) } catch (_: Exception) { return }
+        runOnUiThread {
+            if (ack.optString("id") == "resync") {
+                ready = true
+                requestStatus = if (workout.protocol < 26) "폰·워치 모두 v26 업데이트 필요" else ""
+            } else if (ack.optString("id") == pending) {
+                pending = ""
+                requestStatus = if (ack.optBoolean("accepted")) "" else "상태 변경됨 · 다시 선택하세요"
+                lastResync = 0L
+            }
+            renderInteractive()
+        }
+    }
+    private fun sendCommand(command: String) {
+        if (!connected || !ready || pending.isNotEmpty() || workout.protocol < 26) {
+            requestStatus = "휴대폰 연결 후 다시 선택하세요"
+            checkConnection()
+            return
+        }
+        val id = java.util.UUID.randomUUID().toString()
+        pending = id
+        sentVersion = workout.controlVersion
+        requestStatus = "휴대폰에 요청 중"
+        renderInteractive()
+        val request = org.json.JSONObject().put("id",id).put("op",command).put("at",System.currentTimeMillis())
+            .put("day",workout.day).put("session",workout.session).put("version",workout.controlVersion).put("stage",workout.stageIndex)
+            .put("exercise",workout.exerciseId).put("set",workout.setNumber).toString()
+        // MessageClient sends only to a currently connected phone; commands are never queued offline.
+        Wearable.getNodeClient(this).connectedNodes.addOnSuccessListener { nodes ->
+            if (nodes.isEmpty()) { pending=""; ready=false; requestStatus="휴대폰 연결 확인"; return@addOnSuccessListener }
+            Wearable.getMessageClient(this).sendMessage(nodes.first().id,"/move60/command",request.toByteArray(Charsets.UTF_8))
+                .addOnFailureListener { pending=""; ready=false; requestStatus="전송 실패 · 다시 연결하세요" }
+        }.addOnFailureListener { pending=""; ready=false; requestStatus="휴대폰 연결 확인" }
+        handler.postDelayed({
+            if (pending == id) {
+                pending = ""
+                ready = false
+                requestStatus = "응답 확인 중 · 상태 다시 연결"
+                checkConnection()
+            }
+        },8_000L)
     }
 }

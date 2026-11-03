@@ -24,6 +24,17 @@ class SetRecordStore(context: Context) {
         if (token > 0L) edit.putString(key(date, day, id, set, 0L), JSONObject(json.toString()).put("completed", false).toString())
         edit.apply()
     }
+    fun previous(id: String, set: Int, currentToken: Long): Record? {
+        val date = today().toString()
+        return prefs.all.entries.mapNotNull { (key, value) ->
+            val parts = key.split(':')
+            if (parts.size != 6 || parts[0] != "set" || parts[1] > date || parts[4] != id || parts[5] != set.toString()) return@mapNotNull null
+            val token = parts[3].toLongOrNull() ?: return@mapNotNull null
+            val record = decode(value as? String)
+            if (token <= 0L || token == currentToken || !record.completed || !record.valid) null
+            else Triple(parts[1], token, record)
+        }.sortedWith(compareByDescending<Triple<String, Long, Record>> { it.first }.thenByDescending { it.second }).firstOrNull()?.third
+    }
     fun completed(date: LocalDate): List<Record> = prefs.all.filterKeys { it.startsWith("set:$date:") && it.split(':').getOrNull(3) != "0" }
         .values.map { decode(it as? String) }.filter { it.completed && it.valid }
     fun beginSession(day: Int, token: Long) {
@@ -41,3 +52,4 @@ class SetRecordStore(context: Context) {
         Record(o.optString("kg"), o.optString("reps"), o.optString("rpe", "5"), o.optBoolean("completed"))
     } catch (_: Exception) { Record() }
 }
+

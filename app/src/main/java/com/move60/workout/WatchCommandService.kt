@@ -18,34 +18,37 @@ class WatchCommandService : WearableListenerService() {
             // Preserve measurement time, so delayed/replayed messages cannot look live.
             val measuredAt = fields.getOrNull(2)?.toLongOrNull() ?: now
             if (measuredAt > now + 2_000L || now - measuredAt > 10_000L) return
+            if (measuredAt < getSharedPreferences("preferences",MODE_PRIVATE).getLong("watch_heart_rate_at",0L)) return
             getSharedPreferences("preferences", MODE_PRIVATE).edit()
                 .putInt("watch_heart_rate", bpm)
                 .putLong("watch_heart_rate_at", measuredAt.coerceAtMost(now)).apply()
             return
         }
-        if (command !in setOf("start", "pause", "next")) return
-        val store = SessionStore(this, WorkoutData(this))
-        store.reconcile()
-        when (command) {
-            "start" -> store.start()
-            "pause" -> store.pause()
-            "next" -> {
-                store.nextStage()
+        android.os.Handler(mainLooper).post {
+            val request = try { org.json.JSONObject(command) } catch (_: Exception) { return@post }
+            val resync = request.optString("op") == "resync"
+            val accepted = resync || WatchCommandProcessor.apply(this, request)
+            val store = SessionStore(this, WorkoutData(this))
+            // Rejected commands also receive the current authoritative state.
+            WatchStatePublisher.publishSnapshot(this, store.snapshot())
+            if (!resync && accepted) {
+                val sync = Intent(this, WorkoutService::class.java).apply {
+                    action = WorkoutService.ACTION_SYNC
+                    putExtra(WorkoutService.EXTRA_SNAPSHOT, store.snapshot())
+                }
+                if (store.running) {
+                    try { startForegroundService(sync) }
+                    catch (e: Exception) { CrashReporter.log(this, "워치 운동 서비스: " + e.message) }
+                } else {
+                    getSharedPreferences("timer", MODE_PRIVATE).edit().putString("snapshot", store.snapshot()).apply()
+                    stopService(Intent(this, WorkoutService::class.java))
+                    WorkoutWidget.refresh(this)
+                }
             }
-        }
-        val sync = Intent(this, WorkoutService::class.java).apply {
-            action = WorkoutService.ACTION_SYNC
-            putExtra(WorkoutService.EXTRA_SNAPSHOT, store.snapshot())
-        }
-        WatchStatePublisher.publishSnapshot(this, store.snapshot())
-        if (store.running) {
-            if (Build.VERSION.SDK_INT >= 26) startForegroundService(sync) else startService(sync)
-        } else {
-            // Preserve stopped state for the next app launch and update watch display.
-            getSharedPreferences("timer", MODE_PRIVATE).edit()
-                .putString("snapshot", store.snapshot()).apply()
-            stopService(Intent(this, WorkoutService::class.java))
-            WorkoutWidget.refresh(this)
+            val ack = org.json.JSONObject().put("id",request.optString("id")).put("accepted",accepted)
+                .put("version",store.controlVersion).toString()
+            com.google.android.gms.wearable.Wearable.getMessageClient(this)
+                .sendMessage(message.sourceNodeId, "/move60/ack", ack.toByteArray(Charsets.UTF_8))
         }
     }
 }

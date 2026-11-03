@@ -19,6 +19,11 @@ class WorkoutDisplayService : Service(), DataClient.OnDataChangedListener {
     private var state = WatchWorkoutState()
     private var lastLabel = ""
     private val handler = Handler(Looper.getMainLooper())
+    private val restAlarm = Runnable { WatchRestAlert.deliver(this, state) }
+    private fun scheduleRest() {
+        handler.removeCallbacks(restAlarm)
+        if (state.running && state.restDeadline > 0L) handler.postDelayed(restAlarm,(state.restDeadline-System.currentTimeMillis()).coerceAtLeast(0L))
+    }
     private val timeout = Runnable { stopSelf() }
 
     override fun onCreate() {
@@ -33,6 +38,7 @@ class WorkoutDisplayService : Service(), DataClient.OnDataChangedListener {
     }
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         state = WatchWorkoutState.load(this)
+        scheduleRest()
         android.util.Log.i("MOVE60.WorkoutDisplay", "Start: ongoing=${state.ongoing}, stage=${state.stageIndex}")
         val notification = createNotification()
         if (Build.VERSION.SDK_INT >= 34)
@@ -72,8 +78,10 @@ class WorkoutDisplayService : Service(), DataClient.OnDataChangedListener {
     }
     private fun readState(item: DataItem) {
         if (item.uri.path != "/move60/workout") return
-        state = WatchWorkoutState.fromData(DataMapItem.fromDataItem(item).dataMap)
-        state.save(this)
+        val incoming = WatchWorkoutState.fromData(DataMapItem.fromDataItem(item).dataMap)
+        if (!incoming.save(this)) return
+        state = incoming
+        scheduleRest()
         if (!state.ongoing) { stopSelf(); return }
         if (lastLabel != label()) {
             lastLabel = label()
@@ -93,3 +101,4 @@ class WorkoutDisplayService : Service(), DataClient.OnDataChangedListener {
     }
     override fun onBind(intent: Intent?): IBinder? = null
 }
+

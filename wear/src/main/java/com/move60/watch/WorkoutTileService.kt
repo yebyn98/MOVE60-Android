@@ -37,8 +37,9 @@ class WorkoutTileService : TileService() {
         ).build()
         val clickable = ModifiersBuilders.Clickable.Builder().setId("open_move60").setOnClick(open).build()
         return LayoutElementBuilders.Text.Builder()
-            .setText("MOVE60\n운동 열기\n다음 단계는 직접 선택")
+            .setText(WatchWorkoutState.load(this).let { if (it.finished) "MOVE60\n운동 완료" else "MOVE60\n"+it.stageLabel+"\n"+(if (it.stageIndex == 2) it.setLabel else it.detail)+"\n눌러서 운동 열기" })
             .setModifiers(ModifiersBuilders.Modifiers.Builder().setClickable(clickable).build())
             .build()
     }
 }
+

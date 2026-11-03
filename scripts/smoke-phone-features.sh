@@ -10,7 +10,8 @@ set -e
 adb logcat -d -v threadtime > smoke-debug/features/logcat.txt
 adb pull /sdcard/Android/data/com.move60.workout/files/. smoke-debug/features/ >/dev/null 2>&1 || true
 test "$result" -eq 0
-grep -q 'OK (7 tests)' smoke-debug/features/instrumentation.txt
+grep -q 'OK (12 tests)' smoke-debug/features/instrumentation.txt
 ! grep -q -E 'FAILURES!!!|INSTRUMENTATION_FAILED' smoke-debug/features/instrumentation.txt
 ! grep -q 'FATAL EXCEPTION' smoke-debug/features/logcat.txt
 echo 'PASS: settings navigation, finish action, inline per-set persistence, calendar dots, stair limits, daily energy and session isolation'
+

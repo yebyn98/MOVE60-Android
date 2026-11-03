@@ -23,10 +23,11 @@ adb logcat -d -v threadtime > smoke-debug/watch/logcat.txt
 adb shell dumpsys notification --noredact > smoke-debug/watch/notifications.txt
 adb pull /sdcard/Android/data/com.move60.workout/files/. smoke-debug/watch/ >/dev/null 2>&1 || true
 test "$result" -eq 0
-grep -q 'OK (4 tests)' smoke-debug/watch/instrumentation.txt
+grep -q 'OK (7 tests)' smoke-debug/watch/instrumentation.txt
 ! grep -q -E 'FAILURES!!!|INSTRUMENTATION_FAILED' smoke-debug/watch/instrumentation.txt
 if grep -q 'FATAL EXCEPTION' smoke-debug/watch/logcat.txt; then
   echo "Wear OS fatal runtime exception"
   exit 1
 fi
 echo "PASS: small round Wear OS stage/buttons, ambient layout/restore, stable countdown and ongoing return"
+
