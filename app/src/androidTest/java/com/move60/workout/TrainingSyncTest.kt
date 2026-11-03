@@ -132,6 +132,14 @@ class TrainingSyncTest {
                 activity.window.decorView.findViewWithTag<LinearLayout>("phone_rest").requestRectangleOnScreen(android.graphics.Rect(0,0,300,150),true)
             }
             capture("phone-v26-rest.png")
+            scenario.onActivity { activity -> activity.window.decorView.findViewWithTag<TextView>("phone_play").performClick() }
+            instrumentation.waitForIdleSync()
+            Thread.sleep(300)
+            assertEquals("Paused service checkpoint must be cleared",0L,context.getSharedPreferences("timer",0).getLong("history_checkpoint_ms",0L))
+            val pausedSeconds = WorkoutHistory(context).record(today).activeSeconds
+            Thread.sleep(1800)
+            assertEquals("Paused time leaked into workout history",pausedSeconds,WorkoutHistory(context).record(today).activeSeconds)
+            scenario.onActivity { activity -> activity.window.decorView.findViewWithTag<TextView>("phone_play").performClick() }
             scenario.onActivity { activity -> activity.window.decorView.findViewWithTag<TextView>("phone_rest_skip").performClick() }
             assertEquals(0,SessionStore(context,data).restSeconds())
         }

@@ -370,6 +370,10 @@ class WorkoutService : Service() {
         if (!snapshot.optBoolean("running", false) || snapshot.optBoolean("finished", false)) {
             prefs.edit().putLong("history_checkpoint_ms", 0L).apply()
         }
+        val current = SessionStore(this,WorkoutData(this))
+        if (!current.running || current.finished) {
+            prefs.edit().putString("snapshot",current.snapshot()).putLong("history_checkpoint_ms",0L).commit()
+        }
         handler.removeCallbacksAndMessages(null)
         super.onDestroy()
     }
