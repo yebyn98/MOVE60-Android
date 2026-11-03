@@ -42,21 +42,27 @@ class SettingsActivity : Activity() {
         body.addView(actionButton("← 운동 화면", false) { finish() })
         addGap(body, 16)
         body.addView(label("앱 설정", 24, true))
-        addGap(body, 16)
-        val settings = column().apply { setPadding(dp(5), dp(4), dp(5), dp(4)) }
+        addGap(body, 8)
+        body.addView(label("운동에 필요한 설정을 한곳에서 관리하세요.", 14, false, textSecondary))
+        addGap(body, 24)
+        val settings = card()
+        settings.addView(label("알림 · 업데이트", 18, true))
+        addGap(settings, 16)
         settings.addView(actionButton("알림 설정 · 진단", false) {
             if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
                 requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 25)
             else showNotificationDiagnostics()
         })
-        addGap(settings, 8)
+        addGap(settings, 12)
         settings.addView(actionButton("업데이트 확인", false) { updateManager.check(true) })
-        addGap(settings, 8)
+        addGap(settings, 12)
         val preferenceRow = row().apply { gravity = Gravity.CENTER_VERTICAL }
         val soundSwitch = Switch(this).apply {
             text = "구간 전환 알림음"
-            textSize = 12f
-            setTextColor(textSecondary)
+            textSize = 16f
+            setTextColor(textPrimary)
+            minHeight = dp(56)
+            setPadding(dp(4),dp(8),dp(4),dp(8))
             isChecked = soundEnabled
             setOnCheckedChangeListener { _, enabled ->
                 soundEnabled = enabled
@@ -64,7 +70,13 @@ class SettingsActivity : Activity() {
             }
         }
         preferenceRow.addView(soundSwitch, LinearLayout.LayoutParams(0, -2, 1f))
-        settings.addView(actionButton("유산소 · 근력 시간 비율 변경", false) {
+        settings.addView(preferenceRow)
+        body.addView(settings)
+        addGap(body, 24)
+        val workoutSettings = card()
+        workoutSettings.addView(label("운동 설정", 18, true))
+        addGap(workoutSettings, 16)
+        workoutSettings.addView(actionButton("유산소 · 근력 시간 비율 변경", false) {
             session.reloadIfChanged()
             if (session.running || session.elapsed() > 0) {
                 Toast.makeText(this, "운동 시작 전 초기 상태에서 변경해 주세요.", Toast.LENGTH_LONG).show()
@@ -80,10 +92,8 @@ class SettingsActivity : Activity() {
                     }.setNegativeButton("취소", null).show()
             }
         })
-        addGap(settings, 8)
-        settings.addView(preferenceRow)
-        addGap(settings, 8)
-        settings.addView(actionButton("칼로리 계산 체중 설정 ↗", false) {
+        addGap(workoutSettings, 16)
+        workoutSettings.addView(actionButton("칼로리 계산 체중 설정 ↗", false) {
             val input = EditText(this).apply {
                 inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
                 setText(calorieWeightKg.toString())
@@ -101,27 +111,34 @@ class SettingsActivity : Activity() {
                     } else Toast.makeText(this, "25~300kg 범위로 입력해 주세요.", Toast.LENGTH_SHORT).show()
                 }.show()
         })
-        addGap(settings, 8)
-        settings.addView(label("오늘 컨디션에 맞춘 루틴", 12, true, textSecondary))
+        addGap(workoutSettings, 16)
+        workoutSettings.addView(label("오늘 컨디션에 맞춘 루틴", 16, true))
+        addGap(workoutSettings, 12)
         val conditionRow = row()
         listOf("피곤" to "스텝밀 최대 10분 · 편안한 강도", "보통" to "스텝밀 최대 15분 · 계획대로 진행", "좋음" to "스텝밀 최대 15분 · 자세 유지").forEachIndexed { index, option ->
             conditionRow.addView(actionButton(option.first, false) {
                 getSharedPreferences("preferences", MODE_PRIVATE).edit().putString("condition", option.first).apply()
                 Toast.makeText(this, option.second, Toast.LENGTH_LONG).show()
 
-            }, LinearLayout.LayoutParams(0, dp(42), 1f).apply { if (index > 0) leftMargin = dp(5) })
+            }, LinearLayout.LayoutParams(0, -2, 1f).apply { if (index > 0) leftMargin = dp(8) })
         }
-        settings.addView(conditionRow)
-        settings.addView(label("운동 중 변경한 컨디션은 다음 운동부터 적용됩니다.", 11, false, textSecondary))
-        addGap(settings, 8)
-        settings.addView(label("MOVE60 ${packageManager.getPackageInfo(packageName, 0).versionName}", 11, false, textSecondary))
-        addGap(settings, 8)
-        settings.addView(actionButton("오류 기록 확인 · 복사 · 삭제", false) { CrashReporter.showDiagnostics(this) })
-        body.addView(settings)
-
-        addGap(body, 12)
-        body.addView(label("칼로리 계산 기준", 15, true, mint))
-        body.addView(label("실제 운동시간·체중·MET 기반의 추정치입니다. 완료한 근력 세트는 횟수(1회 3초 가정)와 RPE를 반영합니다. 입력 중량은 총 운동량으로 기록하며 kg을 kcal로 직접 환산하지 않습니다. 개인 보정이 없는 심박수는 열량 계산에 합산하지 않습니다.", 13, false, textSecondary))
+        workoutSettings.addView(conditionRow)
+        addGap(workoutSettings, 12)
+        workoutSettings.addView(label("운동 중 변경한 컨디션은 다음 운동부터 적용됩니다.", 14, false, textSecondary))
+        addGap(workoutSettings, 16)
+        body.addView(workoutSettings)
+        addGap(body, 24)
+        val support = card()
+        support.addView(label("앱 정보 · 도움말", 18, true))
+        addGap(support, 12)
+        support.addView(label("MOVE60 ${packageManager.getPackageInfo(packageName, 0).versionName}", 14, false, textSecondary))
+        addGap(support, 16)
+        support.addView(actionButton("오류 기록 확인 · 복사 · 삭제", false) { CrashReporter.showDiagnostics(this) })
+        addGap(support, 24)
+        support.addView(label("칼로리 계산 기준", 16, true, mint))
+        addGap(support, 12)
+        support.addView(label("실제 운동시간·체중·MET 기반의 추정치입니다.\n\n완료한 근력 세트는 횟수(1회 3초 가정)와 RPE를 반영합니다. 입력 중량은 총 운동량으로 기록하며 kg을 kcal로 직접 환산하지 않습니다.\n\n개인 보정이 없는 심박수는 열량 계산에 합산하지 않습니다.", 14, false, textSecondary))
+        body.addView(support)
         val scroll = ScrollView(this).apply { setBackgroundColor(this@SettingsActivity.background); addView(body) }
         scroll.setOnApplyWindowInsetsListener { view, insets ->
             if (Build.VERSION.SDK_INT >= 30) {
@@ -182,6 +199,7 @@ class SettingsActivity : Activity() {
         textSize = size.toFloat()
         if (bold) setTypeface(typeface, Typeface.BOLD)
         includeFontPadding = true
+        setLineSpacing(dp(3).toFloat(), 1.12f)
     }
     private fun column() = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
     private fun row() = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
@@ -191,13 +209,14 @@ class SettingsActivity : Activity() {
     }
     private fun actionButton(title: String, main: Boolean, onClick: () -> Unit) = TextView(this).apply {
         text = title
-        textSize = if (main) 15f else 12f
+        textSize = 16f
         setTypeface(typeface, Typeface.BOLD)
         setTextColor(if (main) Color.rgb(22, 37, 26) else textPrimary)
         background = rounded(if (main) mint else panelLight, 12, if (main) mint else subtle)
         gravity = Gravity.CENTER
-        minHeight = dp(if (main) 53 else 43)
-        setPadding(dp(8), dp(9), dp(8), dp(9))
+        minHeight = dp(56)
+        setPadding(dp(14), dp(14), dp(14), dp(14))
+        setLineSpacing(dp(2).toFloat(), 1.1f)
         isClickable = true
         isFocusable = true
         setOnClickListener { onClick() }

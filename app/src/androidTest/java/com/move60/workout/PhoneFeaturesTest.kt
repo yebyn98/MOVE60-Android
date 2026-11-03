@@ -44,6 +44,7 @@ class PhoneFeaturesTest {
             onView(withText("구간 전환 알림음")).check(doesNotExist())
             onView(withText("오늘 컨디션에 맞춘 루틴")).check(doesNotExist())
             onView(withText("오류 기록 확인 · 복사 · 삭제")).check(doesNotExist())
+            screenshot("phone-v27-home.png")
             onView(withTagValue(`is`("phone_settings"))).perform(click())
             onView(withText("구간 전환 알림음")).check(matches(isDisplayed()))
             onView(withText("업데이트 확인")).check(matches(isDisplayed()))
@@ -66,7 +67,10 @@ class PhoneFeaturesTest {
     }
     @Test fun inlinePerSetFieldsSurviveTimerTicksAndPersist() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-            scenario.onActivity { activity -> activity.window.decorView.findViewWithTag<TextView>("phone_play").performClick() }
+            scenario.onActivity { activity ->
+                repeat(2) { activity.window.decorView.findViewWithTag<TextView>("phone_next").performClick() }
+                activity.window.decorView.findViewWithTag<TextView>("phone_play").performClick()
+            }
             Thread.sleep(700)
             lateinit var input: EditText
             val id = WorkoutData(context).routine(WorkoutData(context).todayDay()).stages[2].tasks.first().id
@@ -158,3 +162,4 @@ class PhoneFeaturesTest {
         assertTrue(SetRecordStore(context).read(1, "test", 1, token=100L).completed)
     }
 }
+

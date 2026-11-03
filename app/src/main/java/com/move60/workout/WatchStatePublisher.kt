@@ -15,7 +15,7 @@ object WatchStatePublisher {
         val state = JSONObject(snapshot)
         val current = SessionStore(context, WorkoutData(context))
         // Enrich only the matching session. Older service callbacks must never publish an old stage.
-        if (state.optInt("day",-1) != current.day || state.optLong("sessionStartedAt") != current.sessionStartedAt || state.optInt("stage") != current.stage ||
+        if (state.optString("workoutDate") != current.recordDate.toString() || state.optInt("day",-1) != current.day || state.optLong("sessionStartedAt") != current.sessionStartedAt || state.optInt("stage") != current.stage ||
             state.optLong("controlVersion") < current.controlVersion) {
             return createRequest(context, current.snapshot())
         }

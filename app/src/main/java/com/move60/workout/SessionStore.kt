@@ -6,9 +6,18 @@ import org.json.JSONObject
 import kotlin.math.ceil
 
 /** Stages only change on an explicit user action. Active time excludes pauses and may exceed 60 minutes. */
-class SessionStore(private val context: Context, private val data: WorkoutData) {
+class SessionStore(private val context: Context, private val data: WorkoutData, private val dateNow: () -> java.time.LocalDate = { data.localToday() }) {
     private val preferences = context.getSharedPreferences("move60_native_sessions_v8", Context.MODE_PRIVATE)
-    var day: Int = preferences.getInt("active_day", data.todayDay()).coerceIn(1, 5)
+    var recordDate: java.time.LocalDate = run {
+        val today = dateNow()
+        val stored = try { java.time.LocalDate.parse(preferences.getString("active_date", "")) } catch (_: Exception) { today }
+        val active = preferences.getInt("active_day", today.dayOfWeek.value).coerceIn(1,5)
+        val old = try { JSONObject(preferences.getString("daily_"+stored+"_"+active, "{}") ?: "{}") } catch (_: Exception) { JSONObject() }
+        if (stored <= today && old.optBoolean("running") && !old.optBoolean("finished")) stored else today
+    }
+        private set
+    var day: Int = if (preferences.getString("active_date", "") == recordDate.toString())
+        preferences.getInt("active_day", data.todayDay()).coerceIn(1,5) else recordDate.dayOfWeek.value.coerceIn(1,5)
         private set
     var routine: DailyRoutine = data.routine(day)
         private set
@@ -42,17 +51,26 @@ class SessionStore(private val context: Context, private val data: WorkoutData) 
     val completed = mutableSetOf<Int>()
 
     init { load(day) }
-    private fun key() = "move60_${data.weekKey()}_${day}"
+    private fun key() = "daily_"+recordDate+"_"+day
     fun taskKey(stage: Int, index: Int) = "$stage-$index"
     fun refreshRoutine() { reloadIfChanged(); controlVersion++; routine = data.routine(day); save() }
-    fun setDay(next: Int) { reloadIfChanged(); if (next == day) return; save(); load(next.coerceIn(1, 5)) }
+    fun setDay(next: Int) { reloadIfChanged(); if (next == day) return; save(); load(next.coerceIn(1, 5)); save() }
 
     private fun load(d: Int) {
         day = d
         routine = data.routine(day)
         checked.clear()
         completed.clear()
-        val state = preferences.getString(key(), "")
+        var state = preferences.getString(key(), "")
+        if (state.isNullOrEmpty()) {
+            val legacy = preferences.getString("move60_"+data.weekKey()+"_"+day, null)
+            val old = try { JSONObject(legacy ?: "{}") } catch (_: Exception) { JSONObject() }
+            val started = old.optLong("sessionStartedAt")
+            if (started > 0L && java.time.Instant.ofEpochMilli(started).atZone(java.time.ZoneId.of("Asia/Seoul")).toLocalDate() == recordDate) {
+                state = legacy
+                preferences.edit().putString(key(),state).apply()
+            }
+        }
         loadedRaw = state ?: ""
         if (state.isNullOrEmpty()) {
             resetFields()
@@ -97,8 +115,15 @@ class SessionStore(private val context: Context, private val data: WorkoutData) 
     }
     private fun stageSeconds(s: Int = stage) = routine.stages[s].minutes * 60
     fun reloadIfChanged(): Boolean {
-        val active = preferences.getInt("active_day", day).coerceIn(1, 5)
-        val raw = preferences.getString("move60_${data.weekKey()}_${active}", "") ?: ""
+        if (recordDate != dateNow() && !running) {
+            recordDate = dateNow()
+            load(recordDate.dayOfWeek.value.coerceIn(1,5))
+            save()
+            return true
+        }
+        val active = if (preferences.getString("active_date", "") == recordDate.toString())
+            preferences.getInt("active_day", day).coerceIn(1, 5) else day
+        val raw = preferences.getString("daily_"+recordDate+"_"+active, "") ?: ""
         if (active == day && raw == loadedRaw) return false
         load(active)
         return true
@@ -138,7 +163,7 @@ class SessionStore(private val context: Context, private val data: WorkoutData) 
             .put("checked", checkedArray)
             .put("completed", completedArray)
         loadedRaw = state.toString()
-        preferences.edit().putInt("active_day", day).putString(key(), loadedRaw).apply()
+        preferences.edit().putString("active_date",recordDate.toString()).putInt("active_day", day).putString(key(), loadedRaw).apply()
     }
     fun reconcile(now: Long = System.currentTimeMillis()): Boolean {
         if (!running || finished) return false
@@ -257,7 +282,7 @@ class SessionStore(private val context: Context, private val data: WorkoutData) 
             phases.put(JSONObject().put("name", t.name).put("seconds", t.seconds)
                 .put("rpe", t.rpe).put("description", t.description))
         }
-        return JSONObject().put("running", running).put("finished", finished)
+        return JSONObject().put("workoutDate",recordDate.toString()).put("running", running).put("finished", finished)
             .put("sessionStartedAt", sessionStartedAt)
             .put("controlVersion", controlVersion).put("restDeadline", restDeadline)
             .put("restPaused", restPaused).put("restId", restId)
