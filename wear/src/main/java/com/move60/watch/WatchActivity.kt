@@ -215,7 +215,7 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
         stage.text = if (workout.finished) "운동 완료" else workout.stageLabel
         stage.contentDescription = "현재 단계 ${stage.text} · 길게 눌러 설정"
         detail.text = when {
-            requestStatus.isNotBlank() -> requestStatus
+            pending.isNotBlank() -> requestStatus
             workout.stageIndex == 2 && workout.restSeconds() > 0 -> "세트 휴식 · 길게 눌러 +15초"
             workout.stageIndex == 2 && workout.hasSession -> workout.setLabel.ifBlank { workout.detail }
             workout.finished -> "오늘 운동을 마쳤어요"
@@ -228,7 +228,7 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
         val prefs = getSharedPreferences("live_heart_rate", MODE_PRIVATE)
         val bpm = prefs.getInt("bpm", 0)
         val age = System.currentTimeMillis() - prefs.getLong("measured_at", 0L)
-        heartRate.text = if (bpm in 30..240 && age in 0L..10_000L) "♥ $bpm bpm" else "♥ 연결대기"
+        heartRate.text = if (!connected) "폰 연결 끊김" else if (bpm in 30..240 && age in 0L..10_000L) "♥ $bpm bpm" else "♥ 연결대기"
         heartRate.contentDescription = if (bpm in 30..240 && age in 0L..10_000L)
             "심박수 $bpm, ${age / 1000}초 전 측정" else "심박수 연결대기"
         playButton.text = if (workout.running) "일시정지" else if (workout.finished) "새 운동" else "시작"
