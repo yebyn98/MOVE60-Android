@@ -34,7 +34,7 @@ class SettingsActivity : Activity() {
         super.onCreate(savedInstanceState)
         data = WorkoutData(this)
         session = SessionStore(this, data)
-        session.setDay(intent.getIntExtra("day", data.todayDay()))
+        // Settings follow the current phone-owned session, even after a watch command.
         updateManager = UpdateManager(this)
         soundEnabled = getSharedPreferences("preferences", MODE_PRIVATE).getBoolean("sound", true)
         calorieWeightKg = getSharedPreferences("preferences", MODE_PRIVATE).getFloat("calorie_weight_kg", 63f).toDouble()
@@ -65,6 +65,7 @@ class SettingsActivity : Activity() {
         }
         preferenceRow.addView(soundSwitch, LinearLayout.LayoutParams(0, -2, 1f))
         settings.addView(actionButton("유산소 · 근력 시간 비율 변경", false) {
+            session.reloadIfChanged()
             if (session.running || session.elapsed() > 0) {
                 Toast.makeText(this, "운동 시작 전 초기 상태에서 변경해 주세요.", Toast.LENGTH_LONG).show()
             } else {
@@ -215,3 +216,4 @@ class SettingsActivity : Activity() {
         return "%02d:%02d".format(n / 60, n % 60)
     }
 }
+
