@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="move60_bg">#000000</color>
+    <color name="move60_surface">#121212</color>
+    <color name="move60_surface_elevated">#1E1E1E</color>
+    <color name="move60_outline">#303030</color>
+    <color name="move60_accent">#00E676</color>
+    <color name="move60_on_accent">#000000</color>
+    <color name="move60_text">#FFFFFF</color>
+    <color name="move60_text_medium">#B0B0B0</color>
+    <color name="move60_text_muted">#797979</color>
+    <color name="move60_heart">#FF6B81</color>
+</resources>
