@@ -22,7 +22,7 @@
             android:paddingRight="10dp"
             android:paddingBottom="5dp"
             android:text="MOVE60"
-            android:textColor="#0D1626"
+            android:textColor="@color/move60_on_accent"
             android:textSize="11sp"
             android:textStyle="bold" />
 
@@ -36,7 +36,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="화요일"
-            android:textColor="#D7E0F0"
+            android:textColor="@color/move60_text"
             android:textSize="12sp"
             android:textStyle="bold" />
     </LinearLayout>
@@ -57,7 +57,7 @@
             android:paddingRight="10dp"
             android:paddingBottom="4dp"
             android:text="실내 사이클"
-            android:textColor="#EAF0FF"
+            android:textColor="@color/move60_text"
             android:textSize="11sp"
             android:textStyle="bold" />
 
@@ -75,7 +75,7 @@
             android:paddingRight="10dp"
             android:paddingBottom="4dp"
             android:text="3/18 구간"
-            android:textColor="#D7E0F0"
+            android:textColor="@color/move60_text"
             android:textSize="11sp"
             android:textStyle="bold" />
     </LinearLayout>
@@ -86,7 +86,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
         android:text="빠르게 페달링"
-        android:textColor="#FFFFFF"
+        android:textColor="@color/move60_text"
         android:textSize="18sp"
         android:textStyle="bold" />
 
@@ -97,7 +97,7 @@
         android:layout_marginTop="6dp"
         android:maxLines="3"
         android:text="리듬을 유지하면서 페달링"
-        android:textColor="#AEBBD2"
+        android:textColor="@color/move60_text_medium"
         android:textSize="12sp" />
 
     <LinearLayout
@@ -120,7 +120,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="남은 시간"
-                android:textColor="#A5B4CF"
+                android:textColor="@color/move60_text_medium"
                 android:textSize="11sp" />
 
             <Chronometer
@@ -129,7 +129,7 @@
                 android:layout_height="wrap_content"
                 android:fontFamily="sans-serif-medium"
                 android:text="00:00"
-                android:textColor="#FFFFFF"
+                android:textColor="@color/move60_text"
                 android:textSize="32sp"
                 android:textStyle="bold" />
         </LinearLayout>
@@ -144,7 +144,7 @@
             android:paddingRight="10dp"
             android:paddingBottom="6dp"
             android:text="RPE 7"
-            android:textColor="#0D1626"
+            android:textColor="@color/move60_on_accent"
             android:textSize="12sp"
             android:textStyle="bold" />
     </LinearLayout>
@@ -166,6 +166,6 @@
         android:layout_marginTop="8dp"
         android:gravity="end"
         android:text="전체 20/60분"
-        android:textColor="#D7E0F0"
+        android:textColor="@color/move60_text"
         android:textSize="12sp" />
 </LinearLayout>
