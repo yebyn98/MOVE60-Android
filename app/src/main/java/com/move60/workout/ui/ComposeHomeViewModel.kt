@@ -24,7 +24,8 @@ data class ComposeHomeState(
     val todayKcal: Double = 0.0,
     val history: List<HistoryItem> = emptyList(),
     val soundEnabled: Boolean = true,
-    val weightKg: Float = 63f
+    val weightKg: Float = 63f,
+    val appVersion: String = "-"
 )
 
 sealed interface HomeEvent {
