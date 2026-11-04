@@ -37,6 +37,15 @@ class SetRecordStore(context: Context) {
     }
     fun completed(date: LocalDate): List<Record> = prefs.all.filterKeys { it.startsWith("set:$date:") && it.split(':').getOrNull(3) != "0" }
         .values.map { decode(it as? String) }.filter { it.completed && it.valid }
+    /** Completed records belonging to a single workout, not all workouts on the date. */
+    fun completedForSession(token: Long): List<Record> {
+        if (token <= 0L) return emptyList()
+        return prefs.all.filterKeys { key ->
+            val parts = key.split(':')
+            parts.size == 6 && parts[0] == "set" && parts[3] == token.toString()
+        }.values.map { decode(it as? String) }.filter { it.completed && it.valid }
+    }
+
     fun beginSession(day: Int, token: Long) {
         if (token <= 0L) return
         val prefix = "set:${today()}:$day:0:"
