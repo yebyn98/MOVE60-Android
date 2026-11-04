@@ -54,10 +54,12 @@ class ComposeHomeViewModel @Inject constructor(
                 history = records.filter { it.activeSeconds > 0L }
                     .map { HistoryItem(it.date, it.activeSeconds / 60, it.estimatedKcal) },
                 soundEnabled = alerts,
-                weightKg = kg
+                weightKg = kg,
+                appVersion = repository.installedVersion()
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000),
-            ComposeHomeState(todayDate = repository.currentDate().toString()))
+            ComposeHomeState(todayDate = repository.currentDate().toString(),
+                appVersion = repository.installedVersion()))
 
     init {
         viewModelScope.launch {
@@ -75,6 +77,8 @@ class ComposeHomeViewModel @Inject constructor(
     suspend fun refreshVisible() {
         try {
             date.value = repository.currentDate().toString()
+            sound.value = repository.soundEnabled()
+            weight.value = repository.weightKg()
             repository.refreshToday()
         } catch (cancelled: CancellationException) {
             throw cancelled
