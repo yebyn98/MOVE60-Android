@@ -49,7 +49,10 @@ settings=(root/"app/src/main/java/com/move60/workout/SettingsActivity.kt").read_
 wear=(root/"wear/src/main/java/com/move60/watch/WatchActivity.kt").read_text()
 tile=(root/"wear/src/main/java/com/move60/watch/WorkoutTileService.kt").read_text()
 assert 'val block = card().apply' in main and 'phone_dashboard_summary' in main
-assert '지난 기록 불러오기' not in main and 'set-$' not in main.replace('set-$', 'set-$', 1) if False else True
+assert '지난 기록 불러오기' not in main
+assert 'tag = "set-' not in main or '-rpe"' not in main
+assert '"오늘 누적 ' in main
+assert 'phone_dashboard_progress' in main
 assert 'tag = "settings_sound_toggle"' in settings and 'settings_about_card' in settings and 'settings_help_card' in settings
 assert 'watch_progress_ring' in wear and 'WorkoutProgressRing' in wear
 assert 'Theme.Colors.surfaceElevated' in wear and 'ring(360f * ratio, Theme.Colors.primary)' in tile
