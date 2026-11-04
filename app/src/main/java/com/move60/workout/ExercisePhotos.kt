@@ -76,7 +76,14 @@ object ExercisePhotos {
         }
         val imageHeight = (context.resources.displayMetrics.density * 210).toInt()
         parent.addView(animated, LinearLayout.LayoutParams(-1, imageHeight))
-        val control = Button(context).apply { this.text = "▶ 동작 재생" }
+        val control = Button(context).apply {
+            this.text = "▶ 동작 재생"
+            isAllCaps = false
+            textSize = Move60Theme.Type.body
+            setTextColor(Move60Theme.Color.onAccent)
+            background = Move60Theme.shape(context, Move60Theme.Color.accent)
+            minHeight = Move60Theme.dp(context, Move60Theme.Space.touchMin)
+        }
         parent.addView(control)
         val frames = arrayOfNulls<Bitmap>(2)
         var playing = false
