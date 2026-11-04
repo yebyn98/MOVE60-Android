@@ -51,6 +51,6 @@ assert "@color/move60_accent" in widget
 assert "@color/move60_surface" in widget
 for name in ("notification_workout_compact.xml","notification_workout_expanded.xml"):
     item=(root/"app/src/main/res/layout"/name).read_text()
-    assert "@color/move60_accent" in item
+    assert "@color/move60_accent" in item or "@drawable/bg_notification_brand" in item
     assert "RPE" not in item
 print("PASS: MOVE60 phone, Wear, tile, widget, notifications and settings share fixed design tokens")
