@@ -133,7 +133,11 @@ class WearHealthActivity : ComponentActivity(), DataClient.OnDataChangedListener
         val bpm = sensorPrefs.getInt("bpm", 0).takeIf {
             it in 30..240 && now - freshAt in 0L..20_000L
         }
-        val consented = prefs.getBoolean("consented", false)
+        // Expire shared metrics if the phone has not refreshed them within 24 hours.
+        // This avoids silently presenting stale health records as current.
+        val lastSynced = prefs.getLong("syncedAt", 0L)
+        val consented = prefs.getBoolean("consented", false) &&
+            lastSynced > 0L && now - lastSynced in 0L..86_400_000L
         displayState = HealthState(
             liveBpm = bpm,
             heartStatus = sensorPrefs.getString("status", "센서 시작 전") ?: "센서 시작 전",
@@ -210,6 +214,12 @@ fun HealthScreen(
                         }
                         Text(if (state.liveBpm != null) "워치 실측값" else state.heartStatus,
                             color = secondary, fontSize = 11.sp, maxLines = 2)
+                        Text(
+                            if (state.healthConsent)
+                                "삼성 헬스 최근 기록: " + (state.sharedBpm?.let { "$it bpm" } ?: "기록 없음")
+                            else "삼성 헬스 기록: 동의 필요",
+                            color = secondary, fontSize = 10.sp, maxLines = 2
+                        )
                     }
                 }
                 item {
