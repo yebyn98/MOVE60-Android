@@ -49,7 +49,10 @@ jobs:
           emulator-boot-timeout: 600
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -memory 4096 -cores 2
           disable-animations: true
-          script: bash scripts/smoke-android.sh
+          script: |
+            bash scripts/smoke-android.sh
+            # Required phone instrumentation now runs in the same clean phone-only emulator.
+            bash scripts/smoke-phone-features.sh
       - name: Upload emulator notification screenshot and test evidence
         if: always()
         uses: actions/upload-artifact@v4

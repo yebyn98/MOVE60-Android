@@ -123,55 +123,6 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
-      - name: Enable KVM access for release-gate emulator
-        run: |
-          if test -e /dev/kvm; then sudo chmod 666 /dev/kvm; fi
-      - name: Free disk space before Wear OS emulator
-        shell: bash
-        run: |
-          avdmanager delete avd -n test || true
-          sdkmanager --uninstall 'system-images;android-35;google_apis;x86_64' || true
-          sudo rm -rf /usr/share/dotnet
-          df -h /
-      - name: Gate release with small round Wear OS workout and ambient UI
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 34
-          arch: x86_64
-          target: android-wear
-          profile: wearos_small_round
-          avd-name: move60_wear_gate
-          emulator-boot-timeout: 300
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -memory 3072
-          disable-animations: true
-          script: bash scripts/smoke-watch-layout.sh
-      - name: Free disk space before phone emulator
-        shell: bash
-        run: |
-          avdmanager delete avd -n move60_wear_gate || true
-          sdkmanager --uninstall 'system-images;android-34;android-wear;x86_64' || true
-          df -h /
-      - name: Gate release with workout start, rendered notification and re-entry
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 35
-          arch: x86_64
-          target: google_apis
-          profile: pixel_6
-          emulator-boot-timeout: 600
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -memory 4096 -cores 2
-          disable-animations: true
-          script: |
-            bash scripts/smoke-android.sh
-            bash scripts/smoke-phone-features.sh
-      - name: Upload release-gate runtime evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: MOVE60-release-gate-evidence
-          path: smoke-debug/
-          if-no-files-found: ignore
-          retention-days: 14
       - name: Build stable signed release APK
         if: env.MOVE60_SIGNED == 'true'
         run: gradle --no-daemon --stacktrace :app:assembleRelease :wear:assembleRelease
@@ -191,9 +142,55 @@ jobs:
           path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 30
+  # Dedicated runner: the previous build ran WearOS and Pixel emulators back-to-back.
+  # The second boot intermittently opened a Pixel Launcher ANR and blocked publication.
+  # Keep both real device UI tests mandatory, but never share their emulator VM state.
+  wear-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Verify release dependency policy
+        run: |
+          python3 -m pip install PyYAML==6.0.2
+          python3 scripts/verify-release-gates.py
+      - name: Verify unified phone and Wear OS design tokens
+        run: python3 scripts/verify-design-tokens.py
+      - name: Build Watch4 debug APK and instrumentation
+        run: gradle --no-daemon :wear:assembleDebug :wear:assembleDebugAndroidTest
+      - name: Enable KVM access for Wear OS emulator
+        run: |
+          if test -e /dev/kvm; then sudo chmod 666 /dev/kvm; fi
+      - name: Gate release with small round Wear OS workout and ambient UI
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: android-wear
+          profile: wearos_small_round
+          avd-name: move60_wear_gate
+          emulator-boot-timeout: 300
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -memory 3072
+          disable-animations: true
+          script: bash scripts/smoke-watch-layout.sh
+      - name: Upload Wear OS runtime validation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: MOVE60-wear-release-gate-evidence
+          path: smoke-debug/
+          if-no-files-found: ignore
+          retention-days: 14
   publish:
-    needs: [build, runtime-smoke]
-    if: needs.build.result == 'success' && needs.runtime-smoke.result == 'success' && github.ref == 'refs/heads/main'
+    needs: [build, runtime-smoke, wear-gate]
+    if: needs.build.result == 'success' && needs.runtime-smoke.result == 'success' && needs.wear-gate.result == 'success' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
