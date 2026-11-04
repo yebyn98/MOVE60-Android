@@ -29,15 +29,16 @@ def tap(node):
     time.sleep(1)
 
 def snapshot(name):
-    for attempt in range(3):
+    for attempt in range(6):
         try:
             adb("shell", "uiautomator", "dump", "/sdcard/fixed-controls.xml")
             adb("pull", "/sdcard/fixed-controls.xml", str(OUT / (name+".xml")))
             return ET.parse(OUT / (name+".xml")).getroot()
-        except (subprocess.SubprocessError, ET.ParseError):
-            if attempt == 2:
-                raise
-            time.sleep(1)
+        except (subprocess.SubprocessError, ET.ParseError) as error:
+            if attempt == 5:
+                raise RuntimeError("Could not verify fixed controls after 6 attempts") from error
+            # Android emulator UiAutomator can briefly return before the dump is on disk.
+            time.sleep(2)
 
 # The parent smoke test captured this hierarchy immediately before starting.
 initial = ET.parse(OUT / "window.xml").getroot()
