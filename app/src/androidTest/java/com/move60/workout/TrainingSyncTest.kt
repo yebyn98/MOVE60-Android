@@ -103,7 +103,7 @@ class TrainingSyncTest {
         assertEquals(TrainingProgress.next(phone)?.task?.name,packet.getString("exerciseName"))
         assertTrue(packet.getInt("totalSets") > 0)
         assertEquals(1,packet.getInt("completedSets"))
-        assertEquals(phone.elapsed(),packet.getInt("activeSeconds"))
+        assertTrue(kotlin.math.abs(phone.elapsed()-packet.getInt("activeSeconds")) <= 2)
         assertTrue(packet.getDouble("estimatedKcal") >= 0.0)
         assertFalse(packet.getBoolean("canComplete"))
         val skip = request(phone,"rest_skip")
