@@ -142,11 +142,11 @@ class HeartRateService : Service(), SensorEventListener, DataClient.OnDataChange
         if (item.uri.path != "/move60/workout") return
         val map = DataMapItem.fromDataItem(item).dataMap
         val newSession = map.getLong("session")
-        if (newSession > 0L && newSession != sessionId) {
-            sessionId = newSession
+        if (newSession > 0L && newSession != prefs.getLong("session",0L)) {
             prefs.edit().putLong("session",newSession).putLong("sample_total",0L)
                 .putInt("sample_count",0).putLong("last_avg_at",0L).apply()
         }
+        sessionId = newSession
         running = map.getBoolean("running")
     }
     override fun onDataChanged(events: DataEventBuffer) {
