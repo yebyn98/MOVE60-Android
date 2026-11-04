@@ -234,7 +234,7 @@ class MainActivity : Activity() {
                     setOnClickListener { selectedDate = date; render() }
                 }
                 cell.addView(label(day.toString(), 13, date == selectedDate).apply { gravity = Gravity.CENTER })
-                cell.addView(View(this).apply { tag = "calendar-dot-$date"; background = rounded(mint, 4); visibility = if (trained) View.VISIBLE else View.INVISIBLE }, LinearLayout.LayoutParams(dp(5), dp(5)).apply { topMargin = dp(3) })
+                cell.addView(View(this).apply { tag = "calendar-dot-$date"; background = rounded(mint, 4); visibility = if (trained) View.VISIBLE else View.INVISIBLE }, LinearLayout.LayoutParams(dp(5), dp(5)).apply { topMargin = dp(8) })
                 grid.addView(cell, GridLayout.LayoutParams().apply { width = 0; height = dp(46); columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f) })
             }
             val days = history.month(month)
@@ -288,7 +288,7 @@ class MainActivity : Activity() {
         restPanel.addView(restValue)
         val restActions = row()
         restActions.addView(actionButton("+15초", false) { session.adjustRest(15); syncService(); refreshTimer() }.apply { tag="phone_rest_add" },LinearLayout.LayoutParams(0,dp(48),1f))
-        restActions.addView(actionButton("건너뛰기", false) { session.skipRest(); syncService(); refreshTimer() }.apply { tag="phone_rest_skip" },LinearLayout.LayoutParams(0,dp(48),1f).apply { leftMargin=dp(6) })
+        restActions.addView(actionButton("건너뛰기", false) { session.skipRest(); syncService(); refreshTimer() }.apply { tag="phone_rest_skip" },LinearLayout.LayoutParams(0,dp(48),1f).apply { leftMargin = dp(8) })
         restPanel.addView(restActions)
         content.addView(restPanel)
         addGap(content, 14)
@@ -323,7 +323,7 @@ class MainActivity : Activity() {
                     afterAction()
                 }
             }.apply { tag = "body_focus_"+value; contentDescription = title + " 운동 선택"; isSelected = selected }
-            focusRow.addView(button, LinearLayout.LayoutParams(0, -2, 1f).apply { if (index > 0) leftMargin=dp(8) })
+            focusRow.addView(button, LinearLayout.LayoutParams(0, -2, 1f).apply { if (index > 0) leftMargin = dp(8) })
         }
     }
 
@@ -352,7 +352,7 @@ class MainActivity : Activity() {
                 }
             }
             dayStrip.addView(day, LinearLayout.LayoutParams(0, dp(49), 1f).apply {
-                if (d > 1) leftMargin = dp(6)
+                if (d > 1) leftMargin = dp(8)
             })
         }
     }
@@ -402,7 +402,7 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER
             minHeight = dp(40)
             minWidth = dp(76)
-            setPadding(dp(8), dp(6), dp(8), dp(6))
+            setPadding(dp(8), dp(8), dp(8), dp(8))
             background = rounded(panelLight, 9, subtle)
         }
         state.addView(dockHeartRate, LinearLayout.LayoutParams(-2, -2).apply { leftMargin = dp(8) })
@@ -431,8 +431,8 @@ class MainActivity : Activity() {
         next.textSize = 11f
         play.textSize = 12f
         buttons.addView(previous, LinearLayout.LayoutParams(0, dp(52), 1f))
-        buttons.addView(play, LinearLayout.LayoutParams(0, dp(52), 1.35f).apply { leftMargin = dp(5) })
-        buttons.addView(next, LinearLayout.LayoutParams(0, dp(52), 1f).apply { leftMargin = dp(5) })
+        buttons.addView(play, LinearLayout.LayoutParams(0, dp(52), 1.35f).apply { leftMargin = dp(8) })
+        buttons.addView(next, LinearLayout.LayoutParams(0, dp(52), 1f).apply { leftMargin = dp(8) })
         dock.addView(buttons)
         return dock
     }
@@ -498,7 +498,7 @@ class MainActivity : Activity() {
                 background = rounded(if (isCurrent) mint else subtle, 10)
             }
             top.addView(number, LinearLayout.LayoutParams(dp(35), dp(35)))
-            val titles = column().apply { setPadding(dp(9), 0, 0, 0) }
+            val titles = column().apply { setPadding(dp(8), 0, 0, 0) }
             titles.addView(label(stage.name, 15, true))
             titles.addView(label(displayDetail(stage.subtitle), 11, false, textSecondary))
             top.addView(titles, LinearLayout.LayoutParams(0, -2, 1f))
@@ -506,7 +506,7 @@ class MainActivity : Activity() {
             block.addView(top)
             val detailBlock = column()
             detailBlock.visibility = if (isCurrent) View.VISIBLE else View.GONE
-            val chevron = label(if (isCurrent) "⌃" else "⌄",16,true,textSecondary).apply { setPadding(dp(12),0,0,0) }
+            val chevron = label(if (isCurrent) "⌃" else "⌄",16,true,textSecondary).apply { setPadding(dp(16),0,0,0) }
             top.addView(chevron)
             top.minimumHeight = dp(48)
             top.contentDescription = stage.name + " 상세 펼치기 또는 접기"
@@ -533,7 +533,7 @@ class MainActivity : Activity() {
                 item.addView(textBox, LinearLayout.LayoutParams(0, -2, 1f))
                 if (si == 2) {
                 val more = label("상세 ›", 11, true, mint).apply { tag = "strength_detail_"+task.id }
-                more.setPadding(dp(3), dp(10), dp(3), dp(10))
+                more.setPadding(dp(8), dp(8), dp(8), dp(8))
                 more.setOnClickListener { showDetails(si, task) }
                 item.addView(more)
                 }
@@ -542,7 +542,7 @@ class MainActivity : Activity() {
                     val count = Regex("(\\d+)\\s*세트").find(task.detail)?.groupValues?.get(1)?.toIntOrNull()?.coerceIn(1, 8) ?: 3
                     val checkedCount = (1..count).count { set -> "strength-${session.day}-${task.id}-${set}" in session.checked }
                     val progress = label("세트 완료  ${checkedCount} / ${count}", 11, true, if (checkedCount == count) mint else textSecondary)
-                    progress.setPadding(dp(12), dp(4), 0, dp(3))
+                    progress.setPadding(dp(16), dp(8), 0, dp(8))
                     taskContainer.addView(progress)
                     val setRecords = SetRecordStore(this)
                     val labels = row()
@@ -564,7 +564,7 @@ class MainActivity : Activity() {
                             setHintTextColor(textSecondary)
                             setSingleLine(true)
                             setSelectAllOnFocus(true)
-                            setPadding(dp(3), dp(4), dp(3), dp(4))
+                            setPadding(dp(8), dp(8), dp(8), dp(8))
                             inputType = android.text.InputType.TYPE_CLASS_NUMBER or if (decimal) android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL else 0
                             contentDescription = "${task.name} ${set}세트 $hint"
                         }
@@ -618,7 +618,7 @@ class MainActivity : Activity() {
                         fields.addView(check, LinearLayout.LayoutParams(0, dp(48), 1f))
                         taskContainer.addView(fields)
                         val prior = setRecords.previous(task.id,set,session.sessionStartedAt)
-                        if (prior != null) taskContainer.addView(label("지난 기록  "+prior.kg+" kg × "+prior.reps+"회",10,false,textSecondary).apply { setPadding(dp(12),0,0,dp(4)) })
+                        if (prior != null) taskContainer.addView(label("지난 기록  "+prior.kg+" kg × "+prior.reps+"회",10,false,textSecondary).apply { setPadding(dp(16),0,0,dp(8)) })
                     }
                     taskContainer.addView(label("맨몸은 0kg · 중량과 횟수 자동 저장", 10, false, textSecondary))
                     addGap(taskContainer, Theme.Space.one)
@@ -667,7 +667,7 @@ class MainActivity : Activity() {
             for ((index, step) in steps.withIndex()) {
                 val stepBox = column().apply {
                     background = rounded(panelLight, 10, subtle)
-                    setPadding(dp(11), dp(10), dp(11), dp(10))
+                    setPadding(dp(8), dp(8), dp(8), dp(8))
                 }
                 stepBox.addView(label("${index + 1}단계", 12, true, mint))
                 stepBox.addView(label(step, 13, false))
@@ -848,7 +848,7 @@ class MainActivity : Activity() {
     private fun showRecoveryScreen(message: String) {
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(22), dp(65), dp(22), dp(24))
+            setPadding(dp(24), dp(64), dp(24), dp(24))
             setBackgroundColor(this@MainActivity.background)
         }
         val title = TextView(this).apply {
@@ -860,7 +860,7 @@ class MainActivity : Activity() {
             text = message + "\n앱을 삭제하지 마세요. 오류 기록을 복사해 알려주면 원인을 확인할 수 있어요."
             textSize = 15f
             setTextColor(textPrimary)
-            setPadding(0, dp(22), 0, dp(22))
+            setPadding(0, dp(24), 0, dp(24))
         }
         layout.addView(title)
         layout.addView(description)
