@@ -325,7 +325,7 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
             .setNegativeButton("취소",null)
             .setPositiveButton("저장") { _, _ ->
                 val value = input.text.toString().toIntOrNull()
-                if (value in 120..230) getSharedPreferences("watch_settings",MODE_PRIVATE).edit().putInt("max_heart_rate",value!!).apply()
+                if (value != null && value in 120..230) getSharedPreferences("watch_settings",MODE_PRIVATE).edit().putInt("max_heart_rate",value).apply()
                 else Toast.makeText(this,"120~230 사이로 입력하세요",Toast.LENGTH_SHORT).show()
             }.show()
     }
