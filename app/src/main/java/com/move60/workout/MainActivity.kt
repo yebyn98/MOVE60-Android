@@ -882,7 +882,8 @@ class MainActivity : Activity() {
     }
 
     private fun label(text: String, size: Int, bold: Boolean, color: Int = textPrimary) = TextView(this).apply {
-        this.text = text
+        this.text = text.replace(Regex("""RPE\\s*\\d+(?:\\s*[~–-]\\s*\\d+)?""",
+            RegexOption.IGNORE_CASE), "").replace("  ", " ").trim(' ', '·')
         setTextColor(color)
         Move60Theme.applyTypography(this, size, bold)
         includeFontPadding = true
