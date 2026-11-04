@@ -23,7 +23,7 @@ class TrainingSyncTest {
     @Before fun isolate() {
         context.stopService(Intent(context,WorkoutService::class.java))
         instrumentation.waitForIdleSync()
-        listOf("move60_native_sessions_v8","timer","move60_set_records_v1","move60_energy_v1",
+        listOf("move60_native_sessions_v8","timer","move60_set_records_v1","move60_energy_v1","move60_session_energy_v1",
             "move60_workout_history_v1","preferences","move60_duration_v1","watch_commands_v26",
             "watch_publish_v26","rest_alerts_v26").forEach { context.getSharedPreferences(it,0).edit().clear().commit() }
     }

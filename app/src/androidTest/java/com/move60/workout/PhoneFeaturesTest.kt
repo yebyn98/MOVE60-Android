@@ -31,7 +31,7 @@ class PhoneFeaturesTest {
     @Before fun isolateEmulatorData() {
         context.stopService(Intent(context, WorkoutService::class.java))
         instrumentation.waitForIdleSync()
-        for (name in listOf("move60_native_sessions_v8", "timer", "move60_set_records_v1", "move60_energy_v1", "move60_workout_history_v1", "preferences", "move60_duration_v1"))
+        for (name in listOf("move60_native_sessions_v8", "timer", "move60_set_records_v1", "move60_energy_v1", "move60_session_energy_v1", "move60_workout_history_v1", "preferences", "move60_duration_v1"))
             context.getSharedPreferences(name, 0).edit().clear().commit()
     }
     private fun screenshot(name: String) {
@@ -160,6 +160,55 @@ class PhoneFeaturesTest {
         assertEquals(2, store.completed(today).size)
         assertEquals(450.0, store.completed(today).sumOf { it.volume }, 0.000001)
         assertTrue(SetRecordStore(context).read(1, "test", 1, token=100L).completed)
+    }
+
+    @Test fun perSessionCaloriesStartAtZeroAndNeverCarryEarlierWorkoutEnergy() {
+        val ledger = EnergyLedger(context)
+        val firstStart = today.atTime(10, 0).atZone(ZoneId.of("Asia/Seoul")).toInstant().toEpochMilli()
+        val first = JSONObject().put("stage", 1).put("running", true)
+            .put("sessionStartedAt", firstStart)
+        assertEquals(0.0, ledger.estimateSession(JSONObject()), 0.000001)
+        ledger.add(today, firstStart, firstStart + 120_000L, first)
+        val firstKcal = ledger.estimateSession(first)
+        assertTrue("First workout should accumulate energy", firstKcal > 0.0)
+        ledger.add(today, firstStart, firstStart + 120_000L, first)
+        assertEquals("Duplicate checkpoint must not double-count",firstKcal,ledger.estimateSession(first),0.000001)
+
+        val secondStart = firstStart + 180_000L
+        val second = JSONObject().put("stage", 1).put("running", false)
+            .put("sessionStartedAt", secondStart)
+        assertEquals("New workout must start from zero",0.0,ledger.estimateSession(second),0.000001)
+        assertTrue(ledger.estimate(today) > 0.0)
+        second.put("running", true)
+        ledger.add(today, secondStart, secondStart + 60_000L, second)
+        val secondKcal = ledger.estimateSession(second)
+        assertTrue(secondKcal > 0.0)
+        assertTrue("Second workout cannot include earlier energy",secondKcal < ledger.estimate(today))
+        second.put("running", false)
+        assertEquals("Paused time must not be counted",secondKcal,ledger.estimateSession(second),0.000001)
+        first.put("running", false)
+        assertEquals("First session remains intact",firstKcal,ledger.estimateSession(first),0.000001)
+    }
+
+    @Test fun trainingHeadingHasGapAndDockStartsWithSessionZero() {
+        val ledger = EnergyLedger(context)
+        val start = today.atTime(9, 0).atZone(ZoneId.of("Asia/Seoul")).toInstant().toEpochMilli()
+        ledger.add(today,start,start+120_000L,JSONObject().put("stage",1).put("running",true))
+        assertTrue(ledger.estimate(today) > 0.0)
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { activity ->
+                val root = activity.window.decorView
+                val heading = root.findViewWithTag<TextView>("phone_training_heading")
+                val cards = root.findViewWithTag<LinearLayout>("phone_stage_stack")
+                val expected = (14 * activity.resources.displayMetrics.density).toInt()
+                assertTrue("Training heading and first card need adequate gap",
+                    cards.top - heading.bottom >= expected)
+                val kcal = root.findViewWithTag<TextView>("phone_session_calories")
+                assertTrue("Dock must exclude previous daily workouts",
+                    kcal.text.toString().contains("이번 운동 0.0 kcal"))
+            }
+            screenshot("phone-v32-session-energy-spacing.png")
+        }
     }
 }
 

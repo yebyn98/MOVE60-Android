@@ -286,11 +286,12 @@ class MainActivity : Activity() {
         content.addView(restPanel)
         addGap(content, 14)
         val heading = row()
-        heading.addView(label("운동 · 세트 기록",18,true),LinearLayout.LayoutParams(0,-2,1f))
+        heading.addView(label("운동 · 세트 기록",18,true).apply { tag = "phone_training_heading" },LinearLayout.LayoutParams(0,-2,1f))
         sectionCount = label("",11,false,textSecondary)
         heading.addView(sectionCount)
         content.addView(heading)
-        stageStack = column()
+        addGap(content, 14)
+        stageStack = column().apply { tag = "phone_stage_stack" }
         content.addView(stageStack)
         summary = column()
         content.addView(summary)
@@ -383,7 +384,10 @@ class MainActivity : Activity() {
         }
         state.addView(dockHeartRate, LinearLayout.LayoutParams(-2, -2).apply { leftMargin = dp(8) })
         dock.addView(state)
-        dockCalories = label("오늘 누적 0 kcal · 추정", 12, true, mint).apply { contentDescription = "오늘 누적 운동 칼로리" }
+        dockCalories = label("이번 운동 0.0 kcal · 추정", 12, true, mint).apply {
+            contentDescription = "현재 운동 시작 후 누적 소모 칼로리 추정치"
+            tag = "phone_session_calories"
+        }
         dock.addView(dockCalories)
         addGap(dock, 8)
         play = actionButton("▶ 운동 시작", true) {
@@ -774,7 +778,7 @@ class MainActivity : Activity() {
         sectionCount.text = "근력 세트 $doneSets / $totalSets · 단계 ${session.completed.size}/4"
         val volume = SetRecordStore(this).completed(data.localToday()).sumOf { it.volume }.toInt()
         trackingSummary.text = "근력 세트 $doneSets/$totalSets 완료 · 오늘 운동량 ${volume} kg·회"
-        dockCalories.text = "오늘 누적 ${"%.1f".format(EnergyLedger(this).estimate(data.localToday(), org.json.JSONObject(session.snapshot())))} kcal · 추정"
+        dockCalories.text = "이번 운동 ${"%.1f".format(EnergyLedger(this).estimateSession(org.json.JSONObject(session.snapshot())))} kcal · 추정"
     }
 
     private fun afterAction() { syncService(); renderStages(); renderSummary(); refreshTimer() }
