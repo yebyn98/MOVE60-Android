@@ -247,10 +247,11 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
         }.coerceAtLeast(0)
         val strengthTarget = !resting && workout.stageIndex == 2 && !workout.finished && workout.targetReps > 0
         timer.text = if (strengthTarget) {
-            val weight = workout.setWeight.takeIf { it.isNotBlank() }?.let { "$it kg · " } ?: ""
-            weight + "${workout.targetReps}회 목표"
+            // Tight round displays must show the complete weight and rep target, not an ellipsis.
+            val weight = workout.setWeight.takeIf { it.isNotBlank() }?.let { "${it}kg×" } ?: ""
+            weight + "${workout.targetReps}회"
         } else "%02d:%02d".format(remaining / 60, remaining % 60)
-        timer.textSize = if (strengthTarget) 20f else 30f
+        timer.textSize = if (strengthTarget) 18f else 30f
         timer.contentDescription = when {
             resting -> "남은 휴식 ${timer.text} · 눌러서 15초 늘리기 또는 줄이기"
             strengthTarget -> "현재 세트 ${timer.text}, 단계 남은 시간 ${remaining / 60}분 ${remaining % 60}초"
