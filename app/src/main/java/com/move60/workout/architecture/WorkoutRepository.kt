@@ -185,7 +185,13 @@ class DefaultWorkoutRepository @Inject constructor(
 
     private suspend fun mutate(block: suspend () -> Unit) {
         withContext(Dispatchers.IO) {
-            lock.withLock { session.reloadIfChanged(); block() }
+            lock.lock()
+            try {
+                session.reloadIfChanged()
+                block() // suspend Room writes are allowed while holding the coroutine mutex
+            } finally {
+                lock.unlock()
+            }
         }
         refresh()
     }
