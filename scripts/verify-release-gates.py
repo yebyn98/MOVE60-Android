@@ -1,6 +1,7 @@
 """Regression checks for release authorization and the exact workflow job condition."""
 import ast
 import itertools
+import json
 from pathlib import Path
 import yaml
 
@@ -38,6 +39,11 @@ for workflow in [release,smoke]:
 assert 'bash scripts/smoke-android.sh' in str(jobs['build'])
 assert 'bash scripts/smoke-phone-features.sh' in str(jobs['build'])
 assert 'bash scripts/smoke-watch-layout.sh' in str(jobs['build'])
+assert 'scripts/publish_selected.py' in str(jobs['publish']), 'Publish must respect per-device release targets'
+assert 'scripts/test_publish_selected.py' in str(jobs['build']), 'Selective publish cases must be tested'
+targets = json.loads((root/'scripts/release-targets.json').read_text())
+assert set(targets) == {'phone','watch'} and all(isinstance(v,bool) for v in targets.values())
+
 phone = next(s for s in jobs['build']['steps'] if 'rendered notification' in s.get('name',''))['with']
 basic = next(s for s in smoke['jobs']['runtime-smoke']['steps'] if s.get('uses','').startswith('reactivecircus/'))['with']
 for key in ['api-level','arch','target','profile','emulator-options','emulator-boot-timeout']:
