@@ -384,8 +384,8 @@ class MainActivity : Activity() {
         }
         state.addView(dockHeartRate, LinearLayout.LayoutParams(-2, -2).apply { leftMargin = dp(8) })
         dock.addView(state)
-        dockCalories = label("이번 운동 0.0 kcal · 추정", 12, true, mint).apply {
-            contentDescription = "현재 운동 시작 후 누적 소모 칼로리 추정치"
+        dockCalories = label("오늘 누적 0.0 kcal · 추정", 12, true, mint).apply {
+            contentDescription = "오늘 날짜에 실제 운동한 시간의 누적 소모 칼로리 추정치"
             tag = "phone_session_calories"
         }
         dock.addView(dockCalories)
@@ -778,7 +778,9 @@ class MainActivity : Activity() {
         sectionCount.text = "근력 세트 $doneSets / $totalSets · 단계 ${session.completed.size}/4"
         val volume = SetRecordStore(this).completed(data.localToday()).sumOf { it.volume }.toInt()
         trackingSummary.text = "근력 세트 $doneSets/$totalSets 완료 · 오늘 운동량 ${volume} kg·회"
-        dockCalories.text = "이번 운동 ${"%.1f".format(EnergyLedger(this).estimateSession(org.json.JSONObject(session.snapshot())))} kcal · 추정"
+        // Daily, not per-session: includes multiple workouts on the same Korean calendar day.
+        // Previous dates are never combined with today's displayed total.
+        dockCalories.text = "오늘 누적 ${"%.1f".format(EnergyLedger(this).estimate(data.localToday(), org.json.JSONObject(session.snapshot())))} kcal · 추정"
     }
 
     private fun afterAction() { syncService(); renderStages(); renderSummary(); refreshTimer() }

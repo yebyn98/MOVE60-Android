@@ -54,7 +54,10 @@ root=ET.parse(p).getroot()
 for n in root.iter("node"):
     txt=n.attrib.get("text","")
     desc=n.attrib.get("content-desc","")
-    if "운동 시작" in txt or txt.strip() in ("시작", "▶ 시작", "▶ 운동 시작") or "운동 시작" in desc:
+    # Never tap informational text (e.g. the calorie label or a workout cue).
+    # Only the fixed control tagged by MainActivity is eligible to start workout.
+    is_play_control = desc.strip() == "운동 시작 또는 일시정지"
+    if is_play_control and n.attrib.get("clickable") == "true":
         coords=list(map(int,re.findall(r"\d+",n.attrib.get("bounds",""))))
         if len(coords)==4:
             x=(coords[0]+coords[2])//2
