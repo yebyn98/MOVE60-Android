@@ -41,14 +41,36 @@ class SettingsActivity : Activity() {
         window.statusBarColor = background
         window.navigationBarColor = background
         val body = column().apply { setPadding(dp(16), dp(24), dp(16), dp(24)) }
-        body.addView(actionButton("← 운동 화면", false) { finish() })
-        addGap(body, 16)
-        body.addView(label("앱 설정", 24, true))
+        val header = row().apply { gravity = Gravity.CENTER_VERTICAL }
+        header.addView(actionButton("←", false) { finish() }.apply {
+            tag = "settings_back"
+            contentDescription = "운동 화면으로 돌아가기"
+        }, LinearLayout.LayoutParams(dp(48), dp(48)))
+        header.addView(label("앱 설정", 24, true), LinearLayout.LayoutParams(0, -2, 1f).apply {
+            leftMargin = dp(16)
+        })
+        body.addView(header)
         addGap(body, 8)
         body.addView(label("운동에 필요한 설정을 한곳에서 관리하세요.", 14, false, textSecondary))
         addGap(body, 24)
         val settings = card()
-        settings.addView(label("알림 · 업데이트", 18, true))
+        val settingsHeader = row().apply { gravity = Gravity.CENTER_VERTICAL }
+        settingsHeader.addView(label("알림 · 업데이트", 18, true),
+            LinearLayout.LayoutParams(0, -2, 1f))
+        val soundSwitch = Switch(this).apply {
+            text = ""
+            tag = "settings_sound_toggle"
+            contentDescription = "구간 전환 알림음 켜기 또는 끄기"
+            minHeight = dp(48)
+            isChecked = soundEnabled
+            setOnCheckedChangeListener { _, enabled ->
+                soundEnabled = enabled
+                getSharedPreferences("preferences", MODE_PRIVATE).edit()
+                    .putBoolean("sound", enabled).apply()
+            }
+        }
+        settingsHeader.addView(soundSwitch, LinearLayout.LayoutParams(-2, dp(48)))
+        settings.addView(settingsHeader)
         addGap(settings, 16)
         settings.addView(actionButton("알림 설정 · 진단", false) {
             if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
@@ -58,21 +80,6 @@ class SettingsActivity : Activity() {
         addGap(settings, 12)
         settings.addView(actionButton("업데이트 확인", false) { updateManager.check(true) })
         addGap(settings, 12)
-        val preferenceRow = row().apply { gravity = Gravity.CENTER_VERTICAL }
-        val soundSwitch = Switch(this).apply {
-            text = "구간 전환 알림음"
-            textSize = 16f
-            setTextColor(textPrimary)
-            minHeight = dp(56)
-            setPadding(dp(4),dp(8),dp(4),dp(8))
-            isChecked = soundEnabled
-            setOnCheckedChangeListener { _, enabled ->
-                soundEnabled = enabled
-                getSharedPreferences("preferences", MODE_PRIVATE).edit().putBoolean("sound", enabled).apply()
-            }
-        }
-        preferenceRow.addView(soundSwitch, LinearLayout.LayoutParams(0, -2, 1f))
-        settings.addView(preferenceRow)
         body.addView(settings)
         addGap(body, 24)
         val workoutSettings = card()
@@ -130,17 +137,25 @@ class SettingsActivity : Activity() {
         addGap(workoutSettings, 16)
         body.addView(workoutSettings)
         addGap(body, 24)
-        val support = card()
-        support.addView(label("앱 정보 · 도움말", 18, true))
-        addGap(support, 12)
-        support.addView(label("MOVE60 ${packageManager.getPackageInfo(packageName, 0).versionName}", 14, false, textSecondary))
-        addGap(support, 16)
-        support.addView(actionButton("오류 기록 확인 · 복사 · 삭제", false) { CrashReporter.showDiagnostics(this) })
-        addGap(support, 24)
-        support.addView(label("칼로리 계산 기준", 16, true, mint))
-        addGap(support, 12)
-        support.addView(label("실제 운동시간·체중·MET 기반의 추정치입니다.\n\n완료한 근력 세트는 횟수(1회 3초 가정)와 RPE를 반영합니다. 입력 중량은 총 운동량으로 기록하며 kg을 kcal로 직접 환산하지 않습니다.\n\n개인 보정이 없는 심박수는 열량 계산에 합산하지 않습니다.", 14, false, textSecondary))
-        body.addView(support)
+        val about = card()
+        val aboutHeader = row().apply { gravity = Gravity.CENTER_VERTICAL }
+        aboutHeader.addView(label("앱 정보", 18, true),
+            LinearLayout.LayoutParams(0, -2, 1f))
+        aboutHeader.addView(label("v${packageManager.getPackageInfo(packageName, 0).versionName}", 14, true, mint).apply {
+            tag = "settings_version"
+            contentDescription = "설치된 MOVE60 앱 버전"
+            gravity = Gravity.END
+        })
+        about.addView(aboutHeader)
+        body.addView(about)
+        addGap(body, 16)
+        val help = card()
+        help.addView(label("도움말", 18, true))
+        addGap(help, 16)
+        help.addView(label("칼로리 계산 기준", 16, true, mint))
+        addGap(help, 8)
+        help.addView(label("한국시간 기준 오늘 운동 시작 후 실제로 활동한 시간만 누적합니다. 같은 날 여러 번 운동하면 합산하며, 일시정지와 운동 종료 중에는 증가하지 않습니다. 다음 날에는 0부터 시작합니다.\n\n운동 시간·체중·운동 종류(MET) 기반의 추정치입니다. 완료한 근력 세트는 횟수(1회 약 3초 가정)를 반영하며, 입력 중량은 kg을 kcal로 직접 환산하지 않습니다.\n\n개인 보정 없는 심박수는 칼로리에 직접 합산하지 않습니다.", 14, false, textSecondary))
+        body.addView(help)
         val scroll = ScrollView(this).apply { setBackgroundColor(this@SettingsActivity.background); addView(body) }
         scroll.setOnApplyWindowInsetsListener { view, insets ->
             if (Build.VERSION.SDK_INT >= 30) {
