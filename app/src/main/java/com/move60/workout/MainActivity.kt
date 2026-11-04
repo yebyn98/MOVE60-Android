@@ -184,7 +184,7 @@ class MainActivity : Activity() {
         val trained = days.count { it.activeSeconds > 0L }
         val minutes = days.sumOf { it.activeMinutes }
         val estimated = days.sumOf { EnergyLedger(this).estimate(it.date) }.toInt()
-        val panel = column().apply { setPadding(dp(20), dp(18), dp(20), dp(18)) }
+        val panel = card()
         panel.addView(label("${month.year}년 ${month.monthValue}월 운동 요약", 19, true, mint))
         addGap(panel, 12)
         panel.addView(label("운동한 날  ${trained}일", 17, true))
@@ -195,13 +195,15 @@ class MainActivity : Activity() {
         panel.addView(MonthlyActivityChart(this, days.map { it.activeMinutes }))
         addGap(panel, 10)
         panel.addView(label("실제 활동시간과 입력한 완료 세트 기반 추정치입니다. 이전 기록은 평균 MET 4.5를 사용합니다.", 12, false, textSecondary))
-        AlertDialog.Builder(this).setTitle("운동 성과").setView(panel).setPositiveButton("닫기", null).show()
+        AlertDialog.Builder(this).setTitle("운동 성과")
+            .setView(ScrollView(this).apply { isFillViewport = false; addView(panel) })
+            .setPositiveButton("닫기", null).show()
     }
 
     private fun showWorkoutCalendar() {
         val history = WorkoutHistory(this)
         val ledger = EnergyLedger(this)
-        val root = column().apply { setPadding(dp(16), dp(12), dp(16), dp(12)) }
+        val root = card()
         val navigation = row().apply { gravity = Gravity.CENTER_VERTICAL }
         val monthLabel = label("", 18, true, mint).apply { gravity = Gravity.CENTER }
         var month = java.time.YearMonth.from(data.localToday())
@@ -249,7 +251,9 @@ class MainActivity : Activity() {
         addGap(root, 8)
         root.addView(selected)
         render()
-        AlertDialog.Builder(this).setTitle("운동 달력").setView(root).setPositiveButton("닫기", null).show()
+        AlertDialog.Builder(this).setTitle("운동 달력")
+            .setView(ScrollView(this).apply { isFillViewport = false; addView(root) })
+            .setPositiveButton("닫기", null).show()
     }
 
     private fun constructInterface() {
