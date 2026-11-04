@@ -47,9 +47,10 @@ class PhoneFeaturesTest {
                 val progress = root.findViewWithTag<ProgressBar>("phone_dashboard_progress")
                 assertNotNull(summary)
                 assertNotNull(progress)
-                assertEquals(Move60Theme.Colors.background,
-                    (summary.rootView as View).context.let { Move60Theme.Colors.background })
-                assertEquals(Move60Theme.Colors.primary, Move60Theme.Colors.primary)
+                assertEquals(Move60Theme.Colors.surface,
+                    (summary.background as android.graphics.drawable.GradientDrawable)
+                        .color!!.defaultColor)
+                assertEquals(20, Move60Theme.Radius.card)
                 assertNull(root.findViewWithTag<View>("set-absent-1-rpe"))
             }
             onView(withText("지난 기록 불러오기")).check(doesNotExist())
