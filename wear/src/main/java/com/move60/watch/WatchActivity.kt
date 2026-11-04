@@ -199,8 +199,8 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
         textSize = when {
             size >= 30 -> Move60Theme.Type.display
             size >= 20 -> Move60Theme.Type.section
-            size >= 13 -> 13f
-            else -> 11f
+            size >= 13 -> Move60Theme.Type.watchLabel
+            else -> Move60Theme.Type.watchCaption
         }
         setTextColor(color)
         gravity = Gravity.CENTER
@@ -213,7 +213,7 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
         tag = name
         text = title
         isAllCaps = false
-        textSize = 11f
+        textSize = Move60Theme.Type.watchCaption
         setTypeface(typeface, Typeface.BOLD)
         minHeight = 0
         minimumHeight = 0
@@ -274,7 +274,7 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
             val weight = workout.setWeight.takeIf { it.isNotBlank() }?.let { "${it}kg×" } ?: ""
             weight + "${workout.targetReps}회"
         } else "%02d:%02d".format(remaining / 60, remaining % 60)
-        timer.textSize = if (strengthTarget) 18f else 30f
+        timer.textSize = if (strengthTarget) Move60Theme.Type.watchMetric else Move60Theme.Type.display
         timer.contentDescription = when {
             resting -> "남은 휴식 ${timer.text} · 눌러서 15초 늘리기 또는 줄이기"
             strengthTarget -> "현재 세트 ${timer.text}, 단계 남은 시간 ${remaining / 60}분 ${remaining % 60}초"
