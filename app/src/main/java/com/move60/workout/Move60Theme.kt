@@ -12,16 +12,16 @@ import android.widget.TextView
  */
 object Move60Theme {
     object Color {
-        const val background: Int = 0xFF000000.toInt()
-        const val surface: Int = 0xFF121212.toInt()
-        const val elevated: Int = 0xFF1C1C1C.toInt()
-        const val divider: Int = 0xFF303030.toInt()
-        const val accent: Int = 0xFF00E676.toInt()
-        const val accentDim: Int = 0xFF103722.toInt()
-        const val textHigh: Int = 0xFFFFFFFF.toInt()
-        const val textMedium: Int = 0xFFB0B0B0.toInt()
-        const val error: Int = 0xFFFF6B6B.toInt()
-        const val onAccent: Int = 0xFF002A15.toInt()
+        val background: Int = 0xFF000000.toInt()
+        val surface: Int = 0xFF121212.toInt()
+        val elevated: Int = 0xFF1C1C1C.toInt()
+        val divider: Int = 0xFF303030.toInt()
+        val accent: Int = 0xFF00E676.toInt()
+        val accentDim: Int = 0xFF103722.toInt()
+        val textHigh: Int = 0xFFFFFFFF.toInt()
+        val textMedium: Int = 0xFFB0B0B0.toInt()
+        val error: Int = 0xFFFF6B6B.toInt()
+        val onAccent: Int = 0xFF002A15.toInt()
     }
     object Type {
         const val display = 30f
