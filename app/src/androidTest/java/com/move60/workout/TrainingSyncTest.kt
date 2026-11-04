@@ -121,21 +121,37 @@ class TrainingSyncTest {
         assertTrue(phone.restSeconds() <= before - 14)
         assertFalse(WatchCommandProcessor.apply(context,less))
     }
-    @Test fun phoneCheckboxStartsRestAndImportsPreviousWithoutCompletingSets() {
+    @Test fun phoneCheckboxStartsRestWithoutLegacyImportAndPersistsSet() {
         val data = WorkoutData(context)
         val task = data.routine(data.todayDay()).stages[2].tasks.first()
-        SetRecordStore(context).write(data.todayDay(),task.id,1,SetRecordStore.Record("22","11","5",true),today.minusDays(1),123L)
+        // Prior-day completed sets are still retained in history, but not auto-completed.
+        SetRecordStore(context).write(data.todayDay(),task.id,1,
+            SetRecordStore.Record("22","11","5",true),today.minusDays(1),123L)
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             scenario.onActivity { activity ->
-                activity.window.decorView.findViewWithTag<TextView>("phone_next").performClick()
-                activity.window.decorView.findViewWithTag<TextView>("phone_next").performClick()
-                activity.window.decorView.findViewWithTag<TextView>("phone_play").performClick()
-                activity.window.decorView.findViewWithTag<TextView>("import-"+task.id).performClick()
-                assertEquals("22",activity.window.decorView.findViewWithTag<EditText>("set-"+task.id+"-1-kg").text.toString())
-                val check = activity.window.decorView.findViewWithTag<CheckBox>("set-"+task.id+"-1-check")
-                assertFalse(check.isChecked)
+                val root = activity.window.decorView
+                root.findViewWithTag<TextView>("phone_next").performClick()
+                root.findViewWithTag<TextView>("phone_next").performClick()
+                root.findViewWithTag<TextView>("phone_play").performClick()
+                // Removed controls must never be required to complete a workout.
+                assertNull("Previous-record import action must not return",
+                    root.findViewWithTag<android.view.View>("import-"+task.id))
+                assertNull("RPE input must remain hidden",
+                    root.findViewWithTag<android.view.View>("set-"+task.id+"-1-rpe"))
+                val kg = root.findViewWithTag<EditText>("set-"+task.id+"-1-kg")
+                val reps = root.findViewWithTag<EditText>("set-"+task.id+"-1-reps")
+                val check = root.findViewWithTag<CheckBox>("set-"+task.id+"-1-check")
+                assertFalse("Previous workout cannot pre-complete today's set",check.isChecked)
+                kg.setText("22")
+                reps.setText("11")
                 check.isChecked = true
-                assertTrue(activity.window.decorView.findViewWithTag<LinearLayout>("phone_rest").isShown)
+                assertTrue(check.isChecked)
+                val current = SessionStore(context,data)
+                val entry = SetRecordStore(context).read(current.day,task.id,1,token=current.sessionStartedAt)
+                assertEquals("22",entry.kg)
+                assertEquals("11",entry.reps)
+                assertTrue("Today's manually completed set must be saved",entry.completed)
+                assertTrue(root.findViewWithTag<LinearLayout>("phone_rest").isShown)
             }
             Thread.sleep(1200)
             scenario.onActivity { activity ->
