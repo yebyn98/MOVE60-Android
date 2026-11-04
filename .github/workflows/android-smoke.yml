@@ -32,8 +32,8 @@ jobs:
           python3 scripts/verify-release-gates.py
       - name: Verify weekday durations and cycling intervals
         run: node scripts/verify-plan.cjs
-      - name: Build Kotlin debug APK
-        run: gradle --no-daemon :app:assembleDebug
+      - name: Build phone and Watch4 Kotlin debug APKs
+        run: gradle --no-daemon :app:assembleDebug :wear:assembleDebug
       - name: Enable KVM access for emulator
         run: |
           if test -e /dev/kvm; then sudo chmod 666 /dev/kvm; fi

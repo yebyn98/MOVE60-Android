@@ -157,11 +157,14 @@ class WatchDisplayTest {
         ActivityScenario.launch(WatchActivity::class.java).use { scenario ->
             scenario.onActivity { activity ->
                 activity.applyWorkoutState(WatchWorkoutState(protocol=26,running=true,hasSession=true,stageIndex=2,
-                    stageName="근력운동",setLabel="레그프레스 · 2/4종목 · 2/3세트",canComplete=true))
+                    stageName="근력운동",setLabel="레그프레스 · 2/4종목 · 2/3세트",canComplete=true,
+                    exerciseName="레그프레스",setNumber=2,setTotal=3,setWeight="80",targetReps=12,totalSets=12,completedSets=4))
             }
             instrumentation.waitForIdleSync()
             scenario.onActivity { activity ->
                 assertEquals("세트 완료",activity.window.decorView.findViewWithTag<Button>("watch_next").text.toString())
+                assertTrue(activity.window.decorView.findViewWithTag<TextView>("watch_timer").text.contains("80 kg"))
+                assertEquals(333,activity.window.decorView.findViewWithTag<android.widget.ProgressBar>("watch_progress").progress)
                 assertButtonInsideCircle(activity,activity.window.decorView.findViewWithTag("watch_next"))
             }
             capture("watch-v26-set.png")
@@ -172,9 +175,22 @@ class WatchDisplayTest {
             instrumentation.waitForIdleSync()
             scenario.onActivity { activity ->
                 assertEquals("휴식 건너뛰기",activity.window.decorView.findViewWithTag<Button>("watch_next").text.toString())
+                assertTrue(activity.window.decorView.findViewWithTag<TextView>("watch_timer").contentDescription.contains("15초"))
                 assertButtonInsideCircle(activity,activity.window.decorView.findViewWithTag("watch_next"))
             }
             capture("watch-v26-rest.png")
+            scenario.onActivity { activity ->
+                activity.applyWorkoutState(WatchWorkoutState(protocol=26,finished=true,hasSession=true,
+                    stageIndex=3,stageName="마무리 스트레칭",activeSeconds=3618,
+                    completedSets=12,totalSets=12,estimatedKcal=307.5))
+            }
+            instrumentation.waitForIdleSync()
+            scenario.onActivity { activity ->
+                assertEquals("60:18",activity.window.decorView.findViewWithTag<TextView>("watch_timer").text.toString())
+                assertEquals(1000,activity.window.decorView.findViewWithTag<android.widget.ProgressBar>("watch_progress").progress)
+                assertTrue(activity.window.decorView.findViewWithTag<TextView>("watch_heart").text.contains("307 kcal"))
+            }
+            capture("watch-v30-finish.png")
         }
     }
 
