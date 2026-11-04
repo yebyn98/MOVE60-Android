@@ -90,7 +90,7 @@ object WatchStatePublisher {
             putString("exerciseName", nextSet?.task?.name ?: "")
             putInt("setTotal", nextSet?.sets ?: 0)
             putInt("targetReps", nextSet?.task?.detail?.let { Regex("([0-9]+) *회").find(it)?.groupValues?.get(1)?.toIntOrNull() } ?: 0)
-            putString("setWeight", setRecord?.kg?.takeIf { setRecord.valid } ?: "")
+            putString("setWeight", setRecord?.takeIf { it.valid }?.kg ?: "")
             putInt("intervalIndex", intervalIndex)
             putInt("intervalTotal", intervalCount)
             putString("upcomingInterval", upcomingInterval)
