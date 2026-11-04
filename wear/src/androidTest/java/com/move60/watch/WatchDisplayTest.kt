@@ -167,6 +167,7 @@ class WatchDisplayTest {
                 assertEquals("80kg×12회",target.text.toString())
                 assertEquals("Strength target clipped on round display",0,target.layout.getEllipsisCount(0))
                 assertEquals(333,activity.window.decorView.findViewWithTag<android.widget.ProgressBar>("watch_progress").progress)
+                assertEquals(333,activity.window.decorView.findViewWithTag<WorkoutRingGauge>("watch_ring").progressPermille)
                 assertButtonInsideCircle(activity,activity.window.decorView.findViewWithTag("watch_next"))
             }
             capture("watch-v26-set.png")
@@ -193,6 +194,34 @@ class WatchDisplayTest {
                 assertTrue(activity.window.decorView.findViewWithTag<TextView>("watch_heart").text.contains("307 kcal"))
             }
             capture("watch-v30-finish.png")
+        }
+    }
+
+    @Test fun newRoundDesignUsesUnifiedPaletteAndRingWithNoTouchOverlap() {
+        assertEquals(0xFF000000.toInt(),Move60Theme.Color.background)
+        assertEquals(0xFF121212.toInt(),Move60Theme.Color.surface)
+        assertEquals(0xFF00E676.toInt(),Move60Theme.Color.accent)
+        ActivityScenario.launch(WatchActivity::class.java).use { scenario ->
+            scenario.onActivity { activity ->
+                activity.applyWorkoutState(WatchWorkoutState(
+                    protocol=26,running=true,hasSession=true,stageIndex=2,
+                    stageName="근력운동",exerciseName="레그프레스",setNumber=2,setTotal=3,
+                    targetReps=12,setWeight="80",totalSets=10,completedSets=5))
+            }
+            instrumentation.waitForIdleSync()
+            scenario.onActivity { activity ->
+                val root = activity.window.decorView
+                val ring = root.findViewWithTag<WorkoutRingGauge>("watch_ring")
+                val target = root.findViewWithTag<TextView>("watch_timer")
+                assertTrue(ring.isShown)
+                assertEquals(500, ring.progressPermille)
+                assertEquals("80kg×12회", target.text.toString())
+                assertEquals(0,target.layout.getEllipsisCount(0))
+                assertButtonInsideCircle(activity,root.findViewWithTag("watch_play"))
+                assertButtonInsideCircle(activity,root.findViewWithTag("watch_next"))
+                assertEquals(Move60Theme.Color.background, activity.window.statusBarColor)
+            }
+            capture("watch-v34-round-ring.png")
         }
     }
 
