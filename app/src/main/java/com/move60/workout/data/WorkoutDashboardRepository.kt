@@ -37,6 +37,9 @@ class WorkoutDashboardRepository @Inject constructor(
 
     fun soundEnabled(): Boolean = preferences.getBoolean("sound", true)
     fun weightKg(): Float = preferences.getFloat("calorie_weight_kg", 63f)
+    @Suppress("DEPRECATION")
+    fun installedVersion(): String =
+        context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "-"
 
     suspend fun setSoundEnabled(enabled: Boolean) = withContext(Dispatchers.IO) {
         check(preferences.edit().putBoolean("sound", enabled).commit()) {
