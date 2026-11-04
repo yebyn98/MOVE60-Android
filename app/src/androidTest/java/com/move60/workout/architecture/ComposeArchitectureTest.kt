@@ -20,10 +20,10 @@ class ComposeArchitectureTest {
 
     @Test fun composeNavigationShowsDashboardCalendarAndSettings() {
         rule.onNodeWithText("MOVE60").assertIsDisplayed()
-        rule.onNodeWithText("기록", useUnmergedTree = true).performClick()
+        rule.onNodeWithText("기록").performClick()
         rule.onNodeWithText("운동 기록").assertIsDisplayed()
         rule.onNodeWithText("←").performClick()
-        rule.onNodeWithText("설정", useUnmergedTree = true).performClick()
+        rule.onNodeWithText("설정").performClick()
         rule.onNodeWithText("앱 정보").assertIsDisplayed()
         rule.onNodeWithText("칼로리 계산 기준").assertIsDisplayed()
     }
