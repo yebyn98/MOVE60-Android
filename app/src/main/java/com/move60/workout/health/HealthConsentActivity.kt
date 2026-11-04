@@ -1,0 +1,141 @@
+package com.move60.workout.health
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import androidx.health.connect.client.permission.PermissionController
+import androidx.lifecycle.lifecycleScope
+import com.move60.workout.Move60Theme
+import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+/** Data access is only initiated by a visible and explicit user action. */
+@AndroidEntryPoint
+class HealthConsentActivity : ComponentActivity() {
+    @Inject lateinit var gateway: HealthConnectGateway
+    private var status by mutableStateOf("연동을 사용하려면 아래에서 읽기 권한에 동의하세요.")
+    private var summary by mutableStateOf("개인 건강 데이터는 외부 서버로 전송하지 않아요.")
+
+    private val requestPermissions = registerForActivityResult(
+        PermissionController.createRequestPermissionResultContract()
+    ) { granted ->
+        if (granted.containsAll(HealthConnectGateway.readPermissions)) {
+            gateway.enable()
+            readAndSend()
+        } else {
+            status = "일부 권한이 거부됐어요. 심박수·수면을 모두 동의해야 읽을 수 있어요."
+        }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent {
+            val palette = Move60Theme.Colors
+            MaterialTheme(
+                colorScheme = darkColorScheme(
+                    background = Color(palette.background),
+                    surface = Color(palette.surface),
+                    primary = Color(palette.primary),
+                    onSurface = Color(palette.textHigh)
+                )
+            ) {
+                Column(
+                    Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text("건강 데이터 연동", style = MaterialTheme.typography.headlineSmall)
+                    Text("삼성 헬스 → Health Connect → MOVE60 → 내 워치",
+                        color = Color(palette.textMedium))
+                    Card(
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(palette.surface))
+                    ) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("동의 항목: 심박수·수면 기록(읽기 전용)")
+                            Text("워치4는 혈관 스트레스(Vascular Load)를 측정하지 못하며 공개 데이터 SDK에서도 제공되지 않습니다.",
+                                color = Color(palette.textMedium))
+                            Text(status, color = Color(palette.primary))
+                            Text(summary, color = Color(palette.textMedium))
+                        }
+                    }
+                    Button(onClick = { consentOrRead() }, modifier = Modifier.fillMaxWidth()) {
+                        Text("동의하고 건강 기록 불러오기")
+                    }
+                    OutlinedButton(onClick = {
+                        gateway.disable()
+                        status = "연동 중지 · 워치에 공유한 기록을 지우도록 요청했어요."
+                        summary = "Health Connect 권한은 휴대폰 설정에서 별도로 철회할 수 있어요."
+                    }, modifier = Modifier.fillMaxWidth()) {
+                        Text("MOVE60 연동 중지 및 워치 데이터 초기화")
+                    }
+                    OutlinedButton(onClick = { finish() }, modifier = Modifier.fillMaxWidth()) {
+                        Text("닫기")
+                    }
+                    Text("삼성 헬스 데이터 SDK의 직접 연동은 별도 파트너 등록과 AAR이 필요해요. 이 화면은 지원되는 Health Connect 동기화 방식입니다.",
+                        color = Color(palette.textMedium))
+                }
+            }
+        }
+        if (!gateway.supported()) {
+            status = "Health Connect가 설치·설정돼 있지 않거나 이 기기에서 지원되지 않아요."
+        }
+    }
+
+    private fun consentOrRead() {
+        if (!gateway.supported()) {
+            status = "삼성 헬스와 Health Connect를 설치·업데이트한 뒤 연동해 주세요."
+            return
+        }
+        lifecycleScope.launch {
+            try {
+                if (gateway.permissionsGranted()) {
+                    gateway.enable()
+                    readAndSend()
+                } else requestPermissions.launch(HealthConnectGateway.readPermissions)
+            } catch (error: Exception) {
+                status = "권한 확인 실패: Health Connect 연결 상태를 확인해 주세요."
+            }
+        }
+    }
+
+    private fun readAndSend() {
+        lifecycleScope.launch {
+            status = "동의한 심박수·수면 기록을 확인하고 있어요."
+            try {
+                val metrics = gateway.readWithConsent()
+                gateway.sendToWatch(metrics, true)
+                summary = "최근 심박수: ${metrics.lastHeartBpm?.let { "$it bpm" } ?: "기록 없음"} · " +
+                    "최근 수면: ${metrics.sleepMinutes?.let { "${it / 60}시간 ${it % 60}분" } ?: "기록 없음"}"
+                status = "공유 요청 완료 · 워치가 연결되면 최신 데이터가 표시돼요."
+            } catch (error: SecurityException) {
+                gateway.disable()
+                status = "권한이 변경되어 연동을 중지했어요. 다시 동의해 주세요."
+            } catch (error: Exception) {
+                status = "기록을 읽지 못했어요. 삼성 헬스 동기화 상태를 확인해 주세요."
+            }
+        }
+    }
+}
