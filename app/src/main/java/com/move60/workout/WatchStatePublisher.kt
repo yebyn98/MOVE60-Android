@@ -58,7 +58,7 @@ object WatchStatePublisher {
         val completedSets = current.routine.stages[2].tasks.sumOf { task ->
             (1..TrainingProgress.count(task)).count { number -> "strength-"+current.day+"-"+task.id+"-"+number in current.checked }
         }
-        val estimatedKcal = EnergyLedger(context).estimate(current.recordDate, state)
+        val estimatedKcal = EnergyLedger(context).estimateSession(state)
         val request = PutDataMapRequest.create("/move60/workout")
         request.dataMap.apply {
             putInt("day",current.day)
