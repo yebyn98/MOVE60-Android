@@ -10,6 +10,7 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import com.move60.workout.Move60Theme as Theme
+import com.move60.workout.DashboardUi
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -209,53 +210,18 @@ class SettingsActivity : Activity() {
         }
     }
 
-    private fun label(text: String, size: Int, bold: Boolean, color: Int = textPrimary) = TextView(this).apply {
-        this.text = text
-        setTextColor(color)
-        textSize = when {
-            size >= 23 -> Theme.Type.title
-            size >= 18 -> Theme.Type.heading
-            size >= 14 -> Theme.Type.body
-            else -> Theme.Type.caption
-        }
-        if (bold) setTypeface(typeface, Typeface.BOLD)
-        includeFontPadding = true
-        setLineSpacing(dp(2).toFloat(), 1.04f)
-    }
-    private fun column() = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-    private fun row() = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-    private fun card() = column().apply {
-        background = Theme.shape(this@SettingsActivity)
-        setPadding(dp(Theme.Space.two), dp(Theme.Space.two),
-            dp(Theme.Space.two), dp(Theme.Space.two))
-    }
-    private fun actionButton(title: String, main: Boolean, onClick: () -> Unit) = TextView(this).apply {
-        text = title
-        textSize = Theme.Type.body
-        setTypeface(typeface, Typeface.BOLD)
-        setTextColor(if (main) Theme.Colors.onPrimary else textPrimary)
-        background = Theme.shape(this@SettingsActivity,
-            if (main) mint else panelLight, Theme.Radius.control, if (main) mint else subtle)
-        gravity = Gravity.CENTER
-        minHeight = dp(48)
-        setPadding(dp(Theme.Space.two), dp(Theme.Space.one),
-            dp(Theme.Space.two), dp(Theme.Space.one))
-        setLineSpacing(dp(2).toFloat(), 1.1f)
-        isClickable = true
-        isFocusable = true
-        setOnClickListener { onClick() }
-    }
+    private fun label(text: String, size: Int, bold: Boolean, color: Int = textPrimary) =
+        DashboardUi.label(this, text, size, bold, color)
+    private fun column() = DashboardUi.column(this)
+    private fun row() = DashboardUi.row(this)
+    private fun card() = DashboardUi.card(this)
+    private fun actionButton(title: String, main: Boolean, onClick: () -> Unit) =
+        DashboardUi.actionButton(this, title, main, compact = false, onClick = onClick)
     private fun rounded(color: Int, radiusDp: Int, stroke: Int? = null) =
-        Theme.shape(this, color,
-            when { radiusDp < 8 -> radiusDp; radiusDp < Theme.Radius.control -> Theme.Radius.control
-                else -> Theme.Radius.card }, stroke)
+        DashboardUi.rounded(this, color, radiusDp, stroke)
     private fun dp(number: Int) = Theme.dp(this, number)
-    private fun addGap(container: LinearLayout, height: Int) {
-        // The global 8dp spacing grid controls even legacy widget builders.
-        val aligned = ((height + 4) / Theme.Space.one * Theme.Space.one)
-            .coerceAtLeast(Theme.Space.one)
-        container.addView(View(this), LinearLayout.LayoutParams(1, dp(aligned)))
-    }
+    private fun addGap(container: LinearLayout, height: Int) =
+        DashboardUi.gap(this, container, height)
     private fun formatTime(seconds: Int): String {
         val n = max(0, seconds)
         return "%02d:%02d".format(n / 60, n % 60)
