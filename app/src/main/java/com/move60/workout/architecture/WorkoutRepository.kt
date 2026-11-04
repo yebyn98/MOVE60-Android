@@ -29,16 +29,20 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
+data class WorkoutSetUi(val number: Int, val kg: String, val reps: String, val completed: Boolean)
+
 data class WorkoutTaskUi(
     val id: String,
     val name: String,
     val detail: String,
     val sets: Int = 0,
-    val done: Int = 0
+    val done: Int = 0,
+    val entries: List<WorkoutSetUi> = emptyList()
 )
 data class WorkoutUiState(
     val day: Int = 1,
     val date: String = "",
+    val sessionId: Long = 0,
     val bodyFocus: String? = null,
     val running: Boolean = false,
     val finished: Boolean = false,
@@ -98,7 +102,12 @@ class DefaultWorkoutRepository @Inject constructor(
                 val completedCount = (1..setCount).count {
                     "strength-${session.day}-${task.id}-${it}" in session.checked
                 }
-                WorkoutTaskUi(task.id, task.name, task.detail, setCount, completedCount)
+                val entries = (1..setCount).map { index ->
+                    val record = setStore.read(session.day, task.id, index, session.recordDate,
+                        token = session.sessionStartedAt)
+                    WorkoutSetUi(index, record.kg, record.reps, record.completed)
+                }
+                WorkoutTaskUi(task.id, task.name, task.detail, setCount, completedCount, entries)
             }
             val strength = session.routine.stages[2].tasks
             val total = strength.sumOf {
@@ -111,6 +120,7 @@ class DefaultWorkoutRepository @Inject constructor(
             _state.value = WorkoutUiState(
                 day = session.day,
                 date = today.toString(),
+                sessionId = session.sessionStartedAt,
                 bodyFocus = session.bodyFocus,
                 running = session.running,
                 finished = session.finished,
