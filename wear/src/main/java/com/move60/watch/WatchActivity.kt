@@ -39,7 +39,8 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
     private var ambient = false
     private var visible = false
     private var displayServiceStarted = false
-    private val lime = Color.rgb(180, 245, 110)
+    private val lime = Move60Theme.Color.accent
+    private lateinit var ringGauge: WorkoutRingGauge
     private lateinit var root: FrameLayout
     private lateinit var safeArea: FrameLayout
     private lateinit var scroll: ScrollView
@@ -81,8 +82,13 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
         window.setDecorFitsSystemWindows(false)
         // Allow ambient mode: keeping the display fully awake prevents wrist-down transitions.
         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        root = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
-        safeArea = FrameLayout(this).apply { tag = "watch_safe_area" }
+        window.statusBarColor = Move60Theme.Color.background
+        window.navigationBarColor = Move60Theme.Color.background
+        root = FrameLayout(this).apply { setBackgroundColor(Move60Theme.Color.background) }
+        safeArea = FrameLayout(this).apply {
+            tag = "watch_safe_area"
+            background = Move60Theme.surface(this@WatchActivity)
+        }
         root.addView(safeArea)
         root.addOnLayoutChangeListener { _, left, top, right, bottom, _, _, _, _ ->
             val width = right - left
@@ -105,22 +111,33 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
             contentDescription = "현재 운동 단계 · 길게 눌러 설정"
             setOnLongClickListener { showWatchSettings(); true }
         }
-        detail = text(11, Color.LTGRAY, "watch_detail")
-        timer = text(30, Color.WHITE, "watch_timer").apply {
+        detail = text(11, Move60Theme.Color.textMedium, "watch_detail")
+        timer = text(30, Move60Theme.Color.textHigh, "watch_timer").apply {
             setOnClickListener { if (workout.restSeconds() > 0 && workout.stageIndex == 2) showRestAdjustments() }
         }
-        heartRate = text(12, Color.rgb(255, 145, 145), "watch_heart").apply {
+        heartRate = text(12, Move60Theme.Color.error, "watch_heart").apply {
             setOnLongClickListener { showHeartZoneSettings(); true }
         }
         progressBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             tag = "watch_progress"
             max = 1000
             progressTintList = android.content.res.ColorStateList.valueOf(lime)
-            progressBackgroundTintList = android.content.res.ColorStateList.valueOf(Color.rgb(32, 48, 60))
+            progressBackgroundTintList = android.content.res.ColorStateList.valueOf(Move60Theme.Color.divider)
         }
         body.addView(stage, LinearLayout.LayoutParams(-1, dp(15)))
         body.addView(detail, LinearLayout.LayoutParams(-1, dp(16)))
-        body.addView(timer, LinearLayout.LayoutParams(-1, dp(29)))
+        val centerMetrics = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            tag = "watch_metric_row"
+        }
+        centerMetrics.addView(timer, LinearLayout.LayoutParams(0, dp(32), 1f))
+        ringGauge = WorkoutRingGauge(this).apply {
+            tag = "watch_ring"
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        }
+        centerMetrics.addView(ringGauge, LinearLayout.LayoutParams(dp(32), dp(32)))
+        body.addView(centerMetrics, LinearLayout.LayoutParams(-1, dp(32)))
         body.addView(heartRate, LinearLayout.LayoutParams(-1, dp(16)))
         body.addView(progressBar, LinearLayout.LayoutParams(-1, dp(3)).apply { topMargin = dp(1) })
         val buttons = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
@@ -138,9 +155,9 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
                 }.setNegativeButton("닫기",null).show()
             true
         }
-        buttons.addView(playButton, LinearLayout.LayoutParams(0, dp(44), 1f))
-        buttons.addView(nextButton, LinearLayout.LayoutParams(0, dp(44), 1f).apply { leftMargin = dp(4) })
-        body.addView(buttons, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(2) })
+        buttons.addView(playButton, LinearLayout.LayoutParams(0, dp(48), 1f))
+        buttons.addView(nextButton, LinearLayout.LayoutParams(0, dp(48), 1f).apply { leftMargin = dp(8) })
+        body.addView(buttons, LinearLayout.LayoutParams(-1, dp(48)))
         scroll = ScrollView(this).apply {
             tag = "watch_scroll"
             isFillViewport = true
@@ -153,16 +170,16 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
             tag = "watch_ambient"
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            setBackgroundColor(Color.BLACK)
+            setBackgroundColor(Move60Theme.Color.background)
             visibility = View.GONE
         }
-        ambientClock = text(12, Color.LTGRAY, "ambient_clock")
-        ambientStage = text(13, Color.LTGRAY, "ambient_stage")
-        ambientTime = text(20, Color.LTGRAY, "ambient_time")
+        ambientClock = text(12, Move60Theme.Color.textMedium, "ambient_clock")
+        ambientStage = text(13, Move60Theme.Color.textMedium, "ambient_stage")
+        ambientTime = text(20, Move60Theme.Color.textMedium, "ambient_time")
         ambientPanel.addView(ambientClock, LinearLayout.LayoutParams(-1, dp(20)))
         ambientPanel.addView(ambientStage, LinearLayout.LayoutParams(-1, dp(22)))
         ambientPanel.addView(ambientTime, LinearLayout.LayoutParams(-1, dp(28)))
-        ambientPanel.addView(text(10, Color.GRAY, "ambient_hint").apply { text = "손목을 들어 조작" },
+        ambientPanel.addView(text(10, Move60Theme.Color.textMedium, "ambient_hint").apply { text = "손목을 들어 조작" },
             LinearLayout.LayoutParams(-1, dp(18)))
         safeArea.addView(ambientPanel, FrameLayout.LayoutParams(-1, -1))
         setContentView(root)
@@ -179,7 +196,12 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
 
     private fun text(size: Int, color: Int, name: String) = TextView(this).apply {
         tag = name
-        textSize = size.toFloat()
+        textSize = when {
+            size >= 30 -> Move60Theme.Type.display
+            size >= 20 -> Move60Theme.Type.section
+            size >= 13 -> 13f
+            else -> 11f
+        }
         setTextColor(color)
         gravity = Gravity.CENTER
         includeFontPadding = false
@@ -192,22 +214,20 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
         text = title
         isAllCaps = false
         textSize = 11f
+        setTypeface(typeface, Typeface.BOLD)
         minHeight = 0
         minimumHeight = 0
         minWidth = 0
         minimumWidth = 0
         includeFontPadding = false
         setPadding(dp(2), 0, dp(2), 0)
-        setTextColor(Color.WHITE)
+        setTextColor(Move60Theme.Color.textHigh)
         setSingleLine(true)
         setAutoSizeTextTypeUniformWithConfiguration(9, 11, 1, TypedValue.COMPLEX_UNIT_SP)
-        background = GradientDrawable().apply {
-            setColor(Color.rgb(34, 51, 65))
-            cornerRadius = dp(12).toFloat()
-        }
+        background = Move60Theme.surface(this@WatchActivity)
         setOnClickListener { action() }
     }
-    private fun dp(value: Int) = (value * resources.displayMetrics.density + 0.5f).toInt()
+    private fun dp(value: Int) = Move60Theme.dp(this, value)
 
     fun applyWorkoutState(state: WatchWorkoutState) {
         workout = state
@@ -263,6 +283,7 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
             workout.running && workout.stageIndex >= 0 -> (workout.stageIndex * 250).coerceAtMost(1000)
             else -> 0
         }
+        ringGauge.progressPermille = progressBar.progress
         val prefs = getSharedPreferences("live_heart_rate", MODE_PRIVATE)
         val bpm = prefs.getInt("bpm", 0)
         val age = System.currentTimeMillis() - prefs.getLong("measured_at", 0L)
