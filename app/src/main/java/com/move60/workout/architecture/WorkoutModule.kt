@@ -2,6 +2,7 @@ package com.move60.workout.architecture
 
 import android.content.Context
 import androidx.room.Room
+import androidx.work.WorkManager
 import com.move60.workout.EnergyLedger
 import com.move60.workout.SessionStore
 import com.move60.workout.SetRecordStore
@@ -24,6 +25,8 @@ object WorkoutProvides {
             .build()
 
     @Provides fun dao(database: WorkoutDatabase): WorkoutDao = database.workoutDao()
+    @Provides @Singleton fun workManager(@ApplicationContext context: Context): WorkManager =
+        WorkManager.getInstance(context)
     @Provides @Singleton fun data(@ApplicationContext context: Context): WorkoutData = WorkoutData(context)
     @Provides @Singleton fun session(@ApplicationContext context: Context, data: WorkoutData): SessionStore =
         SessionStore(context, data)
