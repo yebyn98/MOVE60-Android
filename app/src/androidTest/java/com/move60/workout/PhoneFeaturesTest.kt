@@ -46,7 +46,10 @@ class PhoneFeaturesTest {
             onView(withText("오류 기록 확인 · 복사 · 삭제")).check(doesNotExist())
             screenshot("phone-v27-home.png")
             onView(withTagValue(`is`("phone_settings"))).perform(click())
-            onView(withText("구간 전환 알림음")).check(matches(isDisplayed()))
+            onView(withText("구간 전환 알림음")).check(doesNotExist())
+            onView(withTagValue(`is`("settings_sound_toggle"))).check(matches(isDisplayed()))
+            onView(withText("← 운동 화면")).check(doesNotExist())
+            onView(withText("앱 정보")).check(matches(withText("앱 정보")))
             onView(withText("업데이트 확인")).check(matches(isDisplayed()))
             screenshot("phone-settings.png")
             pressBack()
@@ -79,7 +82,7 @@ class PhoneFeaturesTest {
                 input.requestFocus()
                 input.setText("25")
                 activity.window.decorView.findViewWithTag<EditText>("set-$id-1-reps").setText("12")
-                activity.window.decorView.findViewWithTag<EditText>("set-$id-1-rpe").setText("6")
+                assertNull(activity.window.decorView.findViewWithTag<View>("set-$id-1-rpe"))
                 activity.window.decorView.findViewWithTag<CheckBox>("set-$id-1-check").isChecked = true
             }
             Thread.sleep(2_100)
@@ -239,5 +242,33 @@ class PhoneFeaturesTest {
         assertEquals("Yesterday's or tomorrow's activity must not erase today's total",
             combined, ledger.estimate(today), 0.000001)
     }
+    @Test fun unifiedThemeAndSimplifiedSettingsKeepRecordsAccessible() {
+        assertEquals(0xFF000000.toInt(), Move60Theme.Color.background)
+        assertEquals(0xFF121212.toInt(), Move60Theme.Color.surface)
+        assertEquals(0xFF00E676.toInt(), Move60Theme.Color.accent)
+        assertEquals(0xFFFFFFFF.toInt(), Move60Theme.Color.textHigh)
+        assertEquals(0xFFB0B0B0.toInt(), Move60Theme.Color.textMedium)
+        assertEquals(20, Move60Theme.Space.cardRadius)
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { activity ->
+                assertEquals(Move60Theme.Color.background, activity.window.statusBarColor)
+                assertNotNull(activity.window.decorView.findViewWithTag<View>("phone_daily_summary_card"))
+                assertTrue(activity.window.decorView.findViewWithTag<TextView>("phone_session_calories")
+                    .text.toString().startsWith("오늘 누적"))
+            }
+            screenshot("phone-v34-dashboard-tokens.png")
+        }
+        ActivityScenario.launch(SettingsActivity::class.java).use { scenario ->
+            scenario.onActivity { activity ->
+                val root = activity.window.decorView
+                assertEquals("←", root.findViewWithTag<TextView>("settings_back").text.toString())
+                assertNotNull(root.findViewWithTag<Switch>("settings_sound_toggle"))
+                assertNotNull(root.findViewWithTag<TextView>("settings_version"))
+                assertEquals(Move60Theme.Color.background, activity.window.statusBarColor)
+            }
+            screenshot("phone-v34-settings-tokens.png")
+        }
+    }
+
 }
 
