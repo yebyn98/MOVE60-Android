@@ -33,7 +33,7 @@ jobs:
       - name: Verify weekday durations and cycling intervals
         run: node scripts/verify-plan.cjs
       - name: Build phone and Watch4 Kotlin debug APKs
-        run: gradle --no-daemon :app:assembleDebug :wear:assembleDebug
+        run: gradle --no-daemon :app:assembleDebug :wear:assembleDebug :app:assembleDebugAndroidTest :wear:assembleDebugAndroidTest
       - name: Enable KVM access for emulator
         run: |
           if test -e /dev/kvm; then sudo chmod 666 /dev/kvm; fi
