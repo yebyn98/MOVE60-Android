@@ -53,11 +53,15 @@ with tempfile.TemporaryDirectory() as temp:
 with tempfile.TemporaryDirectory() as temp:
     workspace, updates = setup(temp)
     snapshot = (updates / "latest.json").read_bytes()
+    # Deliberately keep the watch at the ALREADY PUBLISHED version (31).
+    # setup() normally uses 32 to simulate a valid upgrade.
+    (workspace / "wear/build.gradle").write_text("versionCode 31\\nversionName '31.0'\\n")
     try:
         publish(updates, workspace, {"phone": False, "watch": True}, "wrong", "4", "owner/repo")
         raise AssertionError("Watch release without version bump must fail")
     except ValueError:
         assert (updates / "latest.json").read_bytes() == snapshot
+    (workspace / "wear/build.gradle").write_text("versionCode 32\\nversionName '32.0'\\n")
     publish(updates, workspace, {"phone": True, "watch": True}, "both_sha", "5", "owner/repo")
     result = manifest(updates)
     assert result["versionCode"] == 33 and result["watchVersionCode"] == 32
