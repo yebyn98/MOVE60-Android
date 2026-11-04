@@ -90,7 +90,7 @@ Error inflating class android.view.View
 - 공개 파일: `MOVE60-latest.apk`, `latest.json`. 매니페스트의 `versionCode`, `versionName`, `apkUrl`, `sha256` 확인.
 - SHA-256은 실제 게시된 APK와 일치해야 하며, 사용자 단말의 설치 승인 절차는 유지됩니다.
 - 구버전 빌드가 신버전 APK를 덮어쓰지 않도록 `build-apk.yml`의 동시 실행/구 커밋 배포 차단 규칙을 확인합니다.
-- **현재 주의:** 빌드/배포 워크플로와 에뮬레이터 테스트 워크플로는 독립 실행됩니다. 따라서 **빌드 성공만으로 배포를 안전하다고 판단하지 말고 런타임 테스트 성공까지 반드시 확인**해야 합니다. 자동 배포를 실사용에 확대하기 전에는 런타임 테스트 통과를 배포의 기술적 필수 조건으로 연결하는 것이 좋습니다.
+- **v29 배포 조건:** main에서는 build-apk.yml이 기본 검사를 재사용 워크플로로 호출합니다. publish 작업은 build와 runtime-smoke의 성공을 모두 요구합니다. 별도 수동 진단 실행은 게시를 수행하지 않습니다.
 
 ## 4. 작업 시 반드시 수행할 검증 게이트
 
@@ -279,3 +279,14 @@ adb -s WATCH_IP:CONNECTION_PORT shell am start -n com.move60.workout/com.move60.
 - 버추얼메이트Me 조사(2026-11-04): 서울시 손목닥터9988 연계 서비스 확인 https://mediahub.seoul.go.kr/archives/2016365 . 공식 제품 https://mybenefit.co.kr/mate/mate_me.php 및 Play 등록 https://play.google.com/store/apps/details?id=com.mybenefit.vmme.senior 확인. 종목별 공개 임베드/API와 MOVE60 내 재생 가능 경로는 확인하지 못했다. 소개 영상을 운동 시범 영상으로 대체하지 않는다. 이번 버전은 근력 상세에서 공식 앱 열기(미설치 시 Play 등록 페이지)만 제공하며 영상 직접 내장 완료로 안내하지 않는다. 현재 루틴은 MOVE60의 기존 종목 데이터로 구성하며 버추얼메이트의 운동 카탈로그를 가져온 것이 아니다.
 - 부위별 구성/대체 운동, 날짜별 선택 복원, 운동 중 변경 차단/기록 보존/워치 최신 패킷, 근력 전용 상세 UI 테스트 4개 추가. 폰 총 21개 + Wear 7개 및 기존 실행/알림/고정 컨트롤 게이트를 수행한다.
 - 잔여 항목: 버추얼메이트 종목별 공유/임베드 링크 또는 공식 제공 연동 방식 확보 후 상세 내 영상 재생 구현. 실제 설치된 버추얼메이트Me 앱 전환과 Watch4의 새 종목 수신은 실기기에서 확인한다.
+
+
+## 15. v29.0 필수 검사와 게시의 종속성
+
+- main의 단일 배포 그래프: runtime-smoke(기본 실행 검사) + build(원형 Wear 7개, 휴대폰 기본 실행 및 기능 21개, 서명 빌드) → publish. publish의 needs와 if가 두 결과 모두 success인 경우만 허용한다. 실패/취소/건너뜀/미확인 상태에는 APK와 latest.json을 게시하지 않는다.
+- 기존 android-smoke.yml은 workflow_call로 호출한다. PR, 수동 진단, 기존 기능 브랜치 진단은 유지하되 main의 중복 push 트리거는 제거한다. 모든 검사는 호출한 동일 커밋을 checkout하며, publish는 같은 실행에서 생성한 서명 산출물만 내려받는다. 게시 직전 main SHA 검사도 유지한다.
+- 공개 갱신 토큰은 publish 작업에만 제공한다. latest.json에 sourceCommit과 validationRun을 기록한다. 테스트 실패 후 같은 버전이 이미 게시됐다는 이유로 통과 처리하지 않는다.
+- v28 별도 기본 검사 실패 증거: 첫 실행 Process system isn't responding, 재실행 Pixel Launcher isn't responding 대화상자가 시작 버튼을 가렸다. 배포용 휴대폰 에뮬레이터는 메모리 4096MB였으나 별도 검사에는 명시되지 않았다. 자원 부족을 확정 진단한 것은 아니며, 환경 차이를 제거하고 부팅 준비 상태를 직접 검사한다.
+- 두 휴대폰 검사에 API35/Pixel6/google_apis/x86_64/4096MB/2코어/no-snapshot/부팅 제한 600초를 동일 적용한다. 앱 설치 전 부팅·패키지 관리자·UI 계층이 연속 두 번 응답해야 한다. 응답 없음/강제 종료 팝업은 숨기거나 닫아서 통과시키지 않고 실패로 남긴다.
+- scripts/verify-release-gates.py는 실제 publish 조건에 125개 상태/브랜치 조합을 대입하고 필수 의존성, continue-on-error 금지, 게시 자격증명 위치, 에뮬레이터 설정 일치를 검사한다. preflight의 UI/메모리/Activity 자료와 기존 기능/워치 결과는 Actions 산출물로 남긴다.
+- 환경 검증 성공은 이후 모든 에뮬레이터 실행의 무고장을 보장하지 않는다. 재발해도 실패가 게시를 막는 구조를 유지한다. 실제 갤럭시/워치4 연동 검증은 별도로 남아 있다.

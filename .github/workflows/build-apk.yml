@@ -9,6 +9,8 @@ concurrency:
 permissions:
   contents: read
 jobs:
+  runtime-smoke:
+    uses: ./.github/workflows/android-smoke.yml
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 40
@@ -32,6 +34,10 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+      - name: Verify release dependency policy
+        run: |
+          python3 -m pip install PyYAML==6.0.2
+          python3 scripts/verify-release-gates.py
       - name: Validate weekday workouts
         run: node scripts/verify-plan.cjs
       - name: Verify exercise photo animation integration
@@ -148,7 +154,8 @@ jobs:
           arch: x86_64
           target: google_apis
           profile: pixel_6
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -memory 4096
+          emulator-boot-timeout: 600
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -memory 4096 -cores 2
           disable-animations: true
           script: |
             bash scripts/smoke-android.sh
@@ -180,8 +187,22 @@ jobs:
           path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 30
+  publish:
+    needs: [build, runtime-smoke]
+    if: needs.build.result == 'success' && needs.runtime-smoke.result == 'success' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: MOVE60-signed-release-APK
+          path: app/build/outputs/apk/release
+      - uses: actions/download-artifact@v4
+        with:
+          name: MOVE60-Galaxy-Watch4-signed-APK
+          path: wear/build/outputs/apk/release
       - name: Publish the signed APK to public update repository
-        if: env.MOVE60_SIGNED == 'true'
         env:
           MOVE60_UPDATES_PAT: ${{ secrets.MOVE60_UPDATES_PAT }}
         shell: bash
@@ -212,7 +233,9 @@ jobs:
                 'apkUrl':'https://raw.githubusercontent.com/yebyn98/MOVE60-Updates/main/MOVE60-latest.apk',
                 'sha256':os.environ['SHA256'],
                 'watchApkUrl':'https://raw.githubusercontent.com/yebyn98/MOVE60-Updates/main/MOVE60-Watch4-latest.apk',
-                'watchSha256':os.environ['WATCH_SHA256']}
+                'watchSha256':os.environ['WATCH_SHA256'],
+                'sourceCommit':os.environ['GITHUB_SHA'],
+                'validationRun':'https://github.com/'+os.environ['GITHUB_REPOSITORY']+'/actions/runs/'+os.environ['GITHUB_RUN_ID']}
           pathlib.Path('latest.json').write_text(json.dumps(meta,ensure_ascii=False,indent=2)+'\n')
           PY
           git config user.name 'MOVE60 CI'

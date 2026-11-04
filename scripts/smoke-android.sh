@@ -13,13 +13,14 @@ wait_adb() {
 dump() { adb logcat -d -v threadtime > smoke-debug/logcat.txt || true; adb shell dumpsys notification --noredact > smoke-debug/notifications.txt || true; adb shell uiautomator dump /sdcard/move60-smoke.xml >/dev/null 2>&1 && adb pull /sdcard/move60-smoke.xml smoke-debug/window.xml >/dev/null || true; }
 trap 'if test "$?" -ne 0; then echo "=== Recent Android errors ==="; dump; grep -n -A 18 -B 5 -E "FATAL EXCEPTION|AndroidRuntime|RemoteServiceException|move60.workout" smoke-debug/logcat.txt | tail -n 150 || true; fi' EXIT
 adb wait-for-device
+python3 scripts/wait-emulator-ready.py
 adb shell settings put system screen_off_timeout 300000 || true
 adb shell input keyevent 82 || true
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 # Permission popup otherwise hides the app and prevents meaningful UI interaction.
 adb shell pm grant com.move60.workout android.permission.POST_NOTIFICATIONS
-# Suppress flaky first-boot Google setup ANR dialogs on CI emulator.
-adb shell settings put global hide_error_dialogs 1 || true
+# Keep system and app failures visible to the release gate.
+adb shell settings put global hide_error_dialogs 0
 adb shell pm disable-user --user 0 com.google.android.googlesdksetup || true
 adb shell input keyevent KEYCODE_BACK || true
 adb logcat -c
@@ -138,3 +139,4 @@ if grep -q 'FATAL EXCEPTION' smoke-debug/logcat.txt; then
   exit 1
 fi
 echo "Passed cold launch x3, workout start, NotificationManager ongoing ID 601, notification crash check and active-session relaunch. SystemUI visual confirmation is best-effort."
+

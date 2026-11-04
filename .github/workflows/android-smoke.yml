@@ -1,10 +1,11 @@
 name: MOVE60 Android runtime smoke test
 on:
+  workflow_call:
   workflow_dispatch:
   pull_request:
     branches: [main]
   push:
-    branches: [main, 'feature/workout-history-vnext']
+    branches: ['feature/workout-history-vnext']
     paths:
       - 'app/src/**'
       - 'app/build.gradle'
@@ -25,6 +26,10 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+      - name: Verify release dependency policy
+        run: |
+          python3 -m pip install PyYAML==6.0.2
+          python3 scripts/verify-release-gates.py
       - name: Verify weekday durations and cycling intervals
         run: node scripts/verify-plan.cjs
       - name: Build Kotlin debug APK
@@ -39,7 +44,8 @@ jobs:
           arch: x86_64
           target: google_apis
           profile: pixel_6
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          emulator-boot-timeout: 600
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -memory 4096 -cores 2
           disable-animations: true
           script: bash scripts/smoke-android.sh
       - name: Upload emulator notification screenshot and test evidence
@@ -57,3 +63,4 @@ jobs:
           name: move60-smoke-logs
           path: smoke-debug/
           if-no-files-found: ignore
+
