@@ -11,6 +11,7 @@ import androidx.wear.tiles.RequestBuilders
 import androidx.wear.tiles.TileBuilders
 import androidx.wear.tiles.TileService
 import com.google.common.util.concurrent.Futures
+import com.move60.watch.Move60Theme as Theme
 
 /** Read-only glanceable tile; phone remains the single authority for workout controls. */
 class WorkoutTileService : TileService() {
@@ -41,7 +42,16 @@ class WorkoutTileService : TileService() {
                     .build()
             ).build()
 
-    private fun tileLayout(): LayoutElementBuilders.Column {
+    private fun ring(degrees: Float, color: Int): LayoutElementBuilders.Arc =
+        LayoutElementBuilders.Arc.Builder().addContent(
+            LayoutElementBuilders.ArcLine.Builder()
+                .setLength(DimensionBuilders.degrees(degrees.coerceIn(0f, 360f)))
+                .setThickness(DimensionBuilders.dp(4f))
+                .setColor(ColorBuilders.argb(color))
+                .build()
+        ).build()
+
+    private fun tileLayout(): LayoutElementBuilders.Box {
         val state = WatchWorkoutState.load(this)
         val rest = state.restSeconds() > 0 && state.stageIndex == 2 && !state.finished
         val status = when {
@@ -67,11 +77,24 @@ class WorkoutTileService : TileService() {
         ).build()
         val clickable = ModifiersBuilders.Clickable.Builder().setId("open_move60")
             .setOnClick(action).build()
-        return LayoutElementBuilders.Column.Builder()
-            .addContent(tileLine("MOVE60", 15f, 0xFFB4F56E.toInt()))
-            .addContent(tileLine(status, 13f, 0xFFFFFFFF.toInt()))
-            .addContent(tileLine(info, 11f, 0xFFCFD8E3.toInt()))
-            .addContent(tileLine("눌러서 운동 열기", 10f, 0xFFAAB9C9.toInt()))
+        val ratio = when {
+            state.finished -> 1f
+            state.stageIndex == 2 && state.totalSets > 0 -> state.completedSets.toFloat() / state.totalSets
+            state.running -> (state.stageIndex.coerceIn(0, 3) + 1) / 4f
+            else -> 0f
+        }
+        val center = LayoutElementBuilders.Column.Builder()
+            .addContent(tileLine("MOVE60", Theme.Type.wearTitle, Theme.Colors.primary))
+            .addContent(tileLine(status, Theme.Type.wearBody, Theme.Colors.textHigh))
+            .addContent(tileLine(info, Theme.Type.wearBody, Theme.Colors.textMedium))
+            .addContent(tileLine("눌러서 열기", Theme.Type.wearCaption, Theme.Colors.textMuted))
+            .build()
+        return LayoutElementBuilders.Box.Builder()
+            .setWidth(DimensionBuilders.expand())
+            .setHeight(DimensionBuilders.expand())
+            .addContent(ring(360f, Theme.Colors.outline))
+            .addContent(ring(360f * ratio, Theme.Colors.primary))
+            .addContent(center)
             .setModifiers(ModifiersBuilders.Modifiers.Builder().setClickable(clickable).build())
             .build()
     }

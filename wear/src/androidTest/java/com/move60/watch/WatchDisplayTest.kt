@@ -62,6 +62,9 @@ class WatchDisplayTest {
                     val stage = activity.window.decorView.findViewWithTag<TextView>("watch_stage")
                     assertEquals("${index+1}/4 · $name", stage.text.toString())
                     assertEquals("Stage text clipped", 0, stage.layout.getEllipsisCount(0))
+                    val ring = activity.window.decorView.findViewWithTag<WorkoutProgressRing>("watch_progress_ring")
+                    assertTrue("Circular exercise progress must remain visible", ring.isShown)
+                    assertTrue(ring.progress in 0..1000)
                     assertButtonInsideCircle(activity, activity.window.decorView.findViewWithTag("watch_play"))
                     assertButtonInsideCircle(activity, activity.window.decorView.findViewWithTag("watch_next"))
                     assertEquals(if (index == 3) "운동 완료" else "다음 단계",
@@ -167,6 +170,7 @@ class WatchDisplayTest {
                 assertEquals("80kg×12회",target.text.toString())
                 assertEquals("Strength target clipped on round display",0,target.layout.getEllipsisCount(0))
                 assertEquals(333,activity.window.decorView.findViewWithTag<android.widget.ProgressBar>("watch_progress").progress)
+                assertEquals(333,activity.window.decorView.findViewWithTag<WorkoutProgressRing>("watch_progress_ring").progress)
                 assertButtonInsideCircle(activity,activity.window.decorView.findViewWithTag("watch_next"))
             }
             capture("watch-v26-set.png")
@@ -190,6 +194,7 @@ class WatchDisplayTest {
             scenario.onActivity { activity ->
                 assertEquals("60:18",activity.window.decorView.findViewWithTag<TextView>("watch_timer").text.toString())
                 assertEquals(1000,activity.window.decorView.findViewWithTag<android.widget.ProgressBar>("watch_progress").progress)
+                assertEquals(1000,activity.window.decorView.findViewWithTag<WorkoutProgressRing>("watch_progress_ring").progress)
                 assertTrue(activity.window.decorView.findViewWithTag<TextView>("watch_heart").text.contains("307 kcal"))
             }
             capture("watch-v30-finish.png")
