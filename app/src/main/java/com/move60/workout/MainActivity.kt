@@ -55,6 +55,7 @@ class MainActivity : Activity() {
     private lateinit var previous: TextView
     private lateinit var next: TextView
     private lateinit var trackingSummary: TextView
+    private lateinit var strengthProgress: ProgressBar
     private lateinit var sectionCount: TextView
     private val publishDraft = Runnable { if (::session.isInitialized) syncService() }
     private val handler = Handler(Looper.getMainLooper())
@@ -306,6 +307,14 @@ class MainActivity : Activity() {
             addView(label("운동 기록 요약", 15, true))
             addGap(this, Move60Theme.Space.x1)
             addView(trackingSummary)
+            addGap(this, Move60Theme.Space.x1)
+            strengthProgress = ProgressBar(this@MainActivity,null,android.R.attr.progressBarStyleHorizontal).apply {
+                max = 1000
+                progressTintList = android.content.res.ColorStateList.valueOf(mint)
+                progressBackgroundTintList = android.content.res.ColorStateList.valueOf(subtle)
+                tag = "phone_strength_progress"
+            }
+            addView(strengthProgress, LinearLayout.LayoutParams(-1, dp(8)))
         })
         renderDayStrip()
         renderSummary()
@@ -472,6 +481,8 @@ class MainActivity : Activity() {
             (1..sets).count { set -> "strength-${session.day}-${task.id}-${set}" in session.checked }
         }
         sectionCount.text = "근력 세트 ${completedStrengthSets} / ${totalStrengthSets} · 단계 ${session.completed.size}/4"
+        if (::strengthProgress.isInitialized)
+            strengthProgress.progress = completedStrengthSets.coerceAtMost(totalStrengthSets) * 1000 / totalStrengthSets.coerceAtLeast(1)
         for ((si, stage) in session.routine.stages.withIndex().sortedBy { if (it.index == session.stage) 0 else it.index+1 }) {
             val isCurrent = session.stage == si && !session.finished
             val done = si in session.completed || (session.finished && si <= session.stage)
@@ -672,7 +683,7 @@ class MainActivity : Activity() {
                 detailContent.addView(stepBox)
                 addGap(detailContent, 7)
             }
-            detailContent.addView(label("주의 사항", 15, true, Color.rgb(255, 189, 117)))
+            detailContent.addView(label("주의 사항", 15, true, Move60Theme.Color.error))
             detailContent.addView(label(caution, 13, false))
             addGap(detailContent, 8)
             detailContent.addView(label("대체 운동", 15, true, mint))
@@ -900,7 +911,9 @@ class MainActivity : Activity() {
             Move60Theme.Space.controlRadius, stroke)
     private fun dp(number: Int) = Move60Theme.dp(this, number)
     private fun addGap(container: LinearLayout, height: Int) {
-        container.addView(View(this), LinearLayout.LayoutParams(1, dp(height)))
+        // Normalize legacy local gaps onto the global 8dp rhythm.
+        val grid = ((height + 4) / 8).coerceAtLeast(1) * Move60Theme.Space.x1
+        container.addView(View(this), LinearLayout.LayoutParams(1, dp(grid)))
     }
     private fun formatTime(seconds: Int): String {
         val n = max(0, seconds)
