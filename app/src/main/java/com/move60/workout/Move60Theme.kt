@@ -30,6 +30,10 @@ object Move60Theme {
         const val body = 16f
         const val detail = 14f
         const val caption = 12f
+        // Compact circular-screen typography still has fixed semantic roles.
+        const val watchMetric = 18f
+        const val watchLabel = 13f
+        const val watchCaption = 11f
         fun scale(legacy: Int): Float = when {
             legacy >= 24 -> title
             legacy >= 19 -> section
