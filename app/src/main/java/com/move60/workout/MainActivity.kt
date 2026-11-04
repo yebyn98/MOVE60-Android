@@ -499,7 +499,7 @@ class MainActivity : Activity() {
             top.addView(number, LinearLayout.LayoutParams(dp(35), dp(35)))
             val titles = column().apply { setPadding(dp(9), 0, 0, 0) }
             titles.addView(label(stage.name, 15, true))
-            titles.addView(label(stage.subtitle, 11, false, textSecondary))
+            titles.addView(label(displayDetail(stage.subtitle), 11, false, textSecondary))
             top.addView(titles, LinearLayout.LayoutParams(0, -2, 1f))
             top.addView(label("${stage.minutes}분", 13, true, mint))
             block.addView(top)
@@ -639,32 +639,15 @@ class MainActivity : Activity() {
     private fun showDetails(stage: Int, task: WorkoutTask) {
         if (stage != 2) return
         val info = data.detail(task.id)
-        val steps = when {
-            info != null -> info.steps
-            stage == 1 -> when (task.kind) {
-                "로잉머신" -> listOf("발을 고정하고 허리를 중립으로 세웁니다.", "다리로 밀고 몸통을 살짝 젖힌 뒤 손잡이를 아랫가슴 쪽으로 당깁니다.", "팔·몸통·다리 순서로 돌아오며 ${task.seconds / 60}분간 RPE ${task.rpe}를 유지합니다.")
-                "일립티컬" -> listOf("발판에 발 전체를 올리고 손잡이를 가볍게 잡습니다.", "상체를 세운 채 팔과 다리를 함께 부드럽게 움직입니다.", "${task.seconds / 60}분간 RPE ${task.rpe}를 유지하며 어깨에 힘을 빼세요.")
-                "스텝밀" -> listOf("발바닥 전체로 계단을 밟고 상체를 세웁니다.", "손잡이에 체중을 싣지 말고 일정한 리듬을 유지합니다.", "${task.seconds / 60}분간 RPE ${task.rpe}를 유지하며 무릎 방향을 확인하세요.")
-                "평지 걷기" -> listOf("러닝머신의 경사를 낮게 설정하고 안전한 속도로 시작합니다.", "손잡이에 기대지 않고 자연스럽게 팔을 흔듭니다.", "${task.seconds / 60}분간 RPE ${task.rpe}를 유지하세요.")
-                else -> listOf("안장을 맞추고 페달 아래 지점에서 무릎을 살짝 굽힙니다.", "${task.seconds / 60}분간 RPE ${task.rpe}를 유지합니다.", "상체를 편안하게 유지하고 부드럽게 페달링합니다.")
-            }
-            stage == 0 -> listOf("작은 움직임부터 서서히 가동 범위를 넓힙니다.", "관절에 통증이 없는 범위에서 호흡을 유지합니다.")
-            else -> listOf("한 번에 20~40초 편안하게 유지합니다.", "반동 없이 천천히 늘리고 호흡합니다.")
-        }
-        val caution = info?.caution ?: if (stage == 1) "숨이 지나치게 차거나 어지러우면 강도를 낮추세요." else "통증이 생기면 강도를 줄이거나 중단하세요."
-        val alternative = info?.alternative ?: if (stage == 1) "실내 사이클 또는 일립티컬 RPE 3~4" else "무리 없는 가벼운 동작"
-        val body = StringBuilder()
-            .append("${displayDetail(task.detail)}\n")
-            .append("\n운동 부위  ${info?.area ?: task.kind}\n")
-            .append("사용 장비  ${info?.equipment ?: if (stage == 1) task.kind else "필요에 따라 맨몸"}\n")
-            .append("\n동작 순서\n")
-        steps.forEachIndexed { index, step -> body.append("${index + 1}. $step\n") }
-        body.append("\n주의할 점\n$caution\n\n대체 운동\n$alternative")
+        val steps = info?.steps ?: listOf("운동 범위를 천천히 확인하고 무리 없는 자세를 유지하세요.")
+        val caution = info?.caution ?: "통증이 생기면 강도를 줄이거나 중단하세요."
+        val alternative = info?.alternative ?: "같은 부위의 다른 운동 기구"
+
         val panel = column().apply { setPadding(dp(16), dp(8), dp(16), dp(8)) }
         val scroll = ScrollView(this)
         val detailContent = column()
         scroll.addView(detailContent)
-        if (stage == 2 && task.id.isNotEmpty()) {
+        if (task.id.isNotEmpty()) {
             detailContent.addView(label("운동 가이드", 17, true, mint))
             addGap(detailContent, 12)
             detailContent.addView(actionButton("버추얼메이트Me 열기 ↗", false) { openVirtualMate() }.apply { tag = "virtual_mate_open" })
@@ -691,10 +674,10 @@ class MainActivity : Activity() {
                 addGap(detailContent, 7)
             }
             detailContent.addView(label("주의 사항", 15, true, Theme.Colors.heart))
-            detailContent.addView(label(caution, 13, false))
+            detailContent.addView(label(displayDetail(caution), 13, false))
             addGap(detailContent, 8)
             detailContent.addView(label("대체 운동", 15, true, mint))
-            detailContent.addView(label(alternative, 13, false))
+            detailContent.addView(label(displayDetail(alternative), 13, false))
             addGap(detailContent, 12)
             val slot = session.routine.stages[2].tasks.indexOfFirst { it.id == task.id }
             detailContent.addView(label("최근 기록: ${exercisePrefs.log(task.id)}", 12, false, mint))
@@ -702,8 +685,6 @@ class MainActivity : Activity() {
             detailContent.addView(label("중량·횟수는 운동 화면의 각 세트에서 입력하세요.", 12, false, textSecondary))
             addGap(detailContent, 6)
             if (slot >= 0) detailContent.addView(actionButton("같은 부위 운동으로 교체", false) { showExerciseSwap(slot) })
-        } else {
-            detailContent.addView(label(body.toString(), 13, false))
         }
         panel.addView(scroll, LinearLayout.LayoutParams(-1, dp(460)))
         AlertDialog.Builder(this).setTitle(task.name).setView(panel)
