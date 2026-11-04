@@ -18,13 +18,13 @@ import android.widget.*
 import kotlin.math.max
 
 class SettingsActivity : Activity() {
-    private val background = Color.rgb(11,17,32)
-    private val panel = Color.rgb(21,31,50)
-    private val panelLight = Color.rgb(27,42,64)
-    private val mint = Color.rgb(180,245,110)
-    private val subtle = Color.rgb(37,54,77)
-    private val textPrimary = Color.rgb(237,245,255)
-    private val textSecondary = Color.rgb(166,185,205)
+    private val background = Move60Theme.Color.background
+    private val panel = Move60Theme.Color.surface
+    private val panelLight = Move60Theme.Color.elevated
+    private val mint = Move60Theme.Color.accent
+    private val subtle = Move60Theme.Color.divider
+    private val textPrimary = Move60Theme.Color.textHigh
+    private val textSecondary = Move60Theme.Color.textMedium
     private lateinit var updateManager: UpdateManager
     private lateinit var data: WorkoutData
     private lateinit var session: SessionStore
@@ -38,7 +38,9 @@ class SettingsActivity : Activity() {
         updateManager = UpdateManager(this)
         soundEnabled = getSharedPreferences("preferences", MODE_PRIVATE).getBoolean("sound", true)
         calorieWeightKg = getSharedPreferences("preferences", MODE_PRIVATE).getFloat("calorie_weight_kg", 63f).toDouble()
-        val body = column().apply { setPadding(dp(18), dp(24), dp(18), dp(24)) }
+        window.statusBarColor = background
+        window.navigationBarColor = background
+        val body = column().apply { setPadding(dp(16), dp(24), dp(16), dp(24)) }
         body.addView(actionButton("← 운동 화면", false) { finish() })
         addGap(body, 16)
         body.addView(label("앱 설정", 24, true))
@@ -196,37 +198,32 @@ class SettingsActivity : Activity() {
     private fun label(text: String, size: Int, bold: Boolean, color: Int = textPrimary) = TextView(this).apply {
         this.text = text
         setTextColor(color)
-        textSize = size.toFloat()
-        if (bold) setTypeface(typeface, Typeface.BOLD)
+        Move60Theme.applyTypography(this, size, bold)
         includeFontPadding = true
-        setLineSpacing(dp(3).toFloat(), 1.12f)
     }
     private fun column() = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
     private fun row() = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
     private fun card() = column().apply {
-        background = rounded(panel, 20, subtle)
-        setPadding(dp(17), dp(18), dp(17), dp(18))
+        background = Move60Theme.surface(this@SettingsActivity)
+        setPadding(dp(16), dp(16), dp(16), dp(16))
     }
     private fun actionButton(title: String, main: Boolean, onClick: () -> Unit) = TextView(this).apply {
         text = title
-        textSize = 16f
-        setTypeface(typeface, Typeface.BOLD)
-        setTextColor(if (main) Color.rgb(22, 37, 26) else textPrimary)
-        background = rounded(if (main) mint else panelLight, 12, if (main) mint else subtle)
+        Move60Theme.applyTypography(this, 16, true)
+        setTextColor(if (main) Move60Theme.Color.onAccent else textPrimary)
+        background = Move60Theme.shape(this@SettingsActivity, if (main) mint else panelLight,
+            Move60Theme.Space.controlRadius, if (main) mint else subtle)
         gravity = Gravity.CENTER
-        minHeight = dp(56)
-        setPadding(dp(14), dp(14), dp(14), dp(14))
-        setLineSpacing(dp(2).toFloat(), 1.1f)
+        minHeight = dp(Move60Theme.Space.touchMin)
+        setPadding(dp(16), dp(16), dp(16), dp(16))
         isClickable = true
         isFocusable = true
         setOnClickListener { onClick() }
     }
-    private fun rounded(color: Int, radiusDp: Int, stroke: Int? = null) = GradientDrawable().apply {
-        setColor(color)
-        cornerRadius = dp(radiusDp).toFloat()
-        if (stroke != null) setStroke(dp(1), stroke)
-    }
-    private fun dp(number: Int) = (resources.displayMetrics.density * number + 0.5f).toInt()
+    private fun rounded(color: Int, radiusDp: Int, stroke: Int? = null) =
+        Move60Theme.shape(this, color, if (radiusDp >= 16) Move60Theme.Space.cardRadius else
+            Move60Theme.Space.controlRadius, stroke)
+    private fun dp(number: Int) = Move60Theme.dp(this, number)
     private fun addGap(container: LinearLayout, height: Int) {
         container.addView(View(this), LinearLayout.LayoutParams(1, dp(height)))
     }
