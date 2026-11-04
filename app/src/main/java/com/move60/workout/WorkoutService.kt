@@ -197,7 +197,7 @@ class WorkoutService : Service() {
                     title = phase.optString("name", "유산소")
                     detail = phase.optString("description", "유산소 운동 진행 중")
                     round = "${i + 1}/${phases.length()} 구간"
-                    effort = "RPE ${phase.optString("rpe", "—")}"
+                    effort = "구간 진행"
                     countdownEnd = until
                     break
                 }
