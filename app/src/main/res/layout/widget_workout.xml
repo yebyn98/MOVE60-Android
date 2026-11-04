@@ -3,14 +3,14 @@
     android:id="@+id/widget_root" android:layout_width="match_parent"
     android:layout_height="match_parent" android:orientation="vertical"
     android:gravity="center_vertical" android:padding="16dp"
-    android:background="#17202B">
+    android:background="@color/move60_surface">
     <TextView android:id="@+id/widget_title" android:layout_width="match_parent"
-        android:layout_height="wrap_content" android:textColor="#B4F56E"
-        android:textStyle="bold" android:textSize="17sp" android:text="MOVE60"/>
+        android:layout_height="wrap_content" android:textColor="@color/move60_accent"
+        android:textStyle="bold" android:textSize="16sp" android:text="MOVE60"/>
     <TextView android:id="@+id/widget_status" android:layout_width="match_parent"
-        android:layout_height="wrap_content" android:textColor="#FFFFFF"
-        android:textSize="13sp" android:text="운동 대기"/>
+        android:layout_height="wrap_content" android:textColor="@color/move60_text"
+        android:textSize="12sp" android:text="운동 대기"/>
     <Chronometer android:id="@+id/widget_timer" android:layout_width="match_parent"
-        android:layout_height="wrap_content" android:textColor="#FFFFFF"
-        android:textStyle="bold" android:textSize="25sp" android:format="%s"/>
+        android:layout_height="wrap_content" android:textColor="@color/move60_text"
+        android:textStyle="bold" android:textSize="24sp" android:format="%s"/>
 </LinearLayout>
