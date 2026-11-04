@@ -245,8 +245,17 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
             resting -> workout.restSeconds()
             else -> workout.secondsRemaining()
         }.coerceAtLeast(0)
-        timer.text = "%02d:%02d".format(remaining / 60, remaining % 60)
-        timer.contentDescription = if (resting) "남은 휴식 ${timer.text} · 눌러서 15초 늘리기 또는 줄이기" else "운동 시간 ${timer.text}"
+        val strengthTarget = !resting && workout.stageIndex == 2 && !workout.finished && workout.targetReps > 0
+        timer.text = if (strengthTarget) {
+            val weight = workout.setWeight.takeIf { it.isNotBlank() }?.let { "$it kg · " } ?: ""
+            weight + "${workout.targetReps}회 목표"
+        } else "%02d:%02d".format(remaining / 60, remaining % 60)
+        timer.textSize = if (strengthTarget) 20f else 30f
+        timer.contentDescription = when {
+            resting -> "남은 휴식 ${timer.text} · 눌러서 15초 늘리기 또는 줄이기"
+            strengthTarget -> "현재 세트 ${timer.text}, 단계 남은 시간 ${remaining / 60}분 ${remaining % 60}초"
+            else -> "운동 시간 ${timer.text}"
+        }
         progressBar.progress = when {
             workout.finished -> 1000
             workout.stageIndex == 2 && workout.totalSets > 0 -> workout.completedSets.coerceIn(0,workout.totalSets)*1000/workout.totalSets
