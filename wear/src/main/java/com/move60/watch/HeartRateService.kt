@@ -26,6 +26,7 @@ class HeartRateService : Service(), SensorEventListener, DataClient.OnDataChange
     private var wakeLock: PowerManager.WakeLock? = null
     private var registered = false
     private var running = false
+    private var sessionId = 0L
     private var hiddenSince = 0L
     private var lastSentAt = 0L
     private val startedAt = SystemClock.elapsedRealtime()
@@ -110,7 +111,16 @@ class HeartRateService : Service(), SensorEventListener, DataClient.OnDataChange
         val ageMs = ((SystemClock.elapsedRealtimeNanos() - event.timestamp) / 1_000_000L).coerceAtLeast(0L)
         if (ageMs > 10_000L) return
         val measuredAt = System.currentTimeMillis() - ageMs
-        prefs.edit().putInt("bpm", bpm).putLong("measured_at", measuredAt).putString("status", "측정 중").apply()
+        val edit = prefs.edit().putInt("bpm", bpm).putLong("measured_at", measuredAt).putString("status", "측정 중")
+        // The displayed average uses actual, in-session sensor samples (not estimated BPM).
+        // Sample at most once per second to avoid over-weighting device-specific event bursts.
+        if (running && sessionId > 0L && prefs.getLong("session",0L) == sessionId &&
+            measuredAt - prefs.getLong("last_avg_at",0L) >= 1_000L) {
+            edit.putLong("sample_total",prefs.getLong("sample_total",0L)+bpm)
+                .putInt("sample_count",prefs.getInt("sample_count",0)+1)
+                .putLong("last_avg_at",measuredAt)
+        }
+        edit.apply()
         if (measuredAt - lastSentAt >= 500L) {
             lastSentAt = measuredAt
             sendHeartRate(bpm, measuredAt)
@@ -130,7 +140,14 @@ class HeartRateService : Service(), SensorEventListener, DataClient.OnDataChange
     }
     private fun readWorkout(item: DataItem) {
         if (item.uri.path != "/move60/workout") return
-        running = DataMapItem.fromDataItem(item).dataMap.getBoolean("running")
+        val map = DataMapItem.fromDataItem(item).dataMap
+        val newSession = map.getLong("session")
+        if (newSession > 0L && newSession != sessionId) {
+            sessionId = newSession
+            prefs.edit().putLong("session",newSession).putLong("sample_total",0L)
+                .putInt("sample_count",0).putLong("last_avg_at",0L).apply()
+        }
+        running = map.getBoolean("running")
     }
     override fun onDataChanged(events: DataEventBuffer) {
         for (event in events) if (event.type == DataEvent.TYPE_CHANGED) readWorkout(event.dataItem)
