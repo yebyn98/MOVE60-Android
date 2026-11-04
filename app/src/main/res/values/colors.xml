@@ -1,6 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="move60_bg">#10182A</color>
-    <color name="move60_accent">#B4F56E</color>
+    <!-- Android XML/RemoteViews implementation of Move60Theme.Color. -->
+    <color name="move60_bg">#000000</color>
+    <color name="move60_surface">#121212</color>
+    <color name="move60_elevated">#1C1C1C</color>
+    <color name="move60_border">#303030</color>
+    <color name="move60_accent">#00E676</color>
+    <color name="move60_accent_dim">#103722</color>
     <color name="move60_text">#FFFFFF</color>
+    <color name="move60_text_medium">#B0B0B0</color>
+    <color name="move60_on_accent">#002A15</color>
+    <color name="move60_error">#FF6B6B</color>
 </resources>
