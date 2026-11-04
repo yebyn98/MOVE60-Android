@@ -22,13 +22,13 @@ import kotlin.math.max
 
 /** Fully native Android/Kotlin interface. No WebView, JavaScript, or HTML UI. */
 class MainActivity : Activity() {
-    private val background = Color.rgb(11, 17, 32)
-    private val panel = Color.rgb(21, 31, 50)
-    private val panelLight = Color.rgb(27, 42, 64)
-    private val subtle = Color.rgb(37, 54, 77)
-    private val mint = Color.rgb(180, 245, 110)
-    private val textPrimary = Color.rgb(237, 245, 255)
-    private val textSecondary = Color.rgb(166, 185, 205)
+    private val background = Move60Theme.Color.background
+    private val panel = Move60Theme.Color.surface
+    private val panelLight = Move60Theme.Color.elevated
+    private val subtle = Move60Theme.Color.divider
+    private val mint = Move60Theme.Color.accent
+    private val textPrimary = Move60Theme.Color.textHigh
+    private val textSecondary = Move60Theme.Color.textMedium
     private lateinit var updateManager: UpdateManager
     private lateinit var data: WorkoutData
     private lateinit var exercisePrefs: ExercisePreferences
@@ -138,7 +138,7 @@ class MainActivity : Activity() {
         }
         content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(18), dp(24), dp(18), dp(24))
+            setPadding(dp(Move60Theme.Space.x2), dp(Move60Theme.Space.x3), dp(Move60Theme.Space.x2), dp(Move60Theme.Space.x3))
         }
         scroll.addView(content)
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
@@ -265,10 +265,14 @@ class MainActivity : Activity() {
         addGap(content, 12)
 
         dayStrip = row()
-        content.addView(dayStrip)
-        addGap(content, 12)
+        content.addView(card().apply { addView(dayStrip) })
+        addGap(content, Move60Theme.Space.x2)
         focusRow = row().apply { tag = "body_focus_selector" }
-        content.addView(focusRow)
+        content.addView(card().apply {
+            addView(label("운동 부위", 15, true))
+            addGap(this, Move60Theme.Space.x1)
+            addView(focusRow)
+        })
         addGap(content, 12)
         // Keep detailed timer information above the long daily summary.
         // Workout actions live outside the ScrollView in the bottom dock.
@@ -293,10 +297,16 @@ class MainActivity : Activity() {
         addGap(content, 14)
         stageStack = column().apply { tag = "phone_stage_stack" }
         content.addView(stageStack)
-        summary = column()
+        addGap(content, Move60Theme.Space.x2)
+        summary = card().apply { tag = "phone_daily_summary_card" }
         content.addView(summary)
         trackingSummary = label("",12,false,textSecondary)
-        content.addView(trackingSummary)
+        addGap(content, Move60Theme.Space.x1)
+        content.addView(card().apply {
+            addView(label("운동 기록 요약", 15, true))
+            addGap(this, Move60Theme.Space.x1)
+            addView(trackingSummary)
+        })
         renderDayStrip()
         renderSummary()
         renderStages()
@@ -363,8 +373,8 @@ class MainActivity : Activity() {
     private fun makeWorkoutControls(): LinearLayout {
         val dock = column().apply {
             contentDescription = "고정 운동 컨트롤"
-            setBackgroundColor(Color.rgb(13, 23, 37))
-            setPadding(dp(18), dp(10), dp(18), dp(12))
+            setBackgroundColor(Move60Theme.Color.surface)
+            setPadding(dp(16), dp(8), dp(16), dp(16))
             elevation = dp(8).toFloat()
         }
         val state = row().apply { gravity = Gravity.CENTER_VERTICAL }
@@ -466,7 +476,7 @@ class MainActivity : Activity() {
             val isCurrent = session.stage == si && !session.finished
             val done = si in session.completed || (session.finished && si <= session.stage)
             val block = column().apply {
-                background = rounded(if (isCurrent) Color.rgb(28, 44, 57) else panel, 16, if (isCurrent) mint else if (done) Color.rgb(66, 99, 74) else subtle)
+                background = rounded(if (isCurrent) Move60Theme.Color.elevated else panel, 16, if (isCurrent) mint else if (done) Move60Theme.Color.accentDim else subtle)
                 setPadding(dp(12), dp(13), dp(12), dp(13))
             }
             val top = row().apply { gravity = Gravity.CENTER_VERTICAL }
@@ -499,7 +509,7 @@ class MainActivity : Activity() {
                 val item = row().apply {
                     gravity = Gravity.CENTER_VERTICAL
                     setPadding(dp(5), dp(4), dp(3), dp(4))
-                    if (isPhase) background = rounded(Color.rgb(33, 69, 53), 10, mint)
+                    if (isPhase) background = rounded(Move60Theme.Color.accentDim, 10, mint)
                 }
                 val textBox = column()
                 textBox.addView(label(task.name, 13, true, if (isPhase) mint else textPrimary))
@@ -877,35 +887,32 @@ class MainActivity : Activity() {
     private fun label(text: String, size: Int, bold: Boolean, color: Int = textPrimary) = TextView(this).apply {
         this.text = text
         setTextColor(color)
-        textSize = size.toFloat()
-        if (bold) setTypeface(typeface, Typeface.BOLD)
+        Move60Theme.applyTypography(this, size, bold)
         includeFontPadding = true
     }
     private fun column() = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
     private fun row() = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
     private fun card() = column().apply {
-        background = rounded(panel, 20, subtle)
-        setPadding(dp(17), dp(18), dp(17), dp(18))
+        background = Move60Theme.surface(this@MainActivity)
+        setPadding(dp(16), dp(16), dp(16), dp(16))
     }
     private fun actionButton(title: String, main: Boolean, onClick: () -> Unit) = TextView(this).apply {
         text = title
-        textSize = if (main) 15f else 12f
-        setTypeface(typeface, Typeface.BOLD)
-        setTextColor(if (main) Color.rgb(22, 37, 26) else textPrimary)
-        background = rounded(if (main) mint else panelLight, 12, if (main) mint else subtle)
+        Move60Theme.applyTypography(this, if (main) 16 else 14, true)
+        setTextColor(if (main) Move60Theme.Color.onAccent else textPrimary)
+        background = Move60Theme.shape(this@MainActivity, if (main) mint else panelLight,
+            Move60Theme.Space.controlRadius, if (main) mint else subtle)
         gravity = Gravity.CENTER
-        minHeight = dp(if (main) 53 else 43)
-        setPadding(dp(8), dp(9), dp(8), dp(9))
+        minHeight = dp(Move60Theme.Space.touchMin)
+        setPadding(dp(8), dp(8), dp(8), dp(8))
         isClickable = true
         isFocusable = true
         setOnClickListener { onClick() }
     }
-    private fun rounded(color: Int, radiusDp: Int, stroke: Int? = null) = GradientDrawable().apply {
-        setColor(color)
-        cornerRadius = dp(radiusDp).toFloat()
-        if (stroke != null) setStroke(dp(1), stroke)
-    }
-    private fun dp(number: Int) = (resources.displayMetrics.density * number + 0.5f).toInt()
+    private fun rounded(color: Int, radiusDp: Int, stroke: Int? = null) =
+        Move60Theme.shape(this, color, if (radiusDp >= 16) Move60Theme.Space.cardRadius else
+            Move60Theme.Space.controlRadius, stroke)
+    private fun dp(number: Int) = Move60Theme.dp(this, number)
     private fun addGap(container: LinearLayout, height: Int) {
         container.addView(View(this), LinearLayout.LayoutParams(1, dp(height)))
     }
