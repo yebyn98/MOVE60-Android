@@ -300,7 +300,6 @@ class MainActivity : Activity() {
         content.addView(summary)
         addGap(content, Theme.Space.one)
         trackingSummary = label("",12,false,textSecondary)
-        content.addView(trackingSummary)
         renderDayStrip()
         renderSummary()
         renderStages()
@@ -371,6 +370,10 @@ class MainActivity : Activity() {
             progressTintList = Theme.progressTint()
             progressBackgroundTintList = android.content.res.ColorStateList.valueOf(Theme.Colors.outline)
         }, LinearLayout.LayoutParams(-1, dp(8)))
+        if (::trackingSummary.isInitialized) {
+            addGap(summary, Theme.Space.one)
+            summary.addView(trackingSummary)
+        }
     }
 
     /** A sibling of the weighted ScrollView, so controls never scroll or cover content. */
@@ -748,8 +751,8 @@ class MainActivity : Activity() {
                 timerCueDetail.text = if (session.elapsed() > 0) "수분을 보충하고 충분히 쉬세요." else "운동 시작을 누르면 활동 시간이 기록됩니다."
             }
             phase != null -> {
-                timerCueTitle.text = "${phase.second.name} · RPE ${phase.second.rpe}"
-                timerCueDetail.text = "${phase.second.description} · ${formatTime(session.phaseSecondsRemaining())} 남음 · ${phase.first + 1}/${session.routine.stages[1].tasks.size} 구간"
+                timerCueTitle.text = phase.second.name
+                timerCueDetail.text = "${displayDetail(phase.second.description)} · ${formatTime(session.phaseSecondsRemaining())} 남음 · ${phase.first + 1}/${session.routine.stages[1].tasks.size} 구간"
             }
             else -> {
                 timerCueTitle.text = when (session.stage) {
