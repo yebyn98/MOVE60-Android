@@ -40,4 +40,6 @@ object WorkoutProvides {
 abstract class WorkoutBindings {
     @Binds @Singleton
     abstract fun repository(implementation: DefaultWorkoutRepository): WorkoutRepository
+    @Binds @Singleton
+    abstract fun preferences(implementation: LegacyPreferenceRepository): PreferenceRepository
 }
