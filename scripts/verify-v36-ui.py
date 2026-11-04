@@ -24,6 +24,9 @@ assert "granted.containsAll(HealthConnectGateway.readPermissions)" in consent
 assert 'putBoolean("enabled", false)' in health and 'putBoolean("consented", consented)' in health
 assert "getGrantedPermissions().containsAll(readPermissions)" in health
 assert "HeartRateRecord::class" in health and "SleepSessionRecord::class" in health
+assert 'DataOrigin("com.sec.android.app.shealth")' in health
+assert health.count("dataOriginFilter = samsungOrigin") == 2, "Do not read other apps' health records"
+assert "now - lastSynced in 0L..86_400_000L" in wear, "Stale shared health data must expire"
 assert "unsupported_watch4" in health
 assert "fillMaxRectangle()" in wear and "ScalingLazyColumn(" in wear
 assert "워치4 미지원" in wear and "추정값을 만들지 않아요." in wear
