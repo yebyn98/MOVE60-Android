@@ -240,7 +240,8 @@ class SettingsActivity : Activity() {
             Move60Theme.Space.controlRadius, stroke)
     private fun dp(number: Int) = Move60Theme.dp(this, number)
     private fun addGap(container: LinearLayout, height: Int) {
-        container.addView(View(this), LinearLayout.LayoutParams(1, dp(height)))
+        val grid = ((height + 4) / 8).coerceAtLeast(1) * Move60Theme.Space.x1
+        container.addView(View(this), LinearLayout.LayoutParams(1, dp(grid)))
     }
     private fun formatTime(seconds: Int): String {
         val n = max(0, seconds)
