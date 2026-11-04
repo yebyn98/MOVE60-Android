@@ -363,7 +363,7 @@ class MainActivity : Activity() {
         if (!::summary.isInitialized) return
         summary.removeAllViews()
         val routine = session.routine
-        summary.addView(label(routine.focus,16,true))
+        // The chosen body area is already visible in the selector; avoid duplicate summary text.
         summary.addView(label("준비 5분 · 유산소 "+routine.stages[1].minutes+"분 · 근력 "+routine.stages[2].minutes+"분 · 정리 5분",12,false,textSecondary))
         val kcal = CalorieEstimator.totalKcal(routine,calorieWeightKg)
         summary.addView(label("60분 계획 · 약 "+kcal+" kcal 추정",12,false,textSecondary))
@@ -532,22 +532,8 @@ class MainActivity : Activity() {
                     progress.setPadding(dp(12), dp(4), 0, dp(3))
                     taskContainer.addView(progress)
                     val setRecords = SetRecordStore(this)
-                    val importLast = actionButton("지난 기록 불러오기", false) {
-                        var imported = 0
-                        for (n in 1..count) {
-                            if ("strength-"+session.day+"-"+task.id+"-"+n in session.checked) continue
-                            val prior = setRecords.previous(task.id,n,session.sessionStartedAt) ?: continue
-                            window.decorView.findViewWithTag<EditText>("set-"+task.id+"-"+n+"-kg")?.setText(prior.kg)
-                            window.decorView.findViewWithTag<EditText>("set-"+task.id+"-"+n+"-reps")?.setText(prior.reps)
-                            window.decorView.findViewWithTag<EditText>("set-"+task.id+"-"+n+"-rpe")?.setText(prior.rpe)
-                            imported++
-                        }
-                        Toast.makeText(this,if (imported > 0) "지난 기록을 가져왔어요. 완료 체크는 직접 해주세요." else "불러올 이전 완료 기록이 없어요.",Toast.LENGTH_SHORT).show()
-                        syncService()
-                    }.apply { tag = "import-"+task.id; textSize = 11f }
-                    taskContainer.addView(importLast)
                     val labels = row()
-                    listOf("세트", "중량 kg", "횟수", "RPE", "완료").forEachIndexed { index, title ->
+                    listOf("세트", "중량 kg", "횟수", "완료").forEachIndexed { index, title ->
                         labels.addView(label(title, 10, true, textSecondary).apply { gravity = Gravity.CENTER },
                             LinearLayout.LayoutParams(0, dp(28), if (index == 1) 1.3f else 1f))
                     }
@@ -571,10 +557,10 @@ class MainActivity : Activity() {
                         }
                         val kg = input(saved.kg, "kg", true).apply { tag = "set-${task.id}-$set-kg" }
                         val reps = input(saved.reps, "회").apply { tag = "set-${task.id}-$set-reps" }
-                        val effort = input(saved.rpe, "RPE").apply { tag = "set-${task.id}-$set-rpe" }
+                        // Keep legacy RPE data for history compatibility, but never render/edit it.
+                        val hiddenEffort = saved.rpe.toIntOrNull()?.takeIf { it in 1..10 }?.toString() ?: "5"
                         fields.addView(kg, LinearLayout.LayoutParams(0, dp(48), 1.3f))
                         fields.addView(reps, LinearLayout.LayoutParams(0, dp(48), 1f))
-                        fields.addView(effort, LinearLayout.LayoutParams(0, dp(48), 1f))
                         val check = CheckBox(this).apply {
                             tag = "set-${task.id}-$set-check"
                             isChecked = key in session.checked || saved.completed
@@ -584,14 +570,14 @@ class MainActivity : Activity() {
                             setPadding(0, 0, 0, 0)
                         }
                         fun saveEntry() {
-                            val record = SetRecordStore.Record(kg.text.toString(), reps.text.toString(), effort.text.toString(), check.isChecked)
+                            val record = SetRecordStore.Record(kg.text.toString(), reps.text.toString(), hiddenEffort, check.isChecked)
                             setRecords.write(session.day, task.id, set, record, token = session.sessionStartedAt)
                             if (!record.valid && check.isChecked) check.isChecked = false
                             refreshTimer()
                             handler.removeCallbacks(publishDraft)
                             handler.postDelayed(publishDraft,400L)
                         }
-                        listOf(kg, reps, effort).forEach { field ->
+                        listOf(kg, reps).forEach { field ->
                             field.addTextChangedListener(object : android.text.TextWatcher {
                                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
                                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { saveEntry() }
@@ -599,10 +585,10 @@ class MainActivity : Activity() {
                             })
                         }
                         check.setOnCheckedChangeListener { _, checked ->
-                            val record = SetRecordStore.Record(kg.text.toString(), reps.text.toString(), effort.text.toString(), checked)
+                            val record = SetRecordStore.Record(kg.text.toString(), reps.text.toString(), hiddenEffort, checked)
                             if (checked && !record.valid) {
                                 check.isChecked = false
-                                Toast.makeText(this, "중량(맨몸 0)·횟수·RPE를 확인해 주세요.", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(this, "중량(맨몸 0kg)과 횟수를 확인해 주세요.", Toast.LENGTH_SHORT).show()
                             } else {
                                 session.toggleChecked(key, checked)
                                 setRecords.write(session.day, task.id, set, record, token = session.sessionStartedAt)
@@ -620,7 +606,7 @@ class MainActivity : Activity() {
                         val prior = setRecords.previous(task.id,set,session.sessionStartedAt)
                         if (prior != null) taskContainer.addView(label("지난 기록  "+prior.kg+" kg × "+prior.reps+"회",10,false,textSecondary).apply { setPadding(dp(12),0,0,dp(4)) })
                     }
-                    taskContainer.addView(label("맨몸은 0kg · RPE 1~10 · 입력값 자동 저장", 10, false, textSecondary))
+                    taskContainer.addView(label("맨몸은 0kg · 입력값 자동 저장", 10, false, textSecondary))
                     addGap(taskContainer, 7)
                 }
             }
