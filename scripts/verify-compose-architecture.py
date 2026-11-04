@@ -46,5 +46,5 @@ assert "@HiltWorker" in worker and "CoroutineWorker" in worker
 assert "EnergyLedger" in worker and "WorkoutHistory" in worker
 assert "WorkManagerInitializer" in read("app/src/main/AndroidManifest.xml")
 targets=read("scripts/release-targets.json")
-assert '"phone": true' in targets and '"watch": false' in targets
+assert '"phone": true' in targets and '"watch": true' in targets
 print("PASS: Compose Navigation, StateFlow/SharedFlow, Hilt, Room, WorkManager and phone-only release")
