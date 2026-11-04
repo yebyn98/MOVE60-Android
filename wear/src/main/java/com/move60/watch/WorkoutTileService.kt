@@ -32,7 +32,7 @@ class WorkoutTileService : TileService() {
 
     private fun tileLine(value: String, sizeSp: Float, color: Int): LayoutElementBuilders.Text =
         LayoutElementBuilders.Text.Builder()
-            .setText(value.take(24))
+            .setText(value.take(19))
             .setMaxLines(1)
             .setFontStyle(
                 LayoutElementBuilders.FontStyle.Builder()
@@ -52,7 +52,7 @@ class WorkoutTileService : TileService() {
             else -> "운동 대기"
         }
         val info = when {
-            state.finished -> "${state.completedSets}/${state.totalSets}세트 · 약 ${state.estimatedKcal.toInt()}kcal"
+            state.finished -> "${state.completedSets}/${state.totalSets}세트 · ${state.estimatedKcal.toInt()}kcal"
             rest -> "남은 약 ${(state.restSeconds()+59)/60}분"
             state.stageIndex == 2 -> state.exerciseName.ifBlank { state.setLabel }.take(15)
             state.stageIndex == 1 && state.intervalTotal > 0 -> "${state.intervalIndex}/${state.intervalTotal}구간 · ${state.detail}"
@@ -68,10 +68,10 @@ class WorkoutTileService : TileService() {
         val clickable = ModifiersBuilders.Clickable.Builder().setId("open_move60")
             .setOnClick(action).build()
         return LayoutElementBuilders.Column.Builder()
-            .addContent(tileLine("MOVE60", 15f, 0xFFB4F56E.toInt()))
-            .addContent(tileLine(status, 13f, 0xFFFFFFFF.toInt()))
-            .addContent(tileLine(info, 11f, 0xFFCFD8E3.toInt()))
-            .addContent(tileLine("눌러서 운동 열기", 10f, 0xFFAAB9C9.toInt()))
+            .addContent(tileLine("MOVE60", Move60Theme.Type.detail, Move60Theme.Color.accent))
+            .addContent(tileLine(status, Move60Theme.Type.body, Move60Theme.Color.textHigh))
+            .addContent(tileLine(info, Move60Theme.Type.caption, Move60Theme.Color.textMedium))
+            .addContent(tileLine("탭하여 운동 열기", Move60Theme.Type.caption, Move60Theme.Color.textMedium))
             .setModifiers(ModifiersBuilders.Modifiers.Builder().setClickable(clickable).build())
             .build()
     }
