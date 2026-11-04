@@ -107,6 +107,7 @@ fun ComposeHomeApp(
                 NavigationBar(containerColor = surface) {
                     screens.forEach { (path, label, icon) ->
                         NavigationBarItem(
+                            modifier = Modifier.testTag("compose_nav_$path"),
                             selected = route == path,
                             onClick = {
                                 navController.navigate(path) {
