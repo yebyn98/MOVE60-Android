@@ -262,10 +262,10 @@ class MainActivity : Activity() {
         val header = row().apply { gravity = Gravity.CENTER_VERTICAL }
         header.addView(label("MOVE", 24, true), LinearLayout.LayoutParams(0, -2, 1f))
         header.addView(label("60", 24, true, mint))
-        header.addView(actionButton("운동 달력", false) { showWorkoutCalendar() }.apply { textSize = 11f; tag = "phone_calendar" }, LinearLayout.LayoutParams(-2, dp(40)).apply { leftMargin = dp(8) })
+        header.addView(actionButton("운동 달력", false) { showWorkoutCalendar() }.apply { textSize = Theme.Type.caption; tag = "phone_calendar" }, LinearLayout.LayoutParams(-2, dp(40)).apply { leftMargin = dp(8) })
         header.addView(actionButton("앱 설정", false) {
             startActivity(Intent(this, SettingsActivity::class.java).putExtra("day", session.day))
-        }.apply { textSize = 11f; tag = "phone_settings" }, LinearLayout.LayoutParams(-2, dp(40)).apply { leftMargin = dp(8) })
+        }.apply { textSize = Theme.Type.caption; tag = "phone_settings" }, LinearLayout.LayoutParams(-2, dp(40)).apply { leftMargin = dp(8) })
         content.addView(header)
         addGap(content, 16)
         content.addView(label(data.localToday().format(DateTimeFormatter.ofPattern("M월 d일"))+" · 오늘 루틴", 20, true))
@@ -334,7 +334,7 @@ class MainActivity : Activity() {
             val active = session.day == d
             val day = TextView(this).apply {
                 text = labels[d - 1] + if (data.localToday().dayOfWeek.value == d) " •" else ""
-                setTextSize(16f)
+                setTextSize(Theme.Type.body)
                 setTypeface(null, Typeface.BOLD)
                 setTextColor(if (active) this@MainActivity.background else textSecondary)
                 gravity = Gravity.CENTER
@@ -427,9 +427,9 @@ class MainActivity : Activity() {
         val buttons = row()
         previous = actionButton("← 이전 단계", false) { session.jumpTo(session.stage - 1); afterAction() }
         next = actionButton("다음 단계 →", false) { session.nextStage(); afterAction() }.apply { tag = "phone_next" }
-        previous.textSize = 11f
-        next.textSize = 11f
-        play.textSize = 12f
+        previous.textSize = Theme.Type.caption
+        next.textSize = Theme.Type.caption
+        play.textSize = Theme.Type.body
         buttons.addView(previous, LinearLayout.LayoutParams(0, dp(52), 1f))
         buttons.addView(play, LinearLayout.LayoutParams(0, dp(52), 1.35f).apply { leftMargin = dp(8) })
         buttons.addView(next, LinearLayout.LayoutParams(0, dp(52), 1f).apply { leftMargin = dp(8) })
@@ -559,7 +559,7 @@ class MainActivity : Activity() {
                         fun input(value: String, hint: String, decimal: Boolean = false): EditText = EditText(this).apply {
                             setText(value)
                             this.hint = hint
-                            textSize = 13f
+                            textSize = Theme.Type.body
                             setTextColor(textPrimary)
                             setHintTextColor(textSecondary)
                             setSingleLine(true)
@@ -853,12 +853,12 @@ class MainActivity : Activity() {
         }
         val title = TextView(this).apply {
             text = "MOVE60 · 안전 복구"
-            textSize = 24f
+            textSize = Theme.Type.title
             setTextColor(mint)
         }
         val description = TextView(this).apply {
             text = message + "\n앱을 삭제하지 마세요. 오류 기록을 복사해 알려주면 원인을 확인할 수 있어요."
-            textSize = 15f
+            textSize = Theme.Type.body
             setTextColor(textPrimary)
             setPadding(0, dp(24), 0, dp(24))
         }
