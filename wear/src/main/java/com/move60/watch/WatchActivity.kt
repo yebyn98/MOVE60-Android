@@ -354,9 +354,12 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
 
     private fun showWatchSettings() {
         AlertDialog.Builder(this).setTitle("MOVE60 설정")
-            .setItems(arrayOf("센서 권한 설정", "심박수 측정 중지")) { _, which ->
-                if (which == 0) openSensorSettings()
-                else stopService(Intent(this, HeartRateService::class.java))
+            .setItems(arrayOf("건강 대시보드", "센서 권한 설정", "심박수 측정 중지")) { _, which ->
+                when (which) {
+                    0 -> startActivity(Intent(this, com.move60.watch.health.WearHealthActivity::class.java))
+                    1 -> openSensorSettings()
+                    else -> stopService(Intent(this, HeartRateService::class.java))
+                }
             }.setNegativeButton("닫기", null).show()
     }
 
