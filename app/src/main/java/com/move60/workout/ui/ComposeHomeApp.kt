@@ -253,7 +253,7 @@ private fun ComposeSettingsScreen(
             SummaryCard {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("앱 정보", fontWeight = FontWeight.Bold)
-                    Text("v35", color = primary)
+                    Text("v${state.appVersion}", color = primary)
                 }
                 Text("MOVE60 · 매일 60분 운동", color = textMedium)
             }
