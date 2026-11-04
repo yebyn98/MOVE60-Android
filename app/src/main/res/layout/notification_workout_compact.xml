@@ -31,7 +31,7 @@
             android:layout_height="wrap_content" android:layout_marginLeft="6dp"
             android:text="3/18 구간" android:textSize="10sp" android:textColor="@color/move60_text_medium" />
         <TextView android:id="@+id/n_accent" android:layout_width="wrap_content"
-            android:layout_height="wrap_content" android:text="RPE 7"
+            android:layout_height="wrap_content" android:text="구간 진행"
             android:textSize="10sp" android:textStyle="bold" android:textColor="@color/move60_accent" />
     </LinearLayout>
     <ProgressBar android:id="@+id/n_progress"
