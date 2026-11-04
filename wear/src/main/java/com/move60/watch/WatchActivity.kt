@@ -48,6 +48,7 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
     private lateinit var detail: TextView
     private lateinit var timer: TextView
     private lateinit var heartRate: TextView
+    private lateinit var progressBar: ProgressBar
     private lateinit var playButton: Button
     private lateinit var nextButton: Button
     private lateinit var ambientClock: TextView
@@ -104,13 +105,24 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
             contentDescription = "현재 운동 단계 · 길게 눌러 설정"
             setOnLongClickListener { showWatchSettings(); true }
         }
-        detail = text(10, Color.LTGRAY, "watch_detail")
-        timer = text(30, Color.WHITE, "watch_timer")
-        heartRate = text(12, Color.rgb(255, 145, 145), "watch_heart")
-        body.addView(stage, LinearLayout.LayoutParams(-1, dp(18)))
-        body.addView(detail, LinearLayout.LayoutParams(-1, dp(14)))
-        body.addView(timer, LinearLayout.LayoutParams(-1, dp(32)))
-        body.addView(heartRate, LinearLayout.LayoutParams(-1, dp(18)))
+        detail = text(11, Color.LTGRAY, "watch_detail")
+        timer = text(30, Color.WHITE, "watch_timer").apply {
+            setOnClickListener { if (workout.restSeconds() > 0 && workout.stageIndex == 2) showRestAdjustments() }
+        }
+        heartRate = text(12, Color.rgb(255, 145, 145), "watch_heart").apply {
+            setOnLongClickListener { showHeartZoneSettings(); true }
+        }
+        progressBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+            tag = "watch_progress"
+            max = 1000
+            progressTintList = android.content.res.ColorStateList.valueOf(lime)
+            progressBackgroundTintList = android.content.res.ColorStateList.valueOf(Color.rgb(32, 48, 60))
+        }
+        body.addView(stage, LinearLayout.LayoutParams(-1, dp(16)))
+        body.addView(detail, LinearLayout.LayoutParams(-1, dp(18)))
+        body.addView(timer, LinearLayout.LayoutParams(-1, dp(30)))
+        body.addView(heartRate, LinearLayout.LayoutParams(-1, dp(17)))
+        body.addView(progressBar, LinearLayout.LayoutParams(-1, dp(4)).apply { topMargin = dp(2) })
         val buttons = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         playButton = button("시작", "watch_play") {
             sendCommand(if (workout.running) "pause" else "start")
@@ -128,7 +140,7 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
         }
         buttons.addView(playButton, LinearLayout.LayoutParams(0, dp(44), 1f))
         buttons.addView(nextButton, LinearLayout.LayoutParams(0, dp(44), 1f).apply { leftMargin = dp(4) })
-        body.addView(buttons, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(4) })
+        body.addView(buttons, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(3) })
         scroll = ScrollView(this).apply {
             tag = "watch_scroll"
             isFillViewport = true
@@ -214,24 +226,51 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
     private fun renderInteractive() {
         stage.text = if (workout.finished) "운동 완료" else workout.stageLabel
         stage.contentDescription = "현재 단계 ${stage.text} · 길게 눌러 설정"
+        val resting = workout.stageIndex == 2 && workout.restSeconds() > 0 && !workout.finished
         detail.text = when {
             pending.isNotBlank() -> requestStatus
-            workout.stageIndex == 2 && workout.restSeconds() > 0 -> "세트 휴식 · 길게 눌러 +15초"
-            workout.stageIndex == 2 && workout.hasSession -> workout.setLabel.ifBlank { workout.detail }
-            workout.finished -> "오늘 운동을 마쳤어요"
+            workout.finished -> "근력 ${workout.completedSets}/${workout.totalSets}세트 완료"
+            resting -> "휴식 · 타이머 탭해 ±15초"
+            workout.stageIndex == 2 && workout.hasSession ->
+                workout.exerciseName.ifBlank { workout.setLabel } +
+                    (if (workout.setTotal > 0) " · ${workout.setNumber}/${workout.setTotal}세트" else "")
+            workout.stageIndex == 1 && workout.intervalTotal > 0 ->
+                "${workout.intervalIndex}/${workout.intervalTotal}구간 · ${workout.detail}"
             workout.running -> workout.detail.ifBlank { "운동 중" }
             workout.hasSession -> "일시정지"
             else -> "휴대폰 운동과 연결 대기"
         }
-        val remaining = if (workout.restSeconds() > 0) workout.restSeconds() else workout.secondsRemaining()
+        val remaining = when {
+            workout.finished -> workout.activeSeconds
+            resting -> workout.restSeconds()
+            else -> workout.secondsRemaining()
+        }.coerceAtLeast(0)
         timer.text = "%02d:%02d".format(remaining / 60, remaining % 60)
+        timer.contentDescription = if (resting) "남은 휴식 ${timer.text} · 눌러서 15초 늘리기 또는 줄이기" else "운동 시간 ${timer.text}"
+        progressBar.progress = when {
+            workout.finished -> 1000
+            workout.stageIndex == 2 && workout.totalSets > 0 -> workout.completedSets.coerceIn(0,workout.totalSets)*1000/workout.totalSets
+            workout.running && workout.stageIndex >= 0 -> (workout.stageIndex * 250).coerceAtMost(1000)
+            else -> 0
+        }
         val prefs = getSharedPreferences("live_heart_rate", MODE_PRIVATE)
         val bpm = prefs.getInt("bpm", 0)
         val age = System.currentTimeMillis() - prefs.getLong("measured_at", 0L)
-        heartRate.text = if (!connected) "폰 연결 끊김" else if (bpm in 30..240 && age in 0L..10_000L) "♥ $bpm bpm" else "♥ 연결대기"
+        val averagePrefs = getSharedPreferences("live_heart_rate", MODE_PRIVATE)
+        val sampleCount = if (averagePrefs.getLong("session",0L) == workout.session) averagePrefs.getInt("sample_count",0) else 0
+        val sampleAverage = if (sampleCount > 0) averagePrefs.getLong("sample_total",0L)/sampleCount else 0L
+        val maxHeart = getSharedPreferences("watch_settings", MODE_PRIVATE).getInt("max_heart_rate",0)
+        val zone = if (maxHeart in 120..230 && bpm in 30..240) ((bpm * 100 / maxHeart - 40) / 10).coerceIn(1,5) else 0
+        heartRate.text = when {
+            workout.finished -> "약 ${workout.estimatedKcal.toInt()} kcal · ${if (sampleCount > 0) "평균 ${sampleAverage}bpm" else "심박 기록 없음"}"
+            !connected -> "폰 연결 끊김"
+            bpm in 30..240 && age in 0L..10_000L -> if (zone > 0) "♥ $bpm bpm · 추정 Z$zone" else "♥ $bpm bpm"
+            else -> "♥ 연결대기"
+        }
         heartRate.contentDescription = if (bpm in 30..240 && age in 0L..10_000L)
             "심박수 $bpm, ${age / 1000}초 전 측정" else "심박수 연결대기"
         playButton.text = if (workout.running) "일시정지" else if (workout.finished) "새 운동" else "시작"
+        detail.contentDescription = detail.text.toString() + (if (workout.stageIndex == 1 && workout.upcomingInterval.isNotBlank()) " · 다음 구간 ${workout.upcomingInterval}" else "")
         nextButton.text = when {
             workout.stageIndex == 3 -> "운동 완료"
             workout.stageIndex == 2 && workout.restSeconds() > 0 -> "휴식 건너뛰기"
@@ -264,6 +303,33 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
         val minutes = ((if (rest > 0) rest else workout.secondsRemaining()) + 59) / 60
         ambientTime.text = if (workout.running && rest > 0) "휴식 약 "+minutes+"분" else if (workout.running) "남은 약 ${minutes}분" else if (workout.hasSession) "일시정지" else "운동 대기"
     }
+    private fun showRestAdjustments() {
+        if (workout.stageIndex != 2 || workout.restSeconds() <= 0 || workout.finished) return
+        AlertDialog.Builder(this).setTitle("세트 휴식 조절")
+            .setItems(arrayOf("15초 줄이기", "15초 늘리기", "휴식 건너뛰기")) { _, which ->
+                sendCommand(when (which) { 0 -> "rest_sub"; 1 -> "rest_add"; else -> "rest_skip" })
+            }.setNegativeButton("닫기",null).show()
+    }
+
+    private fun showHeartZoneSettings() {
+        val input = EditText(this).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            setSingleLine(true)
+            hint = "최대 심박수 (120~230)"
+            val current = getSharedPreferences("watch_settings",MODE_PRIVATE).getInt("max_heart_rate",0)
+            if (current > 0) setText(current.toString())
+        }
+        AlertDialog.Builder(this).setTitle("심박 구간 기준")
+            .setMessage("직접 설정한 최대 심박수 대비 추정 구간을 표시합니다. 진단용 측정값이 아닙니다.")
+            .setView(input)
+            .setNegativeButton("취소",null)
+            .setPositiveButton("저장") { _, _ ->
+                val value = input.text.toString().toIntOrNull()
+                if (value in 120..230) getSharedPreferences("watch_settings",MODE_PRIVATE).edit().putInt("max_heart_rate",value!!).apply()
+                else Toast.makeText(this,"120~230 사이로 입력하세요",Toast.LENGTH_SHORT).show()
+            }.show()
+    }
+
     private fun showWatchSettings() {
         AlertDialog.Builder(this).setTitle("MOVE60 설정")
             .setItems(arrayOf("센서 권한 설정", "심박수 측정 중지")) { _, which ->
