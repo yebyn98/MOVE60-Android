@@ -77,11 +77,13 @@ class WatchDisplayTest {
                 activity.applyWorkoutState(WatchWorkoutState(
                     running = true, hasSession = true, stageIndex = 1, stageName = "유산소",
                     detail = "중강도", deadline = System.currentTimeMillis()+600_000L))
-                activity.setAmbientMode(true)
             }
             instrumentation.waitForIdleSync()
+            scenario.onActivity { it.setAmbientMode(true) }
+            instrumentation.waitForIdleSync()
             scenario.onActivity { activity ->
-                assertTrue(activity.window.decorView.findViewWithTag<View>("watch_ambient").isShown)
+                assertTrue("Ambient screen is not visible after mode transition",
+                    activity.window.decorView.findViewWithTag<View>("watch_ambient").isShown)
                 assertFalse(activity.window.decorView.findViewWithTag<Button>("watch_next").isShown)
                 assertEquals("2/4 · 유산소", activity.window.decorView.findViewWithTag<TextView>("ambient_stage").text.toString())
                 assertTrue(activity.window.decorView.findViewWithTag<TextView>("ambient_time").text.contains("분"))
