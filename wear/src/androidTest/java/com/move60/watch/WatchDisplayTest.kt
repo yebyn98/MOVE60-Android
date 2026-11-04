@@ -163,7 +163,9 @@ class WatchDisplayTest {
             instrumentation.waitForIdleSync()
             scenario.onActivity { activity ->
                 assertEquals("세트 완료",activity.window.decorView.findViewWithTag<Button>("watch_next").text.toString())
-                assertTrue(activity.window.decorView.findViewWithTag<TextView>("watch_timer").text.contains("80 kg"))
+                val target = activity.window.decorView.findViewWithTag<TextView>("watch_timer")
+                assertEquals("80kg×12회",target.text.toString())
+                assertEquals("Strength target clipped on round display",0,target.layout.getEllipsisCount(0))
                 assertEquals(333,activity.window.decorView.findViewWithTag<android.widget.ProgressBar>("watch_progress").progress)
                 assertButtonInsideCircle(activity,activity.window.decorView.findViewWithTag("watch_next"))
             }
