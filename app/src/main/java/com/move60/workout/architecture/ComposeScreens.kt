@@ -29,6 +29,13 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.ui.platform.testTag
 import androidx.compose.material3.Switch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -89,11 +96,16 @@ fun WorkoutDashboard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("MOVE60", style = MaterialTheme.typography.headlineMedium,
+                Text("MOVE60", modifier = Modifier.weight(1f), maxLines = 1,
+                    style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                Row {
-                    TextButton(onClick = onCalendar) { Text("기록") }
-                    TextButton(onClick = onSettings) { Text("설정") }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    IconButton(onClick = onCalendar, modifier = Modifier.testTag("compose_calendar_icon")) {
+                        Icon(Icons.Outlined.CalendarMonth, contentDescription = "운동 달력", tint = MaterialTheme.colorScheme.primary)
+                    }
+                    IconButton(onClick = onSettings, modifier = Modifier.testTag("compose_settings_icon")) {
+                        Icon(Icons.Outlined.Settings, contentDescription = "앱 설정", tint = MaterialTheme.colorScheme.primary)
+                    }
                 }
             }
         },
@@ -134,7 +146,8 @@ fun WorkoutDashboard(
     ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
@@ -224,7 +237,7 @@ fun WorkoutDashboard(
             item {
                 Move60Card {
                     Text("상세 운동 화면", style = MaterialTheme.typography.titleMedium)
-                    Text("운동 교체·동작 영상 등 이전 화면에 있는 기능은 전환 기간에도 유지합니다.",
+                    Text("운동 교체·자세 안내 등 상세 설정을 확인할 수 있어요.",
                         style = MaterialTheme.typography.bodySmall, color = secondary)
                     OutlinedButton(onClick = {
                         context.startActivity(Intent(context, MainActivity::class.java))
@@ -288,7 +301,9 @@ fun WorkoutCalendar(
     val days by viewModel.days.collectAsStateWithLifecycle()
     Scaffold(containerColor = MaterialTheme.colorScheme.background,
         topBar = { Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically) {
-            TextButton(onClick=onBack) { Text("←") }
+            IconButton(onClick=onBack) {
+                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "뒤로 가기")
+            }
             Text("운동 기록",style=MaterialTheme.typography.titleLarge)
         } }
     ) { inner ->
