@@ -147,8 +147,8 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
             true
         }
         buttons.addView(playButton, LinearLayout.LayoutParams(0, dp(44), 1f))
-        buttons.addView(nextButton, LinearLayout.LayoutParams(0, dp(44), 1f).apply { leftMargin = dp(4) })
-        body.addView(buttons, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(Theme.Space.one) / 2 })
+        buttons.addView(nextButton, LinearLayout.LayoutParams(0, dp(44), 1f).apply { leftMargin = dp(8) })
+        body.addView(buttons, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = 0 })
         scroll = ScrollView(this).apply {
             tag = "watch_scroll"
             isFillViewport = true
@@ -210,7 +210,7 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
         minWidth = 0
         minimumWidth = 0
         includeFontPadding = false
-        setPadding(dp(2), 0, dp(2), 0)
+        setPadding(dp(8), 0, dp(8), 0)
         setTextColor(Theme.Colors.textHigh)
         setSingleLine(true)
         setAutoSizeTextTypeUniformWithConfiguration(10, 12, 1, TypedValue.COMPLEX_UNIT_SP)
