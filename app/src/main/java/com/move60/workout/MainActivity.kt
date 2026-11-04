@@ -59,6 +59,7 @@ class MainActivity : Activity() {
     private val publishDraft = Runnable { if (::session.isInitialized) syncService() }
     private val handler = Handler(Looper.getMainLooper())
     private var lastPhaseKey = ""
+    private lateinit var focusRow: LinearLayout
     private var lastDay = -1
     private var lastStage = -1
     private var lastChecked = -1
@@ -265,8 +266,10 @@ class MainActivity : Activity() {
 
         dayStrip = row()
         content.addView(dayStrip)
-        addGap(content, 10)
-        addGap(content, 8)
+        addGap(content, 12)
+        focusRow = row().apply { tag = "body_focus_selector" }
+        content.addView(focusRow)
+        addGap(content, 12)
         // Keep detailed timer information above the long daily summary.
         // Workout actions live outside the ScrollView in the bottom dock.
         content.addView(label("지금 할 운동", 19, true))
@@ -297,6 +300,22 @@ class MainActivity : Activity() {
         renderSummary()
         renderStages()
         refreshTimer()
+    }
+
+    private fun renderBodyFocus() {
+        if (!::focusRow.isInitialized) return
+        focusRow.removeAllViews()
+        listOf("upper" to "상체", "lower" to "하체").forEachIndexed { index, (value, title) ->
+            val selected = session.bodyFocus == value
+            val button = actionButton((if (selected) "✓ " else "") + title + " 운동", selected) {
+                if (!session.selectBodyFocus(value)) {
+                    Toast.makeText(this, "운동 중에는 부위를 바꿀 수 없어요. 운동을 종료한 뒤 선택해 주세요.", Toast.LENGTH_LONG).show()
+                } else {
+                    afterAction()
+                }
+            }.apply { tag = "body_focus_"+value; contentDescription = title + " 운동 선택"; isSelected = selected }
+            focusRow.addView(button, LinearLayout.LayoutParams(0, -2, 1f).apply { if (index > 0) leftMargin=dp(8) })
+        }
     }
 
     private fun renderDayStrip() {
@@ -426,6 +445,7 @@ class MainActivity : Activity() {
     private fun renderStages() {
         if (!::stageStack.isInitialized) return
         stageStack.removeAllViews()
+        renderBodyFocus()
         lastDay = session.day
         lastStage = session.stage
         val selectedPhase = session.phase()?.first ?: -1
@@ -482,12 +502,14 @@ class MainActivity : Activity() {
                 addGap(textBox, 3)
                 textBox.addView(label(task.detail, 11, false, textSecondary))
                 textBox.setPadding(dp(5), dp(4), dp(4), dp(4))
-                textBox.setOnClickListener { showDetails(si, task) }
+                if (si == 2) textBox.setOnClickListener { showDetails(si, task) }
                 item.addView(textBox, LinearLayout.LayoutParams(0, -2, 1f))
-                val more = label("상세 ›", 11, true, mint)
+                if (si == 2) {
+                val more = label("상세 ›", 11, true, mint).apply { tag = "strength_detail_"+task.id }
                 more.setPadding(dp(3), dp(10), dp(3), dp(10))
                 more.setOnClickListener { showDetails(si, task) }
                 item.addView(more)
+                }
                 taskContainer.addView(item)
                 if (si == 2) {
                     val count = Regex("(\\d+)\\s*세트").find(task.detail)?.groupValues?.get(1)?.toIntOrNull()?.coerceIn(1, 8) ?: 3
@@ -597,6 +619,7 @@ class MainActivity : Activity() {
     }
 
     private fun showDetails(stage: Int, task: WorkoutTask) {
+        if (stage != 2) return
         val info = data.detail(task.id)
         val steps = when {
             info != null -> info.steps
@@ -625,6 +648,11 @@ class MainActivity : Activity() {
         scroll.addView(detailContent)
         if (stage == 2 && task.id.isNotEmpty()) {
             detailContent.addView(label("운동 가이드", 17, true, mint))
+            addGap(detailContent, 12)
+            detailContent.addView(actionButton("버추얼메이트Me 열기 ↗", false) { openVirtualMate() }.apply { tag = "virtual_mate_open" })
+            addGap(detailContent, 6)
+            detailContent.addView(label("별도 앱으로 이동합니다. 운동 영상은 해당 앱에서 선택해 주세요.", 12, false, textSecondary))
+            addGap(detailContent, 16)
             detailContent.addView(label("부위: ${info?.area ?: "근력"}  ·  기구: ${info?.equipment ?: "운동 기구"}", 12, false, textSecondary))
             addGap(detailContent, 10)
             if (ExercisePhotos.hasPhotos(task.id)) {
@@ -664,11 +692,20 @@ class MainActivity : Activity() {
             .setPositiveButton("닫기", null).show()
     }
 
+    private fun openVirtualMate() {
+        try {
+            val launch = packageManager.getLaunchIntentForPackage("com.mybenefit.vmme.senior")
+            startActivity(launch ?: Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://play.google.com/store/apps/details?id=com.mybenefit.vmme.senior")))
+        } catch (_: android.content.ActivityNotFoundException) {
+            Toast.makeText(this, "버추얼메이트Me를 열 수 없어요. Play 스토어에서 앱을 확인해 주세요.", Toast.LENGTH_LONG).show()
+        }
+    }
+
     private fun showExerciseSwap(slot: Int) {
-        val options = data.alternatives(session.day, slot)
+        val options = data.alternatives(session.day, slot, session.bodyFocus)
         AlertDialog.Builder(this).setTitle("대체 운동 선택")
             .setItems(options.map { it.second }.toTypedArray()) { _, index ->
-                if (data.replaceExercise(session.day, slot, options[index].first)) {
+                if (data.replaceExercise(session.day, slot, options[index].first, session.bodyFocus)) {
                     session.refreshRoutine()
                     renderStages()
                     renderSummary()
@@ -876,7 +913,7 @@ class MainActivity : Activity() {
         if (::session.isInitialized && ::summary.isInitialized && ::stageStack.isInitialized && ::timerValue.isInitialized && ::sectionCount.isInitialized) {
             soundEnabled = getSharedPreferences("preferences", MODE_PRIVATE).getBoolean("sound", true)
             calorieWeightKg = getSharedPreferences("preferences", MODE_PRIVATE).getFloat("calorie_weight_kg", 63f).toDouble()
-            if (!session.running && session.elapsed() == 0 && data.routine(session.day) != session.routine) {
+            if (!session.running && session.elapsed() == 0 && data.routine(session.day, focus = session.bodyFocus) != session.routine) {
                 session.refreshRoutine()
                 session.resetAll()
             }

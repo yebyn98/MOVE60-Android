@@ -49,18 +49,23 @@ class WorkoutData(private val context: Context) {
         )
     }
 
-    fun alternatives(day: Int, slot: Int): List<Pair<String, String>> =
-        pools.getJSONArray(day.toString()).getJSONArray(slot).strings().map { id ->
+    private fun strengthPool(day: Int, focus: String?): JSONArray = when (focus) {
+        "upper" -> JSONArray("""[["chestPress","dbChestPress","inclinePushup"],["latPulldown","seatedRow","cableRow"],["facePull","lateralRaise"],["tricepPushdown","bicepCurl"]]""")
+        "lower" -> JSONArray("""[["legPress","gobletSquat","boxSquat"],["hipThrust","cableKickback","hipAbduction"],["legCurl","rdl"],["calfRaise","stepUp","reverseLunge"]]""")
+        else -> pools.getJSONArray(day.toString())
+    }
+    fun alternatives(day: Int, slot: Int, focus: String? = null): List<Pair<String, String>> =
+        strengthPool(day, focus).getJSONArray(slot).strings().map { id ->
             id to exercise.getJSONArray(id).getString(0)
         }
 
-    fun replaceExercise(day: Int, slot: Int, id: String): Boolean {
-        if (alternatives(day, slot).none { it.first == id }) return false
+    fun replaceExercise(day: Int, slot: Int, id: String, focus: String? = null): Boolean {
+        if (alternatives(day, slot, focus).none { it.first == id }) return false
         choices.setChoice(day, slot, id)
         return true
     }
 
-    fun routine(day: Int, week: Long = weekOrdinal()): DailyRoutine {
+    fun routine(day: Int, week: Long = weekOrdinal(), focus: String? = null): DailyRoutine {
         val d = day.coerceIn(1, 5)
         val obj = plan.getJSONObject(d.toString())
         val warm = obj.getJSONArray("warmTasks").pairs().map { (name, note) -> WorkoutTask(name, note, "준비운동") }
@@ -124,7 +129,7 @@ class WorkoutData(private val context: Context) {
             segment("실내 사이클", "유지", cycle - 5, "4~5")
             segment("실내 사이클", "정리", minOf(2, (cycle-3).coerceAtLeast(0)), "3")
         }
-        val pool = pools.getJSONArray(d.toString())
+        val pool = strengthPool(d, focus)
         val repsForDay = reps.getJSONArray(d.toString())
         val used = mutableSetOf<String>()
         val strength = (0 until pool.length()).map { slot ->
@@ -139,19 +144,22 @@ class WorkoutData(private val context: Context) {
             val saved = choices.choice(d, slot)
             if (saved != null && saved in options) picked = saved
             used += picked
-            WorkoutTask(exercise.getJSONArray(picked).getString(0), repsForDay.getString(slot), "근력운동", id = picked)
+            val prescription = if (focus == null) repsForDay.getString(slot)
+                else if (picked in listOf("stepUp", "reverseLunge", "cableKickback")) "2세트 × 좌우 각 10회 · 휴식 45초"
+                else "2세트 × 12회 · 휴식 45초"
+            WorkoutTask(exercise.getJSONArray(picked).getString(0), prescription, "근력운동", id = picked)
         }
         val finish = stretches.pairs().map { (name, note) -> WorkoutTask(name, note, "마무리 스트레칭") }
         val stages = listOf(
             WorkoutStage("준비운동", "관절 가동성 · 워밍업", obj.getInt("warm"), warm),
             WorkoutStage(if (cardioMachine == "스텝밀") "스텝밀 + 실내 사이클" else cardioMachine, "이번 주 유산소 · 실시간 구간 체크리스트", cardioMinutes(), phases),
-            WorkoutStage("근력운동", "이번 주 랜덤 운동 · 세트/횟수", 50 - cardioMinutes(), strength),
+            WorkoutStage("근력운동", when (focus) { "upper" -> "상체 · 가슴/등/어깨/팔"; "lower" -> "하체 · 허벅지/둔근/종아리"; else -> "이번 주 랜덤 운동 · 세트/횟수" }, 50 - cardioMinutes(), strength),
             WorkoutStage("마무리 스트레칭", "호흡 회복 · 유연성", obj.getInt("stretch"), finish)
         )
         require(stages.sumOf { it.minutes } == 60) { "Daily routine must be exactly 60 minutes" }
         require(phases.sumOf { it.seconds } == stages[1].minutes * 60) { "Cardio phase mismatch" }
 
-        return DailyRoutine(d, obj.getString("day"), obj.getString("short"), obj.getString("focus"), obj.getString("desc"), obj.getString("tag"), stages)
+        return DailyRoutine(d, obj.getString("day"), obj.getString("short"), when (focus) { "upper" -> "오늘 선택 · 상체"; "lower" -> "오늘 선택 · 하체"; else -> obj.getString("focus") }, obj.getString("desc"), obj.getString("tag"), stages)
     }
 
     private fun fnv1a(s: String): Long {
@@ -165,4 +173,5 @@ class WorkoutData(private val context: Context) {
 
 private fun JSONArray.strings() = (0 until length()).map { getString(it) }
 private fun JSONArray.pairs() = (0 until length()).map { getJSONArray(it).let { a -> a.getString(0) to a.getString(1) } }
+
 

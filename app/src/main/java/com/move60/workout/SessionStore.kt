@@ -19,6 +19,8 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
     var day: Int = if (preferences.getString("active_date", "") == recordDate.toString())
         preferences.getInt("active_day", data.todayDay()).coerceIn(1,5) else recordDate.dayOfWeek.value.coerceIn(1,5)
         private set
+    var bodyFocus: String? = null
+        private set
     var routine: DailyRoutine = data.routine(day)
         private set
     var stage: Int = 0
@@ -53,11 +55,25 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
     init { load(day) }
     private fun key() = "daily_"+recordDate+"_"+day
     fun taskKey(stage: Int, index: Int) = "$stage-$index"
-    fun refreshRoutine() { reloadIfChanged(); controlVersion++; routine = data.routine(day); save() }
+    fun refreshRoutine() { reloadIfChanged(); controlVersion++; routine = data.routine(day, focus = bodyFocus); save() }
     fun setDay(next: Int) { reloadIfChanged(); if (next == day) return; save(); load(next.coerceIn(1, 5)); save() }
+
+    /** Freeze the selected split once activity begins; a finished session can start a fresh plan. */
+    fun selectBodyFocus(focus: String): Boolean {
+        require(focus == "upper" || focus == "lower")
+        reloadIfChanged()
+        if (!finished && (running || sessionStartedAt > 0L || accumulatedActiveSeconds > 0)) return false
+        if (bodyFocus == focus && !finished) return true
+        bodyFocus = focus
+        routine = data.routine(day, focus = bodyFocus)
+        resetFields()
+        save()
+        return true
+    }
 
     private fun load(d: Int) {
         day = d
+        bodyFocus = null
         routine = data.routine(day)
         checked.clear()
         completed.clear()
@@ -78,6 +94,8 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
         }
         try {
             val o = JSONObject(state)
+            bodyFocus = o.optString("bodyFocus").takeIf { it == "upper" || it == "lower" }
+            routine = data.routine(day, focus = bodyFocus)
             controlVersion = o.optLong("controlVersion")
             restDeadline = o.optLong("restDeadline")
             restPaused = o.optInt("restPaused")
@@ -154,7 +172,7 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
     fun save() {
         val checkedArray = JSONArray(); checked.sorted().forEach { checkedArray.put(it) }
         val completedArray = JSONArray(); completed.sorted().forEach { completedArray.put(it) }
-        val state = JSONObject().put("stage", stage).put("remaining", remaining)
+        val state = JSONObject().put("bodyFocus", bodyFocus ?: "").put("stage", stage).put("remaining", remaining)
             .put("deadlineAt", deadlineAt).put("running", running).put("finished", finished)
             .put("sessionStartedAt", sessionStartedAt).put("activeSeconds", accumulatedActiveSeconds)
             .put("stageElapsedSeconds", stageElapsedSeconds).put("activeCheckpointAt", activeCheckpointAt)
@@ -282,7 +300,7 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
             phases.put(JSONObject().put("name", t.name).put("seconds", t.seconds)
                 .put("rpe", t.rpe).put("description", t.description))
         }
-        return JSONObject().put("workoutDate",recordDate.toString()).put("running", running).put("finished", finished)
+        return JSONObject().put("bodyFocus", bodyFocus ?: "").put("workoutDate",recordDate.toString()).put("running", running).put("finished", finished)
             .put("sessionStartedAt", sessionStartedAt)
             .put("controlVersion", controlVersion).put("restDeadline", restDeadline)
             .put("restPaused", restPaused).put("restId", restId)

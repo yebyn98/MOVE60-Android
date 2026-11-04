@@ -7,6 +7,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
+    <queries><package android:name="com.mybenefit.vmme.senior" /></queries>
+
     <application android:name=".Move60Application" android:allowBackup="true" android:label="MOVE60"
         android:theme="@style/AppTheme" android:usesCleartextTraffic="false">
         <activity android:name=".SettingsActivity" android:exported="false" />
@@ -34,4 +36,5 @@
         </service>
     </application>
 </manifest>
+
 
