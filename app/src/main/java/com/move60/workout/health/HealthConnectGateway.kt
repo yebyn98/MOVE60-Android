@@ -6,6 +6,7 @@ import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.SleepSessionRecord
+import androidx.health.connect.client.records.metadata.DataOrigin
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import com.google.android.gms.wearable.PutDataMapRequest
@@ -44,6 +45,8 @@ class HealthConnectGateway @Inject constructor(
         val sleepEndedAt: Long = 0L
     )
 
+    private val samsungOrigin = setOf(DataOrigin("com.sec.android.app.shealth"))
+
     private val preferences by lazy {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     }
@@ -68,7 +71,8 @@ class HealthConnectGateway @Inject constructor(
             ReadRecordsRequest(
                 HeartRateRecord::class,
                 timeRangeFilter = TimeRangeFilter.between(end.minus(Duration.ofHours(24)), end),
-                pageSize = 100
+                pageSize = 100,
+                dataOriginFilter = samsungOrigin
             )
         ).records
         val mostRecent = heart.flatMap { item ->
@@ -78,7 +82,8 @@ class HealthConnectGateway @Inject constructor(
             ReadRecordsRequest(
                 SleepSessionRecord::class,
                 timeRangeFilter = TimeRangeFilter.between(sleepStart, end),
-                pageSize = 100
+                pageSize = 100,
+                dataOriginFilter = samsungOrigin
             )
         ).records.maxByOrNull { it.endTime }
         return Metrics(
