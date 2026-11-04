@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.move60.workout.MainActivity
+import com.move60.workout.health.HealthConsentActivity
 import com.move60.workout.Move60Theme
 import java.util.Locale
 
@@ -360,6 +361,15 @@ fun WorkoutSettings(
                     }
                     Text("구간 전환 알림음 설정",style=MaterialTheme.typography.bodySmall,
                         color=secondary)
+                }
+            }
+            item {
+                Move60Card {
+                    Text("건강 데이터 연동", style = MaterialTheme.typography.titleMedium)
+                    Text("삼성 헬스 심박수·수면 기록을 동의 후 불러오기", color = secondary)
+                    Button(onClick = { context.startActivity(Intent(context, HealthConsentActivity::class.java)) }) {
+                        Text("연동 권한 및 기록 확인")
+                    }
                 }
             }
             item {
