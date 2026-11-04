@@ -190,7 +190,7 @@ class PhoneFeaturesTest {
         assertEquals("First session remains intact",firstKcal,ledger.estimateSession(first),0.000001)
     }
 
-    @Test fun trainingHeadingHasGapAndDockStartsWithSessionZero() {
+    @Test fun trainingHeadingHasGapAndDockShowsTodayOnly() {
         val ledger = EnergyLedger(context)
         val start = today.atTime(9, 0).atZone(ZoneId.of("Asia/Seoul")).toInstant().toEpochMilli()
         ledger.add(today,start,start+120_000L,JSONObject().put("stage",1).put("running",true))
@@ -204,11 +204,40 @@ class PhoneFeaturesTest {
                 assertTrue("Training heading and first card need adequate gap",
                     cards.top - heading.bottom >= expected)
                 val kcal = root.findViewWithTag<TextView>("phone_session_calories")
-                assertTrue("Dock must exclude previous daily workouts",
-                    kcal.text.toString().contains("이번 운동 0.0 kcal"))
+                assertTrue("Dock must include today's earlier workouts",
+                    kcal.text.toString().contains("오늘 누적"))
+                val expectedCalories = "%.1f".format(ledger.estimate(today))
+                assertTrue("Dock must show the exact current-date total",
+                    kcal.text.toString().contains("$expectedCalories kcal"))
             }
             screenshot("phone-v32-session-energy-spacing.png")
         }
+    }
+
+    @Test fun dailyEnergyAccumulatesTwoSessionsAndResetsOnNextDate() {
+        val ledger = EnergyLedger(context)
+        val start = today.atTime(8, 0).atZone(ZoneId.of("Asia/Seoul")).toInstant().toEpochMilli()
+        val first = JSONObject().put("stage", 1).put("running", true).put("sessionStartedAt", start)
+        assertEquals("No workout today must mean zero", 0.0, ledger.estimate(today), 0.000001)
+        ledger.add(today, start, start + 120_000L, first)
+        val firstTotal = ledger.estimate(today)
+        assertTrue("First session should add to today's total", firstTotal > 0.0)
+        ledger.add(today, start, start + 120_000L, first)
+        assertEquals("Duplicate interval must not increase today's total",
+            firstTotal, ledger.estimate(today), 0.000001)
+        first.put("running", false)
+        assertEquals("Pause or end must preserve the same total",
+            firstTotal, ledger.estimate(today), 0.000001)
+        val secondStart = start + 600_000L
+        val second = JSONObject().put("stage", 1).put("running", true)
+            .put("sessionStartedAt", secondStart)
+        ledger.add(today, secondStart, secondStart + 90_000L, second)
+        val combined = ledger.estimate(today)
+        assertTrue("Second same-day session must extend the daily total", combined > firstTotal)
+        assertEquals("Tomorrow's display must start at zero",
+            0.0, ledger.estimate(today.plusDays(1)), 0.000001)
+        assertEquals("Yesterday's or tomorrow's activity must not erase today's total",
+            combined, ledger.estimate(today), 0.000001)
     }
 }
 
