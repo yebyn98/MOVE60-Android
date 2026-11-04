@@ -19,6 +19,7 @@ object WatchCommandProcessor {
             "next" -> if (!store.finished) { store.nextStage(); true } else false
             "complete" -> TrainingProgress.complete(context,store,request.optString("exercise"),request.optInt("set"))
             "rest_add" -> if (store.restId > 0L) { store.adjustRest(15); true } else false
+            "rest_sub" -> if (store.restId > 0L) { store.adjustRest(-15); true } else false
             "rest_skip" -> if (store.restId > 0L) { store.skipRest(); true } else false
             else -> false
         }
