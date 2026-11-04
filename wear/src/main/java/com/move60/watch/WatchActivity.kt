@@ -266,6 +266,9 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
             else -> workout.secondsRemaining()
         }.coerceAtLeast(0)
         val strengthTarget = !resting && workout.stageIndex == 2 && !workout.finished && workout.targetReps > 0
+        timer.setAutoSizeTextTypeUniformWithConfiguration(
+            if (strengthTarget) 12 else 22, if (strengthTarget) 18 else 30,
+            1, TypedValue.COMPLEX_UNIT_SP)
         timer.text = if (strengthTarget) {
             // Tight round displays must show the complete weight and rep target, not an ellipsis.
             val weight = workout.setWeight.takeIf { it.isNotBlank() }?.let { "${it}kg×" } ?: ""
