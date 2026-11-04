@@ -31,6 +31,9 @@ object WatchStatePublisher {
         val remaining = if (running) ceil((deadline - now) / 1000.0).toInt().coerceAtLeast(0)
             else state.optInt("remaining", 0).coerceAtLeast(0)
         var detail = names[index]
+        var intervalIndex = 0
+        var intervalCount = 0
+        var upcomingInterval = ""
         if (index == 1) {
             val duration = state.optJSONArray("stageSeconds")?.optInt(index, 1800) ?: 1800
             var elapsed = if (running) (duration - remaining).coerceAtLeast(0)
@@ -40,12 +43,22 @@ object WatchStatePublisher {
                 val phase = phases.optJSONObject(i) ?: continue
                 if (elapsed < phase.optInt("seconds", 60) || i == phases.length() - 1) {
                     detail = phase.optString("name", names[index])
+                    intervalIndex = i + 1
+                    intervalCount = phases.length()
+                    upcomingInterval = phases.optJSONObject(i+1)?.optString("name") ?: ""
                     break
                 }
                 elapsed -= phase.optInt("seconds", 60)
             }
         }
         if (index == 2) detail = state.optString("setLabel", names[index])
+        val nextSet = TrainingProgress.next(current)
+        val setRecord = nextSet?.let { SetRecordStore(context).read(current.day, it.task.id, it.set, date = current.recordDate, token = current.sessionStartedAt) }
+        val totalSets = current.routine.stages[2].tasks.sumOf { TrainingProgress.count(it) }
+        val completedSets = current.routine.stages[2].tasks.sumOf { task ->
+            (1..TrainingProgress.count(task)).count { number -> "strength-"+current.day+"-"+task.id+"-"+number in current.checked }
+        }
+        val estimatedKcal = EnergyLedger(context).estimate(current.recordDate, state)
         val request = PutDataMapRequest.create("/move60/workout")
         request.dataMap.apply {
             putInt("day",current.day)
@@ -70,6 +83,17 @@ object WatchStatePublisher {
             putString("detail", detail)
             putInt("remaining", remaining)
             putLong("deadline", if (running) deadline else 0L)
+            putInt("activeSeconds", current.elapsed())
+            putInt("completedSets", completedSets)
+            putInt("totalSets", totalSets)
+            putDouble("estimatedKcal", estimatedKcal)
+            putString("exerciseName", nextSet?.task?.name ?: "")
+            putInt("setTotal", nextSet?.sets ?: 0)
+            putInt("targetReps", nextSet?.task?.detail?.let { Regex("([0-9]+) *회").find(it)?.groupValues?.get(1)?.toIntOrNull() } ?: 0)
+            putString("setWeight", setRecord?.kg?.takeIf { setRecord.valid } ?: "")
+            putInt("intervalIndex", intervalIndex)
+            putInt("intervalTotal", intervalCount)
+            putString("upcomingInterval", upcomingInterval)
             putLong("updated", now)
         }
         return request
