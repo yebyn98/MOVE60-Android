@@ -275,7 +275,7 @@ class MainActivity : Activity() {
         // Keep detailed timer information above the long daily summary.
         // Workout actions live outside the ScrollView in the bottom dock.
         content.addView(label("지금 할 운동", 19, true))
-        addGap(content, 11)
+        addGap(content, Theme.Space.two)
         content.addView(makeTimerCard())
         restPanel = card().apply { tag = "phone_rest"; visibility = View.GONE }
         restValue = label("", 23, true, mint).apply { tag = "phone_rest_time" }
@@ -480,9 +480,9 @@ class MainActivity : Activity() {
         for ((si, stage) in session.routine.stages.withIndex().sortedBy { if (it.index == session.stage) 0 else it.index+1 }) {
             val isCurrent = session.stage == si && !session.finished
             val done = si in session.completed || (session.finished && si <= session.stage)
-            val block = column().apply {
-                background = rounded(if (isCurrent) Theme.Colors.surfaceElevated else panel, 16, if (isCurrent) mint else if (done) Theme.Colors.outline else subtle)
-                setPadding(dp(12), dp(13), dp(12), dp(13))
+            val block = card().apply {
+                background = rounded(if (isCurrent) Theme.Colors.surfaceElevated else panel,
+                    Theme.Radius.card, if (isCurrent) mint else Theme.Colors.outline)
             }
             val top = row().apply { gravity = Gravity.CENTER_VERTICAL }
             val number = label(if (done) "✓" else "${si + 1}", 15, true, if (isCurrent) background else mint).apply {
@@ -508,19 +508,19 @@ class MainActivity : Activity() {
             }
             block.addView(detailBlock)
             val taskContainer = detailBlock
-            addGap(taskContainer, 10)
+            addGap(taskContainer, Theme.Space.two)
             for ((ti, task) in stage.tasks.withIndex()) {
                 val isPhase = si == 1 && session.stage == 1 && selectedPhase == ti && session.running
                 val item = row().apply {
                     gravity = Gravity.CENTER_VERTICAL
-                    setPadding(dp(5), dp(4), dp(3), dp(4))
+                    setPadding(dp(Theme.Space.one), dp(Theme.Space.one), dp(Theme.Space.one), dp(Theme.Space.one))
                     if (isPhase) background = rounded(Theme.Colors.surfaceElevated, 10, mint)
                 }
                 val textBox = column()
                 textBox.addView(label(task.name, 13, true, if (isPhase) mint else textPrimary))
-                addGap(textBox, 3)
-                textBox.addView(label(task.detail, 11, false, textSecondary))
-                textBox.setPadding(dp(5), dp(4), dp(4), dp(4))
+                addGap(textBox, Theme.Space.one)
+                textBox.addView(label(displayDetail(task.detail), 11, false, textSecondary))
+                textBox.setPadding(dp(Theme.Space.one), dp(Theme.Space.one), dp(Theme.Space.one), dp(Theme.Space.one))
                 if (si == 2) textBox.setOnClickListener { showDetails(si, task) }
                 item.addView(textBox, LinearLayout.LayoutParams(0, -2, 1f))
                 if (si == 2) {
@@ -537,22 +537,8 @@ class MainActivity : Activity() {
                     progress.setPadding(dp(12), dp(4), 0, dp(3))
                     taskContainer.addView(progress)
                     val setRecords = SetRecordStore(this)
-                    val importLast = actionButton("지난 기록 불러오기", false) {
-                        var imported = 0
-                        for (n in 1..count) {
-                            if ("strength-"+session.day+"-"+task.id+"-"+n in session.checked) continue
-                            val prior = setRecords.previous(task.id,n,session.sessionStartedAt) ?: continue
-                            window.decorView.findViewWithTag<EditText>("set-"+task.id+"-"+n+"-kg")?.setText(prior.kg)
-                            window.decorView.findViewWithTag<EditText>("set-"+task.id+"-"+n+"-reps")?.setText(prior.reps)
-                            window.decorView.findViewWithTag<EditText>("set-"+task.id+"-"+n+"-rpe")?.setText(prior.rpe)
-                            imported++
-                        }
-                        Toast.makeText(this,if (imported > 0) "지난 기록을 가져왔어요. 완료 체크는 직접 해주세요." else "불러올 이전 완료 기록이 없어요.",Toast.LENGTH_SHORT).show()
-                        syncService()
-                    }.apply { tag = "import-"+task.id; textSize = 11f }
-                    taskContainer.addView(importLast)
                     val labels = row()
-                    listOf("세트", "중량 kg", "횟수", "RPE", "완료").forEachIndexed { index, title ->
+                    listOf("세트", "중량 kg", "횟수", "완료").forEachIndexed { index, title ->
                         labels.addView(label(title, 10, true, textSecondary).apply { gravity = Gravity.CENTER },
                             LinearLayout.LayoutParams(0, dp(28), if (index == 1) 1.3f else 1f))
                     }
@@ -576,10 +562,11 @@ class MainActivity : Activity() {
                         }
                         val kg = input(saved.kg, "kg", true).apply { tag = "set-${task.id}-$set-kg" }
                         val reps = input(saved.reps, "회").apply { tag = "set-${task.id}-$set-reps" }
-                        val effort = input(saved.rpe, "RPE").apply { tag = "set-${task.id}-$set-rpe" }
+                        // Old per-set intensity is retained in storage for compatibility.
+                        // New UI exposes only equipment load and repetitions.
+                        val retainedEffort = saved.rpe.ifBlank { "5" }
                         fields.addView(kg, LinearLayout.LayoutParams(0, dp(48), 1.3f))
                         fields.addView(reps, LinearLayout.LayoutParams(0, dp(48), 1f))
-                        fields.addView(effort, LinearLayout.LayoutParams(0, dp(48), 1f))
                         val check = CheckBox(this).apply {
                             tag = "set-${task.id}-$set-check"
                             isChecked = key in session.checked || saved.completed
@@ -589,14 +576,14 @@ class MainActivity : Activity() {
                             setPadding(0, 0, 0, 0)
                         }
                         fun saveEntry() {
-                            val record = SetRecordStore.Record(kg.text.toString(), reps.text.toString(), effort.text.toString(), check.isChecked)
+                            val record = SetRecordStore.Record(kg.text.toString(), reps.text.toString(), retainedEffort, check.isChecked)
                             setRecords.write(session.day, task.id, set, record, token = session.sessionStartedAt)
                             if (!record.valid && check.isChecked) check.isChecked = false
                             refreshTimer()
                             handler.removeCallbacks(publishDraft)
                             handler.postDelayed(publishDraft,400L)
                         }
-                        listOf(kg, reps, effort).forEach { field ->
+                        listOf(kg, reps).forEach { field ->
                             field.addTextChangedListener(object : android.text.TextWatcher {
                                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
                                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { saveEntry() }
@@ -604,10 +591,10 @@ class MainActivity : Activity() {
                             })
                         }
                         check.setOnCheckedChangeListener { _, checked ->
-                            val record = SetRecordStore.Record(kg.text.toString(), reps.text.toString(), effort.text.toString(), checked)
+                            val record = SetRecordStore.Record(kg.text.toString(), reps.text.toString(), retainedEffort, checked)
                             if (checked && !record.valid) {
                                 check.isChecked = false
-                                Toast.makeText(this, "중량(맨몸 0)·횟수·RPE를 확인해 주세요.", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(this, "중량(맨몸 0kg)과 횟수를 확인해 주세요.", Toast.LENGTH_SHORT).show()
                             } else {
                                 session.toggleChecked(key, checked)
                                 setRecords.write(session.day, task.id, set, record, token = session.sessionStartedAt)
@@ -625,17 +612,22 @@ class MainActivity : Activity() {
                         val prior = setRecords.previous(task.id,set,session.sessionStartedAt)
                         if (prior != null) taskContainer.addView(label("지난 기록  "+prior.kg+" kg × "+prior.reps+"회",10,false,textSecondary).apply { setPadding(dp(12),0,0,dp(4)) })
                     }
-                    taskContainer.addView(label("맨몸은 0kg · RPE 1~10 · 입력값 자동 저장", 10, false, textSecondary))
-                    addGap(taskContainer, 7)
+                    taskContainer.addView(label("맨몸은 0kg · 중량과 횟수 자동 저장", 10, false, textSecondary))
+                    addGap(taskContainer, Theme.Space.one)
                 }
             }
-            addGap(taskContainer, 6)
+            addGap(taskContainer, Theme.Space.one)
             taskContainer.addView(actionButton("이 단계로 타이머 이동 ↗", false) { session.jumpTo(si); afterAction() })
             stageStack.addView(block)
-            addGap(stageStack, 9)
+            addGap(stageStack, Theme.Space.two)
         }
         if (::trackingSummary.isInitialized) trackingSummary.text = "근력 세트 ${completedStrengthSets}/${totalStrengthSets} 완료 · 체크와 타이머는 별도로 작동"
     }
+
+    private fun displayDetail(raw: String): String =
+        raw.replace(Regex("(?i)\\s*[·,]?\\s*RPE\\s*\\d+(?:\\s*[-~]\\s*\\d+)?"), "")
+            .replace(Regex("\\s*·\\s*·"), " · ")
+            .trim(' ', '·', ',')
 
     private fun showDetails(stage: Int, task: WorkoutTask) {
         if (stage != 2) return
@@ -655,7 +647,7 @@ class MainActivity : Activity() {
         val caution = info?.caution ?: if (stage == 1) "숨이 지나치게 차거나 어지러우면 강도를 낮추세요." else "통증이 생기면 강도를 줄이거나 중단하세요."
         val alternative = info?.alternative ?: if (stage == 1) "실내 사이클 또는 일립티컬 RPE 3~4" else "무리 없는 가벼운 동작"
         val body = StringBuilder()
-            .append("${task.detail}\n")
+            .append("${displayDetail(task.detail)}\n")
             .append("\n운동 부위  ${info?.area ?: task.kind}\n")
             .append("사용 장비  ${info?.equipment ?: if (stage == 1) task.kind else "필요에 따라 맨몸"}\n")
             .append("\n동작 순서\n")
