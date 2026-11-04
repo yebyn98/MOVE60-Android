@@ -925,10 +925,15 @@ class MainActivity : Activity() {
         setOnClickListener { onClick() }
     }
     private fun rounded(color: Int, radiusDp: Int, stroke: Int? = null) =
-        Theme.shape(this, color, radiusDp, stroke)
+        Theme.shape(this, color,
+            when { radiusDp < 8 -> radiusDp; radiusDp < Theme.Radius.control -> Theme.Radius.control
+                else -> Theme.Radius.card }, stroke)
     private fun dp(number: Int) = Theme.dp(this, number)
     private fun addGap(container: LinearLayout, height: Int) {
-        container.addView(View(this), LinearLayout.LayoutParams(1, dp(height)))
+        // The global 8dp spacing grid controls even legacy widget builders.
+        val aligned = ((height + 4) / Theme.Space.one * Theme.Space.one)
+            .coerceAtLeast(Theme.Space.one)
+        container.addView(View(this), LinearLayout.LayoutParams(1, dp(aligned)))
     }
     private fun formatTime(seconds: Int): String {
         val n = max(0, seconds)
