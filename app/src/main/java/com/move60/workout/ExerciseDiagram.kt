@@ -14,9 +14,9 @@ import kotlin.math.sin
  */
 class ExerciseDiagram(context: Context, private val exerciseId: String) : View(context) {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val body = Color.rgb(220, 232, 245)
-    private val active = Color.rgb(180, 245, 110)
-    private val machine = Color.rgb(122, 151, 181)
+    private val body = Move60Theme.Color.textHigh
+    private val active = Move60Theme.Color.accent
+    private val machine = Move60Theme.Color.textMedium
 
     private enum class Motion { SQUAT, HINGE, LUNGE, STEP, PRESS_LEG, CURL_LEG, ABDUCT,
         HIP_EXTENSION, PULL_DOWN, ROW, PRESS_CHEST, RAISE_SIDE, CURL_ARM,
@@ -51,7 +51,7 @@ class ExerciseDiagram(context: Context, private val exerciseId: String) : View(c
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        canvas.drawColor(Color.rgb(24, 37, 57))
+        canvas.drawColor(Move60Theme.Color.surface)
         val scale = width / 360f
         val h = height.toFloat()
         canvas.save()
