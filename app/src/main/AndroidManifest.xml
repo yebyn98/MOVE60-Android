@@ -6,13 +6,19 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
+    <uses-permission android:name="android.permission.health.READ_SLEEP" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
-    <queries><package android:name="com.mybenefit.vmme.senior" /></queries>
+    <queries>
+        <package android:name="com.google.android.apps.healthdata" />
+        <package android:name="com.sec.android.app.shealth" />
+    </queries>
 
     <application android:name=".Move60Application" android:allowBackup="true" android:label="MOVE60"
         android:theme="@style/AppTheme" android:usesCleartextTraffic="false">
         <activity android:name=".SettingsActivity" android:exported="false" />
+        <activity android:name=".health.HealthConsentActivity" android:exported="false" />
         <activity android:name=".MainActivity" android:exported="true"
             android:configChanges="orientation|screenSize|keyboardHidden" />
         <activity android:name=".architecture.ComposeActivity" android:exported="true">
