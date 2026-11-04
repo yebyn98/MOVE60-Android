@@ -118,11 +118,11 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
             progressTintList = android.content.res.ColorStateList.valueOf(lime)
             progressBackgroundTintList = android.content.res.ColorStateList.valueOf(Color.rgb(32, 48, 60))
         }
-        body.addView(stage, LinearLayout.LayoutParams(-1, dp(16)))
-        body.addView(detail, LinearLayout.LayoutParams(-1, dp(18)))
-        body.addView(timer, LinearLayout.LayoutParams(-1, dp(30)))
-        body.addView(heartRate, LinearLayout.LayoutParams(-1, dp(17)))
-        body.addView(progressBar, LinearLayout.LayoutParams(-1, dp(4)).apply { topMargin = dp(2) })
+        body.addView(stage, LinearLayout.LayoutParams(-1, dp(15)))
+        body.addView(detail, LinearLayout.LayoutParams(-1, dp(16)))
+        body.addView(timer, LinearLayout.LayoutParams(-1, dp(29)))
+        body.addView(heartRate, LinearLayout.LayoutParams(-1, dp(16)))
+        body.addView(progressBar, LinearLayout.LayoutParams(-1, dp(3)).apply { topMargin = dp(1) })
         val buttons = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         playButton = button("시작", "watch_play") {
             sendCommand(if (workout.running) "pause" else "start")
@@ -140,7 +140,7 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
         }
         buttons.addView(playButton, LinearLayout.LayoutParams(0, dp(44), 1f))
         buttons.addView(nextButton, LinearLayout.LayoutParams(0, dp(44), 1f).apply { leftMargin = dp(4) })
-        body.addView(buttons, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(3) })
+        body.addView(buttons, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(2) })
         scroll = ScrollView(this).apply {
             tag = "watch_scroll"
             isFillViewport = true
