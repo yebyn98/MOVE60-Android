@@ -100,6 +100,11 @@ class TrainingSyncTest {
         assertEquals(phone.sessionStartedAt,packet.getLong("session"))
         assertEquals(phone.restDeadline,packet.getLong("restDeadline"))
         assertEquals(2,packet.getInt("setNumber"))
+        assertEquals(TrainingProgress.next(phone)?.task?.name,packet.getString("exerciseName"))
+        assertTrue(packet.getInt("totalSets") > 0)
+        assertEquals(1,packet.getInt("completedSets"))
+        assertEquals(phone.elapsed(),packet.getInt("activeSeconds"))
+        assertTrue(packet.getDouble("estimatedKcal") >= 0.0)
         assertFalse(packet.getBoolean("canComplete"))
         val skip = request(phone,"rest_skip")
         assertTrue(WatchCommandProcessor.apply(context,skip))
@@ -108,6 +113,13 @@ class TrainingSyncTest {
         val recovered = WatchStatePublisher.createRequest(context,stale.toString()).dataMap
         assertEquals(2,recovered.getInt("stageIndex"))
         assertEquals(0L,recovered.getLong("restDeadline"))
+        phone.startRest(90)
+        val before = phone.restSeconds()
+        val less = request(phone,"rest_sub")
+        assertTrue(WatchCommandProcessor.apply(context,less))
+        phone.reloadIfChanged()
+        assertTrue(phone.restSeconds() <= before - 14)
+        assertFalse(WatchCommandProcessor.apply(context,less))
     }
     @Test fun phoneCheckboxStartsRestAndImportsPreviousWithoutCompletingSets() {
         val data = WorkoutData(context)
