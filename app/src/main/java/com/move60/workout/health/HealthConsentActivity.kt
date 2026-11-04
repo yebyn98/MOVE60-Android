@@ -104,6 +104,26 @@ class HealthConsentActivity : ComponentActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        // Samsung Health/Health Connect permission can be revoked outside MOVE60 at any time.
+        lifecycleScope.launch {
+            if (gateway.isOptedIn()) {
+                try {
+                    if (!gateway.permissionsGranted()) {
+                        gateway.disable()
+                        status = "건강 데이터 권한이 철회되어 워치 공유를 중지했어요."
+                        summary = "다시 연결하려면 읽기 권한을 허용해 주세요."
+                    }
+                } catch (_: Exception) {
+                    // Fail closed: do not keep showing previously approved health data.
+                    gateway.disable()
+                    status = "건강 데이터 권한 확인이 불가능해 공유를 중지했어요."
+                }
+            }
+        }
+    }
+
     private fun consentOrRead() {
         if (!gateway.supported()) {
             status = "삼성 헬스와 Health Connect를 설치·업데이트한 뒤 연동해 주세요."
