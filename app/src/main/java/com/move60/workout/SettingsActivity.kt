@@ -9,6 +9,7 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import com.move60.workout.Move60Theme as Theme
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -18,13 +19,13 @@ import android.widget.*
 import kotlin.math.max
 
 class SettingsActivity : Activity() {
-    private val background = Color.rgb(11,17,32)
-    private val panel = Color.rgb(21,31,50)
-    private val panelLight = Color.rgb(27,42,64)
-    private val mint = Color.rgb(180,245,110)
-    private val subtle = Color.rgb(37,54,77)
-    private val textPrimary = Color.rgb(237,245,255)
-    private val textSecondary = Color.rgb(166,185,205)
+    private val background = Theme.Colors.background
+    private val panel = Theme.Colors.surface
+    private val panelLight = Theme.Colors.surfaceElevated
+    private val mint = Theme.Colors.primary
+    private val subtle = Theme.Colors.outline
+    private val textPrimary = Theme.Colors.textHigh
+    private val textSecondary = Theme.Colors.textMedium
     private lateinit var updateManager: UpdateManager
     private lateinit var data: WorkoutData
     private lateinit var session: SessionStore
@@ -38,7 +39,10 @@ class SettingsActivity : Activity() {
         updateManager = UpdateManager(this)
         soundEnabled = getSharedPreferences("preferences", MODE_PRIVATE).getBoolean("sound", true)
         calorieWeightKg = getSharedPreferences("preferences", MODE_PRIVATE).getFloat("calorie_weight_kg", 63f).toDouble()
-        val body = column().apply { setPadding(dp(18), dp(24), dp(18), dp(24)) }
+        val body = column().apply {
+            setPadding(dp(Theme.Space.two), dp(Theme.Space.three),
+                dp(Theme.Space.two), dp(Theme.Space.four))
+        }
         body.addView(actionButton("← 운동 화면", false) { finish() })
         addGap(body, 16)
         body.addView(label("앱 설정", 24, true))
@@ -196,37 +200,42 @@ class SettingsActivity : Activity() {
     private fun label(text: String, size: Int, bold: Boolean, color: Int = textPrimary) = TextView(this).apply {
         this.text = text
         setTextColor(color)
-        textSize = size.toFloat()
+        textSize = when {
+            size >= 23 -> Theme.Type.title
+            size >= 18 -> Theme.Type.heading
+            size >= 14 -> Theme.Type.body
+            else -> Theme.Type.caption
+        }
         if (bold) setTypeface(typeface, Typeface.BOLD)
         includeFontPadding = true
-        setLineSpacing(dp(3).toFloat(), 1.12f)
+        setLineSpacing(dp(2).toFloat(), 1.04f)
     }
     private fun column() = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
     private fun row() = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
     private fun card() = column().apply {
-        background = rounded(panel, 20, subtle)
-        setPadding(dp(17), dp(18), dp(17), dp(18))
+        background = Theme.shape(this@SettingsActivity)
+        setPadding(dp(Theme.Space.two), dp(Theme.Space.two),
+            dp(Theme.Space.two), dp(Theme.Space.two))
     }
     private fun actionButton(title: String, main: Boolean, onClick: () -> Unit) = TextView(this).apply {
         text = title
-        textSize = 16f
+        textSize = Theme.Type.body
         setTypeface(typeface, Typeface.BOLD)
-        setTextColor(if (main) Color.rgb(22, 37, 26) else textPrimary)
-        background = rounded(if (main) mint else panelLight, 12, if (main) mint else subtle)
+        setTextColor(if (main) Theme.Colors.onPrimary else textPrimary)
+        background = Theme.shape(this@SettingsActivity,
+            if (main) mint else panelLight, Theme.Radius.control, if (main) mint else subtle)
         gravity = Gravity.CENTER
-        minHeight = dp(56)
-        setPadding(dp(14), dp(14), dp(14), dp(14))
+        minHeight = dp(48)
+        setPadding(dp(Theme.Space.two), dp(Theme.Space.one),
+            dp(Theme.Space.two), dp(Theme.Space.one))
         setLineSpacing(dp(2).toFloat(), 1.1f)
         isClickable = true
         isFocusable = true
         setOnClickListener { onClick() }
     }
-    private fun rounded(color: Int, radiusDp: Int, stroke: Int? = null) = GradientDrawable().apply {
-        setColor(color)
-        cornerRadius = dp(radiusDp).toFloat()
-        if (stroke != null) setStroke(dp(1), stroke)
-    }
-    private fun dp(number: Int) = (resources.displayMetrics.density * number + 0.5f).toInt()
+    private fun rounded(color: Int, radiusDp: Int, stroke: Int? = null) =
+        Theme.shape(this, color, radiusDp, stroke)
+    private fun dp(number: Int) = Theme.dp(this, number)
     private fun addGap(container: LinearLayout, height: Int) {
         container.addView(View(this), LinearLayout.LayoutParams(1, dp(height)))
     }
