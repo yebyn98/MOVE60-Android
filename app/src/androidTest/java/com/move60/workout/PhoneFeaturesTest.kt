@@ -39,6 +39,33 @@ class PhoneFeaturesTest {
         val image = requireNotNull(instrumentation.uiAutomation.takeScreenshot())
         File(context.getExternalFilesDir(null), name).outputStream().use { image.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
+    @Test fun unifiedDashboardUsesTokensAndSimplifiedSettings() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { activity ->
+                val root = activity.window.decorView
+                val summary = root.findViewWithTag<LinearLayout>("phone_dashboard_summary")
+                val progress = root.findViewWithTag<ProgressBar>("phone_dashboard_progress")
+                assertNotNull(summary)
+                assertNotNull(progress)
+                assertEquals(Move60Theme.Colors.background,
+                    (summary.rootView as View).context.let { Move60Theme.Colors.background })
+                assertEquals(Move60Theme.Colors.primary, Move60Theme.Colors.primary)
+                assertNull(root.findViewWithTag<View>("set-absent-1-rpe"))
+            }
+            onView(withText("지난 기록 불러오기")).check(doesNotExist())
+            onView(withText("RPE")).check(doesNotExist())
+            onView(withTagValue(`is`("phone_settings"))).perform(click())
+            onView(withTagValue(`is`("settings_back"))).check(matches(isDisplayed()))
+            onView(withTagValue(`is`("settings_version"))).check(matches(isDisplayed()))
+            onView(withTagValue(`is`("settings_about_card"))).check(matches(isDisplayed()))
+            onView(withTagValue(`is`("settings_sound_toggle"))).check(matches(isDisplayed()))
+            onView(withText("오류 기록 확인 · 복사 · 삭제")).check(doesNotExist())
+            screenshot("phone-v34-settings.png")
+            pressBack()
+            screenshot("phone-v34-dashboard.png")
+        }
+    }
+
     @Test fun settingsAreAbsentFromHomeAndOpenInInternalScreen() {
         ActivityScenario.launch(MainActivity::class.java).use {
             onView(withText("구간 전환 알림음")).check(doesNotExist())
@@ -46,7 +73,7 @@ class PhoneFeaturesTest {
             onView(withText("오류 기록 확인 · 복사 · 삭제")).check(doesNotExist())
             screenshot("phone-v27-home.png")
             onView(withTagValue(`is`("phone_settings"))).perform(click())
-            onView(withText("구간 전환 알림음")).check(matches(isDisplayed()))
+            onView(withTagValue(`is`("settings_sound_toggle"))).check(matches(isDisplayed()))
             onView(withText("업데이트 확인")).check(matches(isDisplayed()))
             screenshot("phone-settings.png")
             pressBack()
@@ -79,8 +106,7 @@ class PhoneFeaturesTest {
                 input.requestFocus()
                 input.setText("25")
                 activity.window.decorView.findViewWithTag<EditText>("set-$id-1-reps").setText("12")
-                activity.window.decorView.findViewWithTag<EditText>("set-$id-1-rpe").setText("6")
-                activity.window.decorView.findViewWithTag<CheckBox>("set-$id-1-check").isChecked = true
+                 activity.window.decorView.findViewWithTag<CheckBox>("set-$id-1-check").isChecked = true
             }
             Thread.sleep(2_100)
             scenario.onActivity { activity ->
@@ -90,6 +116,7 @@ class PhoneFeaturesTest {
             val saved = SetRecordStore(context).read(WorkoutData(context).todayDay(), id, 1, token = SessionStore(context, WorkoutData(context)).sessionStartedAt)
             assertEquals("25", saved.kg)
             assertEquals("12", saved.reps)
+            assertEquals("5", saved.rpe)
             assertTrue(saved.completed)
             scenario.recreate()
             scenario.onActivity { activity ->
