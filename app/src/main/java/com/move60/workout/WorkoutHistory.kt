@@ -40,7 +40,10 @@ class WorkoutHistory(context: Context) {
     fun month(month: YearMonth): List<DayRecord> =
         (1..month.lengthOfMonth()).map { record(month.atDay(it)) }
 
-    fun trainedDays(month: YearMonth): Int = month(month).count { it.activeSeconds > 0L }
+    /** A day counts as trained only with at least one full minute of measured active time. */
+    fun isTrained(date: LocalDate): Boolean = record(date).activeMinutes >= 1L
+
+    fun trainedDays(month: YearMonth): Int = month(month).count { it.activeMinutes >= 1L }
 
     fun totalActiveSeconds(month: YearMonth): Long =
         month(month).fold(0L) { total, day ->

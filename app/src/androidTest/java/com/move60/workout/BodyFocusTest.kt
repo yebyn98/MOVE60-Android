@@ -123,6 +123,14 @@ class BodyFocusTest {
             Thread.sleep(800)
             val popup = requireNotNull(instrumentation.uiAutomation.takeScreenshot())
             File(context.getExternalFilesDir(null),"phone-exercise-popup.png").outputStream().use { popup.compress(Bitmap.CompressFormat.PNG,100,it) }
+            // The last block of the popup must be reachable and fully visible above the dialog buttons.
+            androidx.test.espresso.Espresso.onView(androidx.test.espresso.matcher.ViewMatchers.withText(org.hamcrest.CoreMatchers.startsWith("지난 기록")))
+                .inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog())
+                .perform(androidx.test.espresso.action.ViewActions.scrollTo())
+                .check(androidx.test.espresso.assertion.ViewAssertions.matches(androidx.test.espresso.matcher.ViewMatchers.isCompletelyDisplayed()))
+            Thread.sleep(500)
+            val bottom = requireNotNull(instrumentation.uiAutomation.takeScreenshot())
+            File(context.getExternalFilesDir(null),"phone-exercise-popup-bottom.png").outputStream().use { bottom.compress(Bitmap.CompressFormat.PNG,100,it) }
             instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
             instrumentation.waitForIdleSync()
             scenario.recreate()

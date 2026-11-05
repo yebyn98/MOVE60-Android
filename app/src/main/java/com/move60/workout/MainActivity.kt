@@ -590,9 +590,18 @@ class MainActivity : Activity() {
             setPadding(dp(Theme.Space.two), dp(Theme.Space.one),
                 dp(Theme.Space.two), dp(Theme.Space.one))
         }
-        val scroll = ScrollView(this).apply {
+        // Height follows the content but never exceeds the room left under the dialog title and above
+        // its buttons (55% of the screen), so the last block is reachable instead of being cut off.
+        val maxScrollHeight = (resources.displayMetrics.heightPixels * 0.55f).toInt()
+        val scroll = object : ScrollView(this) {
+            override fun onMeasure(widthSpec: Int, heightSpec: Int) {
+                super.onMeasure(widthSpec, MeasureSpec.makeMeasureSpec(maxScrollHeight, MeasureSpec.AT_MOST))
+            }
+        }.apply {
             isVerticalScrollBarEnabled = false
             isFillViewport = false
+            clipToPadding = false
+            setPadding(0, 0, 0, dp(Theme.Space.two))
         }
         val detailContent = column()
         scroll.addView(detailContent)
@@ -646,8 +655,7 @@ class MainActivity : Activity() {
             detailContent.addView(label("지난 기록: ${exercisePrefs.log(task.id)}",
                 12, false, textSecondary))
         }
-        val maxHeight = (resources.displayMetrics.heightPixels * 0.62f).toInt()
-        panel.addView(scroll, LinearLayout.LayoutParams(-1, maxHeight))
+        panel.addView(scroll, LinearLayout.LayoutParams(-1, -2))
         MaterialAlertDialogBuilder(this)
             .setTitle(task.name)
             .setView(panel)

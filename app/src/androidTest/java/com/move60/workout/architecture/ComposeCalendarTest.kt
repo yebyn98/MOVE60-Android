@@ -67,6 +67,19 @@ class ComposeCalendarTest {
         }
     }
 
+    @Test fun zeroMinuteDaysAreNotTrainedAndAreHiddenFromRecentRecords() {
+        // 30 s is 0 whole minutes: not a workout day, no dot, no entry in the recent list.
+        WorkoutHistory(context).addActiveSeconds(today, 30)
+        ActivityScenario.launch(ComposeActivity::class.java).use {
+            rule.onNodeWithContentDescription("운동 달력").performClick()
+            rule.onNodeWithContentDescription("$today · 운동 기록 없음").assertIsDisplayed()
+            rule.onNodeWithTag("calendar-dot-$today", useUnmergedTree = true).assertDoesNotExist()
+            rule.onNodeWithText("최근 운동 기록").assertDoesNotExist()
+            assertEquals(0, WorkoutHistory(context).trainedDays(java.time.YearMonth.from(today)))
+            capture("compose-calendar-zero-minutes.png")
+        }
+    }
+
     @Test fun dashboardBodySelectionIsStoredAndDrivesTheDetailScreen() {
         for (name in listOf("move60_native_sessions_v8", "timer"))
             context.getSharedPreferences(name, 0).edit().clear().commit()
