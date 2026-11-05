@@ -23,7 +23,11 @@ adb logcat -d -v threadtime > smoke-debug/watch/logcat.txt
 adb shell dumpsys notification --noredact > smoke-debug/watch/notifications.txt
 adb pull /sdcard/Android/data/com.move60.workout/files/. smoke-debug/watch/ >/dev/null 2>&1 || true
 test "$result" -eq 0
-grep -q 'OK (9 tests)' smoke-debug/watch/instrumentation.txt
+# Require an instrumentation success result and at least the baseline suite size.
+# Exact-count checks break whenever a valid new test is added.
+passed_tests="$(sed -nE 's/^OK \(([0-9]+) tests?\).*$/\1/p' smoke-debug/watch/instrumentation.txt | tail -n 1)"
+test -n "$passed_tests"
+test "$passed_tests" -ge 9
 ! grep -q -E 'FAILURES!!!|INSTRUMENTATION_FAILED' smoke-debug/watch/instrumentation.txt
 if grep -q 'FATAL EXCEPTION' smoke-debug/watch/logcat.txt; then
   echo "Wear OS fatal runtime exception"
