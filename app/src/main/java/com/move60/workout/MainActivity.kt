@@ -573,7 +573,7 @@ class MainActivity : Activity() {
         if (task.id.isNotEmpty() && info != null) {
             // Local illustration is a fallback, not a fabricated or unlicensed video.
             detailContent.addView(ExerciseDiagram(this, task.id),
-                LinearLayout.LayoutParams(-1, dp(168)))
+                LinearLayout.LayoutParams(-1, -2))
             addGap(detailContent, 8)
             detailContent.addView(label(
                 "동작 참고 이미지 · 영상은 아직 연결되지 않았어요.",
