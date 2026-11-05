@@ -25,7 +25,12 @@ app=read("app/src/main/java/com/move60/workout/Move60Application.kt")
 assert "@HiltAndroidApp" in app and "HiltWorkerFactory" in app
 assert "workManagerConfiguration" in app
 styles=read("app/src/main/java/com/move60/workout/architecture/ComposeActivity.kt")
-assert "NavHost(" in styles and "MaterialTheme(" in styles
+assert "NavHost(" in styles and "Move60ComposeTheme" in styles
+theme=read("app/src/main/java/com/move60/workout/ui/Move60ComposeTheme.kt")
+assert "MaterialTheme(" in theme and "Move60Theme.Colors" in theme
+components=read("app/src/main/java/com/move60/workout/ui/Move60Components.kt")
+assert "fun Move60Card(" in components and "fun Move60Button(" in components
+assert "com.google.android.material:material" in gradle
 screens=read("app/src/main/java/com/move60/workout/architecture/ComposeScreens.kt")
 for marker in ("@Composable","WorkoutDashboard(","WorkoutCalendar(","WorkoutSettings(",
                "collectAsStateWithLifecycle()","오늘 누적","세트","hiltViewModel()"):
@@ -47,4 +52,24 @@ assert "EnergyLedger" in worker and "WorkoutHistory" in worker
 assert "WorkManagerInitializer" in read("app/src/main/AndroidManifest.xml")
 targets=read("scripts/release-targets.json")
 assert '"phone": true' in targets and '"watch": true' in targets
+
+# Launcher icon + first-screen intro (approved logo: 60-tick plate + dumbbell).
+import subprocess,sys
+manifest_text=read("app/src/main/AndroidManifest.xml")
+assert 'android:icon="@mipmap/ic_launcher"' in manifest_text and 'android:roundIcon="@mipmap/ic_launcher_round"' in manifest_text
+assert 'android:icon="@mipmap/ic_launcher"' in read("wear/src/main/AndroidManifest.xml")
+for module in ("app","wear"):
+    for res in ("drawable/ic_launcher_foreground.xml","drawable/ic_launcher_monochrome.xml",
+                "mipmap-anydpi-v26/ic_launcher.xml","mipmap-anydpi-v26/ic_launcher_round.xml",
+                "values/ic_launcher.xml"):
+        assert (root/module/"src/main/res"/res).exists(),(module,res)
+assert "<monochrome" in read("app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml")
+subprocess.run([sys.executable,str(root/"scripts/generate-logo-assets.py"),"--check"],check=True)
+logo=read("app/src/main/java/com/move60/workout/ui/Move60Logo.kt")
+assert "LOGO_TICKS = 60" in logo and "MaterialTheme.colorScheme" in logo
+splash=read("app/src/main/java/com/move60/workout/ui/Move60Splash.kt")
+assert "fun Move60Splash(" in splash and "detectTapGestures" in splash
+activity=read("app/src/main/java/com/move60/workout/architecture/ComposeActivity.kt")
+assert "Move60Splash(" in activity and "ANIMATOR_DURATION_SCALE" in activity
+assert "savedInstanceState == null" in activity, "Intro must not replay on rotation/recreation"
 print("PASS: Compose Navigation, StateFlow/SharedFlow, Hilt, Room, WorkManager and phone-only release")

@@ -1,0 +1,70 @@
+package com.move60.workout.ui
+
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+
+/** Shared Material 3 card: token radius/outline/surface, 16dp padding, 8dp spacing. */
+@Composable
+fun Move60Card(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
+    }
+}
+
+/**
+ * Shared Material 3 button. Filled when [primary], otherwise outlined on the elevated
+ * surface. Always at least 48dp high with the token control radius.
+ */
+@Composable
+fun Move60Button(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    primary: Boolean = true,
+    enabled: Boolean = true,
+    minHeight: Int = 48,
+    contentPadding: PaddingValues = ButtonDefaults.ContentPadding,
+    content: @Composable RowScope.() -> Unit
+) {
+    val sized = modifier.heightIn(min = minHeight.dp)
+    if (primary) {
+        Button(
+            onClick = onClick, modifier = sized, enabled = enabled,
+            shape = MaterialTheme.shapes.small, contentPadding = contentPadding, content = content
+        )
+    } else {
+        OutlinedButton(
+            onClick = onClick, modifier = sized, enabled = enabled,
+            shape = MaterialTheme.shapes.small, contentPadding = contentPadding,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+            colors = ButtonDefaults.outlinedButtonColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                contentColor = MaterialTheme.colorScheme.onSurface
+            ),
+            content = content
+        )
+    }
+}

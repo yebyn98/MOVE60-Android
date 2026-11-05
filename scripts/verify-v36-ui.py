@@ -15,8 +15,15 @@ for phrase in ("버추얼메이트Me 열기", "별도 앱으로 이동합니다.
     assert phrase not in main, f"Deleted phone UI came back: {phrase}"
 assert not (root/"app/src/main/java/com/move60/workout/ExercisePhotos.kt").exists()
 assert 'label("MOVE60", 24' in main and 'label("MOVE", 24' not in main
-assert 'tag = "phone_calendar"' in main and 'contentDescription = "운동 달력 열기"' in main
-assert 'tag = "phone_settings"' in main and 'contentDescription = "앱 설정 열기"' in main
+assert 'phone_calendar' not in main and 'showWorkoutCalendar' not in main, "Calendar lives in Compose only"
+for marker in ("MonthGrid(", "calendar-dot-", "calendar_prev", "calendar_next", "운동 기록 있음"):
+    assert marker in compose, f"Compose calendar lost: {marker}"
+assert 'phone_settings' not in main and 'SettingsActivity' not in main, "Settings live in Compose only"
+assert not (root/"app/src/main/java/com/move60/workout/SettingsActivity.kt").exists()
+assert "body_focus_" not in main and "renderDayStrip" not in main, "Day/body selection lives in the Compose overview only"
+assert "fun buildSetTable" in main and "phone_current_exercise" in main and "buildSetTable(task)" in main.split("fun showDetails")[1], "Set entry: current-exercise card + exercise popup"
+for feature in ("알림 설정 · 진단", "업데이트 확인", "유산소 · 근력 시간 비율 변경", "오늘 컨디션에 맞춘 루틴", "칼로리 계산 체중"):
+    assert feature in compose, f"Compose settings lost: {feature}"
 assert 'Icon(Icons.Outlined.CalendarMonth' in compose and 'Icon(Icons.Outlined.Settings' in compose
 assert "동작 영상" not in compose
 assert "PermissionController.createRequestPermissionResultContract()" in consent

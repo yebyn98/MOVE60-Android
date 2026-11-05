@@ -3,6 +3,7 @@ package com.move60.workout.architecture
 import android.Manifest
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.content.pm.PackageManager
 import androidx.activity.ComponentActivity
 import androidx.core.view.WindowCompat
@@ -11,10 +12,14 @@ import com.move60.workout.health.HealthConnectGateway
 import javax.inject.Inject
 import kotlinx.coroutines.launch
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import com.move60.workout.ui.Move60ComposeTheme
+import com.move60.workout.ui.Move60Splash
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -57,38 +62,35 @@ class ComposeActivity : ComponentActivity() {
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 3001)
         }
-        setContent { Move60ComposeApp() }
+        setContent { Move60ComposeApp(showIntro = savedInstanceState == null && !animationsDisabled()) }
     }
+
+    /** Respect the system "remove animations" setting; the intro is skipped when it is 0. */
+    private fun animationsDisabled(): Boolean =
+        Settings.Global.getFloat(contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
 }
 
 @Composable
-fun Move60ComposeApp() {
+fun Move60ComposeApp(showIntro: Boolean = false) {
     val nav = rememberNavController()
-    val legacy = com.move60.workout.Move60Theme.Colors
-    val colors = darkColorScheme(
-        primary = Color(legacy.primary),
-        onPrimary = Color(legacy.onPrimary),
-        background = Color(legacy.background),
-        surface = Color(legacy.surface),
-        onBackground = Color(legacy.textHigh),
-        onSurface = Color(legacy.textHigh),
-        secondary = Color(legacy.textMedium),
-        outline = Color(legacy.outline)
-    )
-    MaterialTheme(colorScheme = colors) {
-        NavHost(navController = nav, startDestination = "dashboard") {
-            composable("dashboard") {
-                WorkoutDashboard(
-                    onCalendar = { nav.navigate("calendar") },
-                    onSettings = { nav.navigate("settings") }
-                )
+    var introVisible by rememberSaveable { mutableStateOf(showIntro) }
+    Move60ComposeTheme {
+        Box {
+            NavHost(navController = nav, startDestination = "dashboard") {
+                composable("dashboard") {
+                    WorkoutDashboard(
+                        onCalendar = { nav.navigate("calendar") },
+                        onSettings = { nav.navigate("settings") }
+                    )
+                }
+                composable("calendar") {
+                    WorkoutCalendar(onBack = { nav.popBackStack() })
+                }
+                composable("settings") {
+                    WorkoutSettings(onBack = { nav.popBackStack() })
+                }
             }
-            composable("calendar") {
-                WorkoutCalendar(onBack = { nav.popBackStack() })
-            }
-            composable("settings") {
-                WorkoutSettings(onBack = { nav.popBackStack() })
-            }
+            if (introVisible) Move60Splash(onFinished = { introVisible = false })
         }
     }
 }

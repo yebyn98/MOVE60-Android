@@ -1,12 +1,14 @@
 package com.move60.workout
 
 import android.content.Context
+import android.content.res.ColorStateList
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.google.android.material.button.MaterialButton
 
 /** Single source for native phone cards, text, action surfaces and 8dp spacing. */
 object DashboardUi {
@@ -38,26 +40,30 @@ object DashboardUi {
         clipToPadding = false
     }
     fun actionButton(context: Context, title: String, primary: Boolean,
-        compact: Boolean, onClick: () -> Unit): TextView = TextView(context).apply {
+        compact: Boolean, onClick: () -> Unit): TextView = MaterialButton(context).apply {
         text = title
+        isAllCaps = false
         textSize = if (primary || !compact) Move60Theme.Type.body
             else Move60Theme.Type.caption
         setTypeface(typeface, Typeface.BOLD)
         setTextColor(if (primary) Move60Theme.Colors.onPrimary else Move60Theme.Colors.textHigh)
-        background = Move60Theme.shape(context,
-            if (primary) Move60Theme.Colors.primary else Move60Theme.Colors.surfaceElevated,
-            Move60Theme.Radius.control,
+        backgroundTintList = ColorStateList.valueOf(
+            if (primary) Move60Theme.Colors.primary else Move60Theme.Colors.surfaceElevated)
+        strokeColor = ColorStateList.valueOf(
             if (primary) Move60Theme.Colors.primary else Move60Theme.Colors.outline)
+        strokeWidth = dp(context, 1)
+        cornerRadius = dp(context, Move60Theme.Radius.control)
+        insetTop = 0
+        insetBottom = 0
         gravity = Gravity.CENTER
         includeFontPadding = false
         maxLines = 2
         ellipsize = android.text.TextUtils.TruncateAt.END
         minHeight = dp(context, 48)
+        minimumHeight = dp(context, 48)
         val py = dp(context, Move60Theme.Space.one)
         val px = dp(context, if (compact) Move60Theme.Space.one else Move60Theme.Space.two)
         setPadding(px, py, px, py)
-        isClickable = true
-        isFocusable = true
         setOnClickListener { onClick() }
     }
     fun rounded(context: Context, color: Int, radius: Int,

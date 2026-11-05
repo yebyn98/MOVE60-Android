@@ -1,9 +1,16 @@
 package com.move60.workout.architecture
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.room.Room
 import android.graphics.Bitmap
@@ -22,14 +29,47 @@ import org.junit.runner.RunWith
 class ComposeArchitectureTest {
     @get:Rule val rule = createAndroidComposeRule<ComposeActivity>()
 
+    private fun capture(name: String) {
+        val bitmap = rule.onRoot().captureToImage().asAndroidBitmap()
+        File(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null), name).outputStream().use {
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+        }
+    }
+
     @Test fun composeNavigationShowsDashboardCalendarAndSettings() {
         rule.onNodeWithText("MOVE60").assertIsDisplayed()
+        capture("compose-dashboard.png")
         rule.onNodeWithContentDescription("운동 달력").performClick()
         rule.onNodeWithText("운동 기록").assertIsDisplayed()
         rule.onNodeWithContentDescription("뒤로 가기").performClick()
         rule.onNodeWithContentDescription("앱 설정").performClick()
-        rule.onNodeWithText("앱 정보").assertIsDisplayed()
+        capture("compose-settings.png")
+        // Settings is a long LazyColumn: scroll to each section before asserting it is visible.
+        rule.onNodeWithTag("settings_list").performScrollToNode(hasText("칼로리 계산 기준"))
         rule.onNodeWithText("칼로리 계산 기준").assertIsDisplayed()
+        rule.onNodeWithTag("settings_list").performScrollToNode(hasText("앱 정보"))
+        rule.onNodeWithText("앱 정보").assertIsDisplayed()
+    }
+
+    @Test fun composeSettingsHasEveryLegacySettingsFeature() {
+        rule.onNodeWithContentDescription("앱 설정").performClick()
+        rule.onNodeWithTag("settings_back").assertIsDisplayed()
+        rule.onNodeWithTag("settings_sound_toggle").assertIsDisplayed()
+        rule.onNodeWithText("알림 설정 · 진단").assertIsDisplayed()
+        rule.onNodeWithText("업데이트 확인").assertIsDisplayed()
+        val list = rule.onNodeWithTag("settings_list")
+        list.performScrollToNode(hasText("오늘 컨디션에 맞춘 루틴"))
+        rule.onNodeWithText("피곤").assertIsDisplayed()
+        rule.onNodeWithText("보통").assertIsDisplayed()
+        rule.onNodeWithText("좋음").assertIsDisplayed()
+        list.performScrollToNode(hasText("칼로리 계산 체중"))
+        rule.onNodeWithText("칼로리 계산 체중").assertIsDisplayed()
+        list.performScrollToNode(hasTestTag("settings_version"))
+        rule.onNodeWithTag("settings_version").assertIsDisplayed()
+        list.performScrollToNode(hasText("유산소 · 근력 시간 비율 변경", substring = true))
+        rule.onNodeWithText("유산소 · 근력 시간 비율 변경", substring = true).performClick()
+        rule.onNodeWithText("60분 운동 시간 배분").assertIsDisplayed()
+        rule.onNodeWithText("취소").performClick()
     }
 
     @Test fun dashboardIsOverviewNotDuplicatedWorkoutEditor() {

@@ -1,7 +1,7 @@
 package com.move60.workout
 
 import android.app.Activity
-import android.app.AlertDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import android.app.DownloadManager
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -70,14 +70,14 @@ class UpdateManager(private val activity: Activity) {
                     activity.runOnUiThread {
                         if (activity.isFinishing || activity.isDestroyed) return@runOnUiThread
                         if (versionCode > current) {
-                            AlertDialog.Builder(activity)
+                            MaterialAlertDialogBuilder(activity)
                                 .setTitle("MOVE60 $versionName 업데이트")
                                 .setMessage("새 버전이 준비됐어요. 운동 기록을 유지하면서 앱을 업데이트할까요? 설치는 안드로이드의 승인이 필요해요.")
                                 .setNegativeButton("나중에", null)
                                 .setPositiveButton("업데이트") { _, _ -> download(apkUrl, digest, versionName) }
                                 .show()
                         } else if (manual) {
-                            AlertDialog.Builder(activity).setTitle("최신 버전이에요")
+                            MaterialAlertDialogBuilder(activity).setTitle("최신 버전이에요")
                                 .setMessage("현재 설치된 MOVE60이 최신 버전입니다.")
                                 .setPositiveButton("확인", null).show()
                         }
@@ -170,7 +170,7 @@ class UpdateManager(private val activity: Activity) {
         if(Build.VERSION.SDK_INT>=26 && !activity.packageManager.canRequestPackageInstalls()){
             if(permissionDialogShown)return
             permissionDialogShown=true
-            AlertDialog.Builder(activity)
+            MaterialAlertDialogBuilder(activity)
                 .setTitle("설치 권한 안내")
                 .setMessage("다운로드 완료! MOVE60의 '이 출처 허용'을 켜고 돌아오면 설치를 이어갈게요.")
                 .setNegativeButton("나중에"){_,_->permissionDialogShown=false}
@@ -225,7 +225,7 @@ class UpdateManager(private val activity: Activity) {
 
     private fun toast(message: String) = activity.runOnUiThread { if (!activity.isFinishing) Toast.makeText(activity, message, Toast.LENGTH_LONG).show() }
     private fun inform(message: String) = activity.runOnUiThread {
-        if (!activity.isFinishing && !activity.isDestroyed) AlertDialog.Builder(activity)
+        if (!activity.isFinishing && !activity.isDestroyed) MaterialAlertDialogBuilder(activity)
             .setTitle("MOVE60 업데이트").setMessage(message).setPositiveButton("확인", null).show()
     }
 }
