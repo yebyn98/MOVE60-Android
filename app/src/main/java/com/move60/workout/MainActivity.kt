@@ -420,12 +420,6 @@ class MainActivity : Activity() {
             head.addView(label("${set}세트", 12, true, if (isCurrentSet) mint else textPrimary), LinearLayout.LayoutParams(0, -2, 1f))
             if (prior != null) head.addView(label("지난 기록 ${prior.kg} kg × ${prior.reps}회", 10, false, textSecondary))
             block.addView(head)
-            val captions = row()
-            listOf("중량 kg", "횟수").forEachIndexed { index, title ->
-                captions.addView(label(title, 10, true, textSecondary).apply { gravity = Gravity.CENTER },
-                    LinearLayout.LayoutParams(0, dp(24), 1f).apply { if (index == 1) leftMargin = dp(8) })
-            }
-            block.addView(captions)
             fun input(value: String, hint: String, decimal: Boolean = false): EditText = EditText(this).apply {
                 setText(value)
                 this.hint = hint
@@ -458,17 +452,18 @@ class MainActivity : Activity() {
                     contentDescription = "${task.name} ${set}세트 $unit $action"
                     tag = "set-${task.id}-$set-" + (if (unit == "중량") "kg" else "reps") + (if (delta < 0) "-minus" else "-plus")
                 }
+                // Stacked rows keep the value field wide enough for "122.5" even in the narrow popup.
                 return row().apply {
                     gravity = Gravity.CENTER_VERTICAL
+                    addView(label(if (decimal) "kg" else "회", 11, true, textSecondary).apply { gravity = Gravity.CENTER },
+                        LinearLayout.LayoutParams(dp(32), dp(48)))
                     addView(stepButton("−", -step, "줄이기"), LinearLayout.LayoutParams(dp(48), dp(48)))
                     addView(field, LinearLayout.LayoutParams(0, dp(48), 1f))
                     addView(stepButton("+", step, "늘리기"), LinearLayout.LayoutParams(dp(48), dp(48)))
                 }
             }
-            val steppers = row().apply { gravity = Gravity.CENTER_VERTICAL }
-            steppers.addView(stepper(kg, "중량", 2.5, true, prior?.kg), LinearLayout.LayoutParams(0, -2, 1f))
-            steppers.addView(stepper(reps, "횟수", 1.0, false, prior?.reps), LinearLayout.LayoutParams(0, -2, 1f).apply { leftMargin = dp(8) })
-            block.addView(steppers)
+            block.addView(stepper(kg, "중량", 2.5, true, prior?.kg), LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4) })
+            block.addView(stepper(reps, "횟수", 1.0, false, prior?.reps), LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4) })
             // Old per-set intensity is retained in storage for compatibility.
             // New UI exposes only equipment load and repetitions.
             val retainedEffort = saved.rpe.ifBlank { "5" }
