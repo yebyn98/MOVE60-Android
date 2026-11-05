@@ -691,8 +691,14 @@ class MainActivity : Activity() {
             addGap(detailContent, 8)
             detailContent.addView(actionButton("운동 가이드 영상 검색 ↗", false) {
                 val query = Uri.encode(task.name + " 운동 자세 가이드")
-                startActivity(Intent(Intent.ACTION_VIEW,
-                    Uri.parse("https://www.youtube.com/results?search_query=" + query)))
+                val videoSearch = Intent(Intent.ACTION_VIEW,
+                    Uri.parse("https://www.youtube.com/results?search_query=" + query))
+                try {
+                    startActivity(videoSearch)
+                } catch (_: android.content.ActivityNotFoundException) {
+                    Toast.makeText(this, "영상을 열 수 있는 브라우저가 필요해요.",
+                        Toast.LENGTH_LONG).show()
+                }
             }.apply { contentDescription = task.name + " 운동 가이드 영상 검색" })
             addGap(detailContent, 16)
         }
