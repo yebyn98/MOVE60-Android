@@ -26,8 +26,15 @@ assert "getGrantedPermissions().containsAll(readPermissions)" in health
 assert "HeartRateRecord::class" in health and "SleepSessionRecord::class" not in health
 assert "sleepMinutes" not in health and "sleepEndedAt" not in health
 assert "android.permission.health.READ_SLEEP" not in read("app/src/main/AndroidManifest.xml")
-assert 'DataOrigin("com.sec.android.app.shealth")' in health
-assert health.count("dataOriginFilter = samsungOrigin") == 1, "Only read consented Samsung Health heart rate records"
+# Consent gates all reads; Health Connect may expose synced samples from many
+# writer packages. Restricting to Samsung origin or one day silently hides valid data.
+assert "check(isOptedIn())" in health and "check(permissionsGranted())" in health
+assert "Duration.ofDays(7)" in health and "pageToken = nextPage" in health
+assert "dataOriginFilter = samsungOrigin" not in health
+assert "metadata.dataOrigin.packageName" in health
+assert "WindowCompat.setDecorFitsSystemWindows(window, false)" in read("app/src/main/java/com/move60/workout/architecture/ComposeActivity.kt")
+assert "statusBarsPadding()" in compose and "navigationBarsPadding()" in compose
+assert "statusBarsPadding()" in consent
 assert "now - lastSynced in 0L..86_400_000L" in wear, "Stale shared health data must expire"
 assert "vascularLoad" not in health
 assert "sleepMinutes" not in wear and "최근 수면" not in wear
