@@ -27,6 +27,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -181,7 +182,7 @@ fun HealthScreen(
     onStartSensor: () -> Unit,
     onBack: () -> Unit
 ) {
-    Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
+    Box(Modifier.fillMaxSize().testTag("wear_health_root").background(Color.Black), contentAlignment = Alignment.Center) {
         // Horologist preserves the safe square within a round display (Watch4 small).
         Box(Modifier.fillMaxRectangle(), contentAlignment = Alignment.Center) {
             ScalingLazyColumn(
