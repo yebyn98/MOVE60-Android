@@ -246,13 +246,6 @@ class MainActivity : Activity() {
             tag = "phone_calendar"
             contentDescription = "운동 달력 열기"
         }, LinearLayout.LayoutParams(dp(48), dp(48)))
-        header.addView(actionButton("⚙", false) {
-            startActivity(Intent(this, SettingsActivity::class.java).putExtra("day", session.day))
-        }.apply {
-            textSize = Theme.Type.heading
-            tag = "phone_settings"
-            contentDescription = "앱 설정 열기"
-        }, LinearLayout.LayoutParams(dp(48), dp(48)).apply { leftMargin = dp(8) })
         content.addView(header)
         addGap(content, 16)
         content.addView(label(data.localToday().format(DateTimeFormatter.ofPattern("M월 d일"))+" · 상세 운동 및 기록", 20, true))

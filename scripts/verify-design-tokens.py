@@ -36,7 +36,6 @@ for name in ("app", "wear"):
         assert colors.get(resource) == tokens["colors"][semantic], (name, resource)
 for path in (
     root / "app/src/main/java/com/move60/workout/MainActivity.kt",
-    root / "app/src/main/java/com/move60/workout/SettingsActivity.kt",
     root / "wear/src/main/java/com/move60/watch/WatchActivity.kt",
     root / "wear/src/main/java/com/move60/watch/WorkoutTileService.kt",
 ):
@@ -45,7 +44,7 @@ for path in (
     assert not re.search(r"Color\.rgb\(|0xFFB4F56E|#B4F56E", source), path
     assert "Theme.Colors.primary" in source or "val lime = Theme.Colors.primary" in source, path
 main=(root/"app/src/main/java/com/move60/workout/MainActivity.kt").read_text()
-settings=(root/"app/src/main/java/com/move60/workout/SettingsActivity.kt").read_text()
+settings=(root/"app/src/main/java/com/move60/workout/architecture/ComposeScreens.kt").read_text()
 wear=(root/"wear/src/main/java/com/move60/watch/WatchActivity.kt").read_text()
 tile=(root/"wear/src/main/java/com/move60/watch/WorkoutTileService.kt").read_text()
 assert 'val block = card().apply' in main and 'phone_dashboard_summary' in main
@@ -53,7 +52,7 @@ assert '지난 기록 불러오기' not in main
 assert 'tag = "set-' not in main or '-rpe"' not in main
 assert '"오늘 누적 ' in main
 assert 'phone_dashboard_progress' in main
-assert 'tag = "settings_sound_toggle"' in settings and 'settings_about_card' in settings and 'settings_help_card' in settings
+assert 'testTag("settings_sound_toggle")' in settings and 'settings_about_card' in settings and 'settings_help_card' in settings
 assert 'watch_progress_ring' in wear and 'WorkoutProgressRing' in wear
 assert 'Theme.Colors.surfaceElevated' in wear and 'ring(360f * ratio, Theme.Colors.primary)' in tile
 print("PASS: canonical design tokens, phone/Wear theme parity, dashboard and round UI links")

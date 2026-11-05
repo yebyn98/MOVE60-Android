@@ -55,30 +55,20 @@ class PhoneFeaturesTest {
             }
             onView(withText("지난 기록 불러오기")).check(doesNotExist())
             onView(withText("RPE")).check(doesNotExist())
-            onView(withTagValue(`is`("phone_settings"))).perform(click())
-            onView(withTagValue(`is`("settings_back"))).check(matches(isDisplayed()))
-            onView(withTagValue(`is`("settings_version"))).check(matches(isDisplayed()))
-            onView(withTagValue(`is`("settings_about_card"))).check(matches(isDisplayed()))
-            onView(withTagValue(`is`("settings_sound_toggle"))).check(matches(isDisplayed()))
+            // Settings moved to the Compose screen; the detail screen no longer has its own entry.
+            onView(withTagValue(`is`("phone_settings"))).check(doesNotExist())
             onView(withText("오류 기록 확인 · 복사 · 삭제")).check(doesNotExist())
-            screenshot("phone-v34-settings.png")
-            pressBack()
             screenshot("phone-v34-dashboard.png")
         }
     }
 
-    @Test fun settingsAreAbsentFromHomeAndOpenInInternalScreen() {
+    @Test fun settingsAreAbsentFromDetailScreen() {
         ActivityScenario.launch(MainActivity::class.java).use {
             onView(withText("구간 전환 알림음")).check(doesNotExist())
             onView(withText("오늘 컨디션에 맞춘 루틴")).check(doesNotExist())
             onView(withText("오류 기록 확인 · 복사 · 삭제")).check(doesNotExist())
             screenshot("phone-v27-home.png")
-            onView(withTagValue(`is`("phone_settings"))).perform(click())
-            onView(withTagValue(`is`("settings_sound_toggle"))).check(matches(isDisplayed()))
-            onView(withText("업데이트 확인")).check(matches(isDisplayed()))
-            screenshot("phone-settings.png")
-            pressBack()
-            onView(withTagValue(`is`("phone_settings"))).check(matches(isDisplayed()))
+            onView(withTagValue(`is`("phone_settings"))).check(doesNotExist())
         }
     }
     @Test fun lastStageHasEnabledFinishAction() {

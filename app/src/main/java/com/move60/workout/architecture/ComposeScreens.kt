@@ -1,6 +1,19 @@
 package com.move60.workout.architecture
 
 import android.content.Intent
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.RadioButton
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.semantics.Role
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import com.move60.workout.UpdateManager
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -230,35 +243,91 @@ fun WorkoutSettings(
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val settings by viewModel.state.collectAsStateWithLifecycle()
+    val cardioMinutes by viewModel.cardioMinutes.collectAsStateWithLifecycle()
     val message = remember { SnackbarHostState() }
     val context = LocalContext.current
+    val activity = context as ComponentActivity
+    val updateManager = remember(activity) { UpdateManager(activity) }
+    LifecycleResumeEffect(updateManager) {
+        updateManager.resumePendingInstall()
+        onPauseOrDispose { }
+    }
+    DisposableEffect(updateManager) { onDispose { updateManager.onDestroy() } }
     var weight by remember(settings.weightKg) {
         mutableStateOf(settings.weightKg.toInt().toString())
     }
+    var diagnostics by remember { mutableStateOf<String?>(null) }
+    var showRatio by remember { mutableStateOf(false) }
+    val notificationPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { diagnostics = notificationDiagnostics(context, viewModel.sessionRunning()) }
     LaunchedEffect(viewModel) { viewModel.messages.collect { message.showSnackbar(it) } }
     val version = remember {
         context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "—"
     }
-    Scaffold(containerColor=MaterialTheme.colorScheme.background,
+    Scaffold(containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(message) },
-        topBar = { Row(Modifier.statusBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment=Alignment.CenterVertically) {
-            TextButton(onClick=onBack, modifier = Modifier.heightIn(min = 48.dp)) { Text("←") }
-            Text("앱 설정",style=MaterialTheme.typography.titleLarge)
-        } }
+        topBar = {
+            Row(Modifier.statusBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack, modifier = Modifier.testTag("settings_back")) {
+                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "뒤로 가기")
+                }
+                Text("앱 설정", style = MaterialTheme.typography.titleLarge)
+            }
+        }
     ) { inner ->
-        LazyColumn(Modifier.fillMaxSize().padding(inner),
+        LazyColumn(Modifier.fillMaxSize().padding(inner).testTag("settings_list"),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
-            verticalArrangement=Arrangement.spacedBy(16.dp)) {
+            verticalArrangement = Arrangement.spacedBy(16.dp)) {
             item {
                 Move60Card {
-                    Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,
-                        horizontalArrangement=Arrangement.SpaceBetween) {
-                        Text("알림 · 업데이트",style=MaterialTheme.typography.titleMedium)
-                        Switch(checked=settings.soundEnabled,
-                            onCheckedChange=viewModel::setSound)
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("알림 · 업데이트", style = MaterialTheme.typography.titleMedium)
+                        Switch(checked = settings.soundEnabled,
+                            onCheckedChange = viewModel::setSound,
+                            modifier = Modifier.testTag("settings_sound_toggle"))
                     }
-                    Text("구간 전환 알림음 설정",style=MaterialTheme.typography.bodySmall,
-                        color=secondary)
+                    Text("구간 전환 알림음 설정", style = MaterialTheme.typography.bodySmall,
+                        color = secondary)
+                    Move60Button(primary = false, modifier = Modifier.fillMaxWidth(), onClick = {
+                        if (Build.VERSION.SDK_INT >= 33 &&
+                            context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+                            PackageManager.PERMISSION_GRANTED) {
+                            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        } else {
+                            diagnostics = notificationDiagnostics(context, viewModel.sessionRunning())
+                        }
+                    }) { Text("알림 설정 · 진단") }
+                    Move60Button(primary = false, modifier = Modifier.fillMaxWidth(),
+                        onClick = { updateManager.check(true) }) { Text("업데이트 확인") }
+                }
+            }
+            item {
+                Move60Card {
+                    Text("운동 설정", style = MaterialTheme.typography.titleMedium)
+                    Move60Button(primary = false, modifier = Modifier.fillMaxWidth(),
+                        onClick = { showRatio = true }) {
+                        Text("유산소 · 근력 시간 비율 변경 (유산소 ${cardioMinutes}분)")
+                    }
+                    Text("오늘 컨디션에 맞춘 루틴", style = MaterialTheme.typography.titleSmall)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(
+                            "피곤" to "스텝밀 최대 10분 · 편안한 강도",
+                            "보통" to "스텝밀 최대 15분 · 계획대로 진행",
+                            "좋음" to "스텝밀 최대 15분 · 자세 유지"
+                        ).forEach { (name, summary) ->
+                            Move60Button(
+                                modifier = Modifier.weight(1f),
+                                primary = settings.condition == name,
+                                contentPadding = PaddingValues(0.dp),
+                                onClick = { viewModel.setCondition(name, summary) }
+                            ) { Text(name, maxLines = 1) }
+                        }
+                    }
+                    Text("운동 중 변경한 컨디션은 다음 운동부터 적용됩니다.",
+                        style = MaterialTheme.typography.bodySmall, color = secondary)
                 }
             }
             item {
@@ -273,29 +342,70 @@ fun WorkoutSettings(
             }
             item {
                 Move60Card {
-                    Text("칼로리 계산 체중",style=MaterialTheme.typography.titleMedium)
-                    OutlinedTextField(value=weight,onValueChange={weight=it},
-                        label={Text("체중(kg)")},singleLine=true,
-                        keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal))
+                    Text("칼로리 계산 체중", style = MaterialTheme.typography.titleMedium)
+                    OutlinedTextField(value = weight, onValueChange = { weight = it },
+                        label = { Text("체중(kg)") }, singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+                    Text("운동 칼로리는 추정치이며 실제 소모량과 다를 수 있어요.",
+                        style = MaterialTheme.typography.bodySmall, color = secondary)
                     Move60Button(onClick = { viewModel.setWeight(weight) }) { Text("체중 저장") }
                 }
             }
             item {
-                Move60Card {
-                    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
-                        Text("앱 정보",style=MaterialTheme.typography.titleMedium)
-                        Text("v$version",color=MaterialTheme.colorScheme.primary)
+                Move60Card(Modifier.testTag("settings_about_card")) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("앱 정보", style = MaterialTheme.typography.titleMedium)
+                        Text("v$version", color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.testTag("settings_version"))
                     }
+                    Text("MOVE60 · 60분 운동을 매일 더 간결하게",
+                        style = MaterialTheme.typography.bodySmall, color = secondary)
                 }
             }
             item {
-                Move60Card {
-                    Text("도움말",style=MaterialTheme.typography.titleMedium)
-                    Text("칼로리 계산 기준",color=MaterialTheme.colorScheme.primary)
-                    Text("오늘 한국시간에 실제 운동한 시간만 누적합니다. 같은 날 두 번 운동하면 합산하고, 일시정지·종료 중에는 증가하지 않습니다. 다음 날 0부터 시작합니다. 체중과 운동 종류(MET)를 이용한 추정치입니다.",
-                        color=secondary)
+                Move60Card(Modifier.testTag("settings_help_card")) {
+                    Text("도움말", style = MaterialTheme.typography.titleMedium)
+                    Text("칼로리 계산 기준", color = MaterialTheme.colorScheme.primary)
+                    Text("오늘 한국시간에 실제 운동한 시간만 누적합니다. 같은 날 두 번 운동하면 합산하고, 일시정지·종료 중에는 증가하지 않습니다. 다음 날 0부터 시작합니다. 체중과 운동 종류(MET)를 이용한 추정치입니다.\n\n근력 세트의 횟수를 참고하며 입력 중량을 kcal로 직접 환산하지 않습니다. 심박수는 실시간 참고 정보이며 별도의 개인 보정 없이 kcal에 더하지 않습니다.",
+                        color = secondary)
                 }
             }
         }
+    }
+    diagnostics?.let { text ->
+        AlertDialog(
+            onDismissRequest = { diagnostics = null },
+            title = { Text("운동 알림 진단") },
+            text = { Text(text) },
+            dismissButton = { TextButton(onClick = { diagnostics = null }) { Text("닫기") } },
+            confirmButton = {
+                TextButton(onClick = { diagnostics = null; openNotificationSettings(context) }) {
+                    Text("알림 설정 열기")
+                }
+            }
+        )
+    }
+    if (showRatio) {
+        AlertDialog(
+            onDismissRequest = { showRatio = false },
+            title = { Text("60분 운동 시간 배분") },
+            text = {
+                Column {
+                    listOf(20, 25, 30, 35, 40).forEach { minutes ->
+                        Row(
+                            Modifier.fillMaxWidth().heightIn(min = 48.dp).selectable(
+                                selected = minutes == cardioMinutes, role = Role.RadioButton,
+                                onClick = { showRatio = false; viewModel.setCardioMinutes(minutes) }),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(selected = minutes == cardioMinutes, onClick = null)
+                            Text("유산소 ${minutes}분 · 근력 ${50 - minutes}분",
+                                modifier = Modifier.padding(start = 12.dp))
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showRatio = false }) { Text("취소") } }
+        )
     }
 }
