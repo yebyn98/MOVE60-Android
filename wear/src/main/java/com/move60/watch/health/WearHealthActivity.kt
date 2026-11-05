@@ -60,7 +60,6 @@ class WearHealthActivity : ComponentActivity(), DataClient.OnDataChangedListener
         val liveBpm: Int? = null,
         val heartStatus: String = "측정 대기",
         val sharedBpm: Int? = null,
-        val sleepMinutes: Long? = null,
         val healthConsent: Boolean = false,
         val measuredAt: Long = 0L
     )
@@ -142,7 +141,6 @@ class WearHealthActivity : ComponentActivity(), DataClient.OnDataChangedListener
             liveBpm = bpm,
             heartStatus = sensorPrefs.getString("status", "센서 시작 전") ?: "센서 시작 전",
             sharedBpm = if (consented) prefs.getInt("lastHeartBpm", 0).takeIf { it in 30..240 } else null,
-            sleepMinutes = if (consented) prefs.getLong("sleepMinutes", -1L).takeIf { it >= 0 } else null,
             healthConsent = consented,
             measuredAt = freshAt
         )
@@ -153,8 +151,6 @@ class WearHealthActivity : ComponentActivity(), DataClient.OnDataChangedListener
         val editor = prefs.edit().clear().putBoolean("consented", consented)
         if (consented) {
             editor.putInt("lastHeartBpm", map.getInt("lastHeartBpm"))
-                .putLong("sleepMinutes", map.getLong("sleepMinutes", -1L))
-                .putLong("sleepEndedAt", map.getLong("sleepEndedAt"))
                 .putLong("heartMeasuredAt", map.getLong("heartMeasuredAt"))
                 .putLong("syncedAt", map.getLong("syncedAt"))
         }
@@ -232,31 +228,6 @@ fun HealthScreen(
                             contentColor = Color.Black
                         )
                     )
-                }
-                item {
-                    HealthCard {
-                        Text("최근 수면", color = secondary, fontSize = 12.sp)
-                        Text(state.sleepMinutes?.let {
-                            "${it / 60}시간 ${it % 60}분"
-                        } ?: "기록 없음",
-                            fontSize = 18.sp, fontWeight = FontWeight.Bold, color = foreground)
-                        val ratio = state.sleepMinutes?.let { (it / 480f).coerceIn(0f, 1f) } ?: 0f
-                        Box(Modifier.fillMaxWidth().height(5.dp)
-                            .background(Color(0xFF303030), RoundedCornerShape(4.dp))) {
-                            Box(Modifier.fillMaxWidth(ratio).height(5.dp)
-                                .background(brand, RoundedCornerShape(4.dp)))
-                        }
-                        Text("삼성 헬스 동기화 기록 · 8시간 눈금", color = secondary,
-                            fontSize = 10.sp, maxLines = 2)
-                    }
-                }
-                item {
-                    HealthCard {
-                        Text("혈관 스트레스", color = secondary, fontSize = 12.sp)
-                        Text("워치4 미지원", color = foreground, fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold)
-                        Text("추정값을 만들지 않아요.", color = secondary, fontSize = 10.sp)
-                    }
                 }
                 item {
                     Text(
