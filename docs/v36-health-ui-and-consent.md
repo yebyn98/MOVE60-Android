@@ -23,7 +23,7 @@ User-initiated phone consent grants read-only heart-rate access. The watch recei
 Opt-out clears the synced watch summary. The user can separately revoke Android Health Connect access in OS settings. No automatic permission popups or fake values.
 
 ## Validation
-- Phone versionCode 36, Watch versionCode 34; both-device selective release.
+- Current maintenance build: phone versionCode 37, Watch versionCode 35; both-device selective release.
 - Phone and Watch instrumentation suites must pass with at least 27 and 9 tests respectively; tests may grow without changing a hard-coded exact count.
 - scripts/verify-v36-ui.py is a mandatory CI preflight. Main may publish only after signed build, phone runtime and all Wear tests succeed.
 - Pull requests must compile debug instrumentation, pass Release Lint and exercise round-screen Wear tests before merge.
