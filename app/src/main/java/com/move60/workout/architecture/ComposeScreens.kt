@@ -81,13 +81,11 @@ fun WorkoutDashboard(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
-
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
             if (event is WorkoutUiEvent.Message) snackbar.showSnackbar(event.message)
         }
     }
-
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbar) },
@@ -102,45 +100,23 @@ fun WorkoutDashboard(
                     fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     IconButton(onClick = onCalendar, modifier = Modifier.testTag("compose_calendar_icon")) {
-                        Icon(Icons.Outlined.CalendarMonth, contentDescription = "운동 달력", tint = MaterialTheme.colorScheme.primary)
+                        Icon(Icons.Outlined.CalendarMonth, contentDescription = "운동 달력",
+                            tint = MaterialTheme.colorScheme.primary)
                     }
                     IconButton(onClick = onSettings, modifier = Modifier.testTag("compose_settings_icon")) {
-                        Icon(Icons.Outlined.Settings, contentDescription = "앱 설정", tint = MaterialTheme.colorScheme.primary)
+                        Icon(Icons.Outlined.Settings, contentDescription = "앱 설정",
+                            tint = MaterialTheme.colorScheme.primary)
                     }
                 }
             }
         },
         bottomBar = {
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Move60Card {
-                    Text("오늘 누적 ${String.format(Locale.KOREA, "%.1f", state.todayKcal)} kcal · 추정",
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(
-                            modifier = Modifier.weight(1f),
-                            onClick = viewModel::previous,
-                            enabled = state.stage > 0
-                        ) { Text("이전") }
-                        Button(
-                            modifier = Modifier.weight(1.35f),
-                            onClick = viewModel::playPause
-                        ) {
-                            Text(when {
-                                state.finished -> "새 운동 시작"
-                                state.running -> "일시정지"
-                                else -> "운동 시작"
-                            })
-                        }
-                        OutlinedButton(
-                            modifier = Modifier.weight(1f),
-                            onClick = viewModel::next,
-                            enabled = !state.finished
-                        ) { Text(if (state.stage == 3) "종료" else "다음") }
-                    }
+            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
+                Button(
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                    onClick = { context.startActivity(Intent(context, MainActivity::class.java)) }
+                ) {
+                    Text(if (state.running) "운동 화면으로 이동" else "운동 상세 및 시작")
                 }
             }
         }
@@ -153,140 +129,97 @@ fun WorkoutDashboard(
         ) {
             item {
                 Move60Card {
-                    Text("이번 주 운동", style = MaterialTheme.typography.titleLarge)
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        val days = listOf("월","화","수","목","금")
+                    Text("이번 주 운동 계획", style = MaterialTheme.typography.titleLarge)
+                    Text("요일과 운동 부위를 선택하면 상세 운동 화면에 적용돼요.",
+                        color = secondary, style = MaterialTheme.typography.bodySmall)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        val days = listOf("월", "화", "수", "목", "금")
                         days.forEachIndexed { index, title ->
-                            if (state.day == index+1)
-                                Button(modifier = Modifier.weight(1f),
-                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
-                                    onClick = { viewModel.selectDay(index+1) }) { Text(title) }
-                            else
-                                OutlinedButton(modifier = Modifier.weight(1f),
+                            val selected = state.day == index + 1
+                            if (selected) {
+                                Button(
+                                    modifier = Modifier.weight(1f).heightIn(min = 48.dp),
                                     contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
                                     enabled = !state.running,
-                                    onClick = { viewModel.selectDay(index+1) }) { Text(title) }
+                                    onClick = { viewModel.selectDay(index + 1) }
+                                ) { Text(title, maxLines = 1) }
+                            } else {
+                                OutlinedButton(
+                                    modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+                                    enabled = !state.running,
+                                    onClick = { viewModel.selectDay(index + 1) }
+                                ) { Text(title, maxLines = 1) }
+                            }
                         }
                     }
                     Text("오늘 운동 부위", color = secondary)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("upper" to "상체", "lower" to "하체").forEach { (id,label) ->
-                            if(state.bodyFocus == id)
-                                Button(onClick = { viewModel.selectBody(id) }, enabled = !state.running) {
-                                    Text(label)
-                                }
-                            else
-                                OutlinedButton(onClick = { viewModel.selectBody(id) },
-                                    enabled = !state.running) { Text(label) }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("upper" to "상체", "lower" to "하체").forEach { (id, title) ->
+                            if (state.bodyFocus == id) {
+                                Button(
+                                    modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                                    enabled = !state.running,
+                                    onClick = { viewModel.selectBody(id) }
+                                ) { Text(title, maxLines = 1) }
+                            } else {
+                                OutlinedButton(
+                                    modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                                    enabled = !state.running,
+                                    onClick = { viewModel.selectBody(id) }
+                                ) { Text(title, maxLines = 1) }
+                            }
                         }
                     }
                 }
             }
             item {
                 Move60Card {
-                    Text(state.stageName, style = MaterialTheme.typography.titleLarge)
-                    Text(if (state.running) "진행 중" else if (state.finished) "운동 완료"
-                        else "대기 / 일시정지", color = secondary)
-                    Text(formatSeconds(state.remainingSeconds),
-                        style = MaterialTheme.typography.displayLarge,
+                    Text("운동 현황", style = MaterialTheme.typography.titleLarge)
+                    Text(state.stageName, style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold)
-                    Text("실제 운동시간 ${formatSeconds(state.activeSeconds)}",
-                        color = MaterialTheme.colorScheme.primary)
+                    Text(when {
+                        state.finished -> "오늘 운동 완료"
+                        state.running -> "운동 진행 중"
+                        else -> "운동 대기 또는 일시정지"
+                    }, color = secondary)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Text("실제 운동시간", color = secondary)
+                        Text(formatSeconds(state.activeSeconds),
+                            fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    }
                     LinearProgressIndicator(
                         progress = { (state.activeSeconds / 3600f).coerceIn(0f, 1f) },
                         modifier = Modifier.fillMaxWidth()
                     )
-                    Text("단계 ${state.stage+1}/4 · ${state.stageNames.joinToString(" · ")}",
-                        style = MaterialTheme.typography.bodySmall, color = secondary,
-                        maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    if (state.restSeconds > 0)
-                        Text("세트 휴식 ${formatSeconds(state.restSeconds)}",
-                            color = MaterialTheme.colorScheme.primary)
+                    Text("근력 세트 ${state.completedSets}/${state.totalSets} · 오늘 누적 " +
+                        String.format(Locale.KOREA, "%.1f", state.todayKcal) + " kcal (추정)",
+                        color = secondary, style = MaterialTheme.typography.bodySmall)
                 }
             }
             item {
                 Move60Card {
-                    Text("운동 · 세트 기록", style = MaterialTheme.typography.titleLarge)
-                    Text("근력 세트 ${state.completedSets}/${state.totalSets}",
-                        color = secondary)
-                    LinearProgressIndicator(
-                        progress = { state.completedSets.toFloat() / state.totalSets.coerceAtLeast(1) },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
-            items(state.stageTasks, key = { task -> "${state.stage}-${task.id}-${task.name}" }) { task ->
-                Move60Card {
-                    Text(task.name, style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold)
-                    Text(task.detail.replace(Regex("""RPE\s*[\d~–-]+\s*[·]?"""), "").trim(),
-                        color = secondary, style = MaterialTheme.typography.bodySmall)
-                    if (state.stage == 2 && task.sets > 0) {
-                        task.entries.forEach { entry ->
-                            SetEntry(
-                                entry = entry,
-                                sessionId = state.sessionId,
-                                date = state.date,
-                                onChanged = { kg,reps,done ->
-                                    viewModel.saveSet(task.id, entry.number, kg, reps, done)
-                                }
-                            )
+                    Text("오늘의 운동 구성", style = MaterialTheme.typography.titleLarge)
+                    state.stageNames.forEachIndexed { index, name ->
+                        Row(Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Text("${index + 1}", color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold)
+                            Text(name, modifier = Modifier.weight(1f),
+                                color = if (index == state.stage)
+                                    MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurface)
+                            if (index == state.stage) Text("현재", color = secondary,
+                                style = MaterialTheme.typography.labelSmall)
                         }
                     }
-                }
-            }
-            item {
-                Move60Card {
-                    Text("상세 운동 화면", style = MaterialTheme.typography.titleMedium)
-                    Text("운동 교체·자세 안내 등 상세 설정을 확인할 수 있어요.",
-                        style = MaterialTheme.typography.bodySmall, color = secondary)
-                    OutlinedButton(onClick = {
-                        context.startActivity(Intent(context, MainActivity::class.java))
-                    }) { Text("상세 기능 열기") }
+                    Text("운동별 자세 안내, 대체 운동, 중량·횟수 및 세트 기록은 상세 화면에서 관리해요.",
+                        color = secondary, style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun SetEntry(
-    entry: WorkoutSetUi,
-    sessionId: Long,
-    date: String,
-    onChanged: (String, String, Boolean) -> Unit
-) {
-    var weight by remember(date, sessionId, entry.number) { mutableStateOf(entry.kg) }
-    var reps by remember(date, sessionId, entry.number) { mutableStateOf(entry.reps) }
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Text("${entry.number}세트", style = MaterialTheme.typography.bodySmall)
-        OutlinedTextField(
-            value = weight, onValueChange = {
-                weight = it
-                if (!entry.completed) onChanged(weight, reps, false)
-            },
-            modifier = Modifier.weight(1f),
-            label = { Text("kg") }, singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
-        )
-        OutlinedTextField(
-            value = reps, onValueChange = {
-                reps = it
-                if (!entry.completed) onChanged(weight, reps, false)
-            },
-            modifier = Modifier.weight(1f),
-            label = { Text("횟수") }, singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-        )
-        Checkbox(
-            checked = entry.completed,
-            onCheckedChange = { onChanged(weight, reps, it) },
-            enabled = sessionId > 0
-        )
     }
 }
 
