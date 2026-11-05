@@ -35,7 +35,7 @@ class WorkoutService : Service() {
         private const val ONGOING_ID = 601
         private const val PHASE_ID = 602
     }
-    private val stageNames = listOf("준비운동", "유산소", "근력운동", "마무리 스트레칭")
+    private val stageNames = listOf("준비운동", "유산소 ①", "근력운동", "유산소 ② · 마무리")
     private val dayNames = listOf("월요일", "화요일", "수요일", "목요일", "금요일")
     private val handler = Handler(Looper.getMainLooper())
     private var snapshot = JSONObject()
@@ -187,8 +187,8 @@ class WorkoutService : Service() {
         var round = "${stage + 1}/4 단계"
         var effort = "운동 진행 중"
         var countdownEnd = end
-        if (stage == 1) {
-            val phases = snapshot.optJSONArray("phases") ?: JSONArray()
+        if (stage == 1 || stage == 3) {
+            val phases = snapshot.optJSONArray(if (stage == 3) "phases3" else "phases") ?: JSONArray()
             var from = start
             for (i in 0 until phases.length()) {
                 val phase = phases.optJSONObject(i) ?: continue
@@ -324,15 +324,27 @@ class WorkoutService : Service() {
         handler.postDelayed(boundary, (nextTime - now + 40).coerceIn(1000L, 60_000L))
     }
 
+    /**
+     * Three firm pulses at the end of every cardio phase/stage. Alarm-usage attributes keep the pulses
+     * from being dropped for a background foreground-service, and the maximum amplitude is used when supported.
+     */
     private fun vibratePhaseTransition() {
         try {
             val vibrator = getSystemService(VIBRATOR_SERVICE) as Vibrator
             if (!vibrator.hasVibrator()) return
+            val attributes = android.media.AudioAttributes.Builder()
+                .setUsage(android.media.AudioAttributes.USAGE_ALARM)
+                .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION).build()
             if (Build.VERSION.SDK_INT >= 26) {
-                vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 160, 100, 160), -1))
+                val timings = longArrayOf(0, 350, 150, 350, 150, 500)
+                val effect = if (vibrator.hasAmplitudeControl())
+                    VibrationEffect.createWaveform(timings, intArrayOf(0, 255, 0, 255, 0, 255), -1)
+                else VibrationEffect.createWaveform(timings, -1)
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(effect, attributes)
             } else {
                 @Suppress("DEPRECATION")
-                vibrator.vibrate(350L)
+                vibrator.vibrate(longArrayOf(0, 350, 150, 350, 150, 500), -1, attributes)
             }
         } catch (e: Exception) {
             logFailure("Phase vibration failed: " + e.message)

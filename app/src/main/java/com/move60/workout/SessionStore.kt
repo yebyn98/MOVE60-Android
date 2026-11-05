@@ -274,19 +274,21 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
         if (running) reconcile()
         return accumulatedActiveSeconds
     }
+    /** Cardio stages (1 and 3) are run as timed phases; stage 3 ends with the stretch tasks. */
+    private fun timedStage() = stage == 1 || stage == 3
     fun phase(): Pair<Int, WorkoutTask>? {
-        if (stage != 1 || finished) return null
-        var elapsed = stageElapsedSeconds.coerceAtMost(stageSeconds(1) - 1)
-        for ((index, task) in routine.stages[1].tasks.withIndex()) {
+        if (!timedStage() || finished) return null
+        var elapsed = stageElapsedSeconds.coerceAtMost(stageSeconds(stage) - 1)
+        for ((index, task) in routine.stages[stage].tasks.withIndex()) {
             if (elapsed < task.seconds) return index to task
             elapsed -= task.seconds
         }
         return null
     }
     fun phaseSecondsRemaining(): Int {
-        if (stage != 1) return remaining
-        var elapsed = stageElapsedSeconds.coerceAtMost(stageSeconds(1) - 1)
-        for (task in routine.stages[1].tasks) {
+        if (!timedStage()) return remaining
+        var elapsed = stageElapsedSeconds.coerceAtMost(stageSeconds(stage) - 1)
+        for (task in routine.stages[stage].tasks) {
             if (elapsed < task.seconds) return task.seconds - elapsed
             elapsed -= task.seconds
         }
@@ -295,11 +297,14 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
     fun snapshot(): String {
         val times = JSONArray()
         routine.stages.forEach { times.put(it.minutes * 60) }
-        val phases = JSONArray()
-        routine.stages[1].tasks.forEach { t ->
-            phases.put(JSONObject().put("name", t.name).put("seconds", t.seconds)
-                .put("rpe", t.rpe).put("description", t.description))
+        fun phasesOf(index: Int) = JSONArray().also { array ->
+            routine.stages[index].tasks.forEach { t ->
+                array.put(JSONObject().put("name", t.name).put("seconds", t.seconds)
+                    .put("rpe", t.rpe).put("description", t.description).put("kind", t.kind))
+            }
         }
+        val phases = phasesOf(1)
+        val phases3 = phasesOf(3)
         return JSONObject().put("bodyFocus", bodyFocus ?: "").put("workoutDate",recordDate.toString()).put("running", running).put("finished", finished)
             .put("sessionStartedAt", sessionStartedAt)
             .put("controlVersion", controlVersion).put("restDeadline", restDeadline)
@@ -307,7 +312,7 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
             .put("day", day).put("stage", stage).put("remaining", remaining)
             .put("deadlineAt", deadlineAt).put("activeSeconds", accumulatedActiveSeconds)
             .put("stageElapsedSeconds", stageElapsedSeconds)
-            .put("cardioMachine", routine.stages[1].name).put("stageSeconds", times).put("phases", phases).toString()
+            .put("cardioMachine", routine.stages[1].name).put("stageSeconds", times).put("phases", phases).put("phases3", phases3).toString()
     }
 }
 

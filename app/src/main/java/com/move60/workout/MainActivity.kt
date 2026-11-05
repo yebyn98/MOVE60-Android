@@ -176,13 +176,29 @@ class MainActivity : Activity() {
     }
 
 
+    /** Returns to the Compose overview even when this screen is the task root (e.g. opened from a notification). */
+    private fun leaveToOverview() {
+        if (isTaskRoot) {
+            startActivity(Intent(this, com.move60.workout.architecture.ComposeActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP))
+        }
+        finish()
+    }
+
     private fun constructInterface() {
         content.removeAllViews()
-        val header = row().apply { gravity = Gravity.CENTER_VERTICAL }
-        header.addView(label("MOVE60", 24, true, mint).apply {
-            contentDescription = "MOVE60"
+        // Detail screen: back button + title replace the old app bar so home <-> detail reads as one flow.
+        val header = row().apply { gravity = Gravity.CENTER_VERTICAL; tag = "detail_header" }
+        header.addView(actionButton("←", false) { leaveToOverview() }.apply {
+            tag = "detail_back"
+            contentDescription = "홈으로 돌아가기"
+            minWidth = dp(48); minimumWidth = dp(48)
+        }, LinearLayout.LayoutParams(dp(48), -2))
+        header.addView(label("오늘의 운동", 22, true).apply {
+            tag = "detail_title"
             isSingleLine = true
-        }, LinearLayout.LayoutParams(0, -2, 1f))
+            contentDescription = "운동 상세 화면 제목"
+        }, LinearLayout.LayoutParams(0, -2, 1f).apply { leftMargin = dp(12) })
         content.addView(header)
         addGap(content, 16)
         // Day and body-part selection live on the Compose overview; this screen only shows the result.
@@ -198,8 +214,8 @@ class MainActivity : Activity() {
         restPanel.addView(label("세트 휴식", 12, true, textSecondary))
         restPanel.addView(restValue)
         val restActions = row()
-        restActions.addView(actionButton("+15초", false) { session.adjustRest(15); syncService(); refreshTimer() }.apply { tag="phone_rest_add" },LinearLayout.LayoutParams(0,dp(48),1f))
-        restActions.addView(actionButton("건너뛰기", false) { session.skipRest(); syncService(); refreshTimer() }.apply { tag="phone_rest_skip" },LinearLayout.LayoutParams(0,dp(48),1f).apply { leftMargin = dp(8) })
+        restActions.addView(actionButton("+15초", false) { session.adjustRest(15); syncService(); refreshTimer() }.apply { tag="phone_rest_add" },LinearLayout.LayoutParams(0,-2,1f))
+        restActions.addView(actionButton("건너뛰기", false) { session.skipRest(); syncService(); refreshTimer() }.apply { tag="phone_rest_skip" },LinearLayout.LayoutParams(0,-2,1f).apply { leftMargin = dp(8) })
         restPanel.addView(restActions)
         content.addView(restPanel)
         addGap(content, Theme.Space.two)
@@ -228,7 +244,7 @@ class MainActivity : Activity() {
         val routine = session.routine
         summary.addView(label("운동 진행 요약", 16, true))
         addGap(summary, Theme.Space.one)
-        summary.addView(label("준비 5분 · 유산소 "+routine.stages[1].minutes+"분 · 근력 "+routine.stages[2].minutes+"분 · 정리 5분",12,false,textSecondary))
+        summary.addView(label("준비 "+routine.stages[0].minutes+"분 · 유산소 "+routine.stages[1].minutes+"분 · 근력 "+routine.stages[2].minutes+"분 · 유산소·정리 "+routine.stages[3].minutes+"분",12,false,textSecondary))
         addGap(summary, Theme.Space.one)
         val kcal = CalorieEstimator.totalKcal(routine,calorieWeightKg)
         summary.addView(label("예상 소모량  약 "+kcal+" kcal",16,true,mint))
@@ -294,12 +310,13 @@ class MainActivity : Activity() {
         val buttons = row()
         previous = actionButton("← 이전", false) { session.jumpTo(session.stage - 1); afterAction() }
         next = actionButton("다음 →", false) { session.nextStage(); afterAction() }.apply { tag = "phone_next" }
+        listOf(previous, next, play).forEach { it.minHeight = dp(52); it.minimumHeight = dp(52) }
         previous.textSize = Theme.Type.caption
         next.textSize = Theme.Type.caption
         play.textSize = Theme.Type.body
-        buttons.addView(previous, LinearLayout.LayoutParams(0, dp(52), 1f))
-        buttons.addView(play, LinearLayout.LayoutParams(0, dp(52), 1.35f).apply { leftMargin = dp(8) })
-        buttons.addView(next, LinearLayout.LayoutParams(0, dp(52), 1f).apply { leftMargin = dp(8) })
+        buttons.addView(previous, LinearLayout.LayoutParams(0, -2, 1f))
+        buttons.addView(play, LinearLayout.LayoutParams(0, -2, 1.35f).apply { leftMargin = dp(8) })
+        buttons.addView(next, LinearLayout.LayoutParams(0, -2, 1f).apply { leftMargin = dp(8) })
         dock.addView(buttons)
         return dock
     }
@@ -337,7 +354,7 @@ class MainActivity : Activity() {
                 .setItems(arrayOf("현재 단계 초기화","오늘 진행 초기화")) { _, which ->
                     if (which == 0) session.resetStage() else session.resetAll()
                     afterAction()
-                }.setNegativeButton("취소",null).show()
+                }.setNegativeButton("취소",null).showDimmed()
             true
         }
         return box
@@ -510,7 +527,7 @@ class MainActivity : Activity() {
             block.addView(detailBlock)
             val currentStrength = if (si == 2) currentStrengthTask() else null
             for ((ti, task) in stage.tasks.withIndex()) {
-                val isPhase = si == 1 && session.stage == 1 && selectedPhase == ti && session.running
+                val isPhase = (si == 1 || si == 3) && session.stage == si && selectedPhase == ti && session.running
                 val item = row().apply {
                     gravity = Gravity.CENTER_VERTICAL
                     minimumHeight = dp(48)
@@ -584,12 +601,12 @@ class MainActivity : Activity() {
             12, false, textSecondary))
         addGap(detailContent, 12)
         if (task.id.isNotEmpty() && info != null) {
-            // Local illustration is a fallback, not a fabricated or unlicensed video.
-            detailContent.addView(ExerciseDiagram(this, task.id),
+            // Two public-domain frames loop like a short clip; stick figure only when no image exists.
+            detailContent.addView(ExerciseGuide.create(this, task.id),
                 LinearLayout.LayoutParams(-1, -2))
             addGap(detailContent, 4)
             detailContent.addView(label(
-                "${info.area} · ${info.equipment} · 동작 참고 이미지 (영상은 아직 연결되지 않았어요)",
+                "${info.area} · ${info.equipment} · 시작·끝 자세 반복 이미지",
                 11, false, textSecondary))
             addGap(detailContent, 16)
         }
@@ -678,14 +695,14 @@ class MainActivity : Activity() {
             }
             phase != null -> {
                 timerCueTitle.text = phase.second.name
-                timerCueDetail.text = "${displayDetail(phase.second.description)} · ${formatTime(session.phaseSecondsRemaining())} 남음 · ${phase.first + 1}/${session.routine.stages[1].tasks.size} 구간"
+                timerCueDetail.text = "${displayDetail(phase.second.description)} · ${formatTime(session.phaseSecondsRemaining())} 남음 · ${phase.first + 1}/${session.routine.stages[session.stage].tasks.size} 구간"
             }
             else -> {
                 val strengthTask = if (session.stage == 2) currentStrengthTask() else null
                 timerCueTitle.text = when (session.stage) {
                     0 -> "워밍업으로 몸 깨우기"
                     2 -> strengthTask?.name ?: "근력 세트 완료"
-                    else -> "마무리 스트레칭"
+                    else -> "유산소 정리"
                 }
                 timerCueDetail.text = when (session.stage) {
                     0 -> "관절 가동성을 천천히 높이고 호흡을 안정시키세요."

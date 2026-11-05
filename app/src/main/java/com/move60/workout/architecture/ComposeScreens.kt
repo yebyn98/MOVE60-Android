@@ -59,6 +59,7 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.ui.platform.testTag
 import androidx.compose.material3.Switch
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -67,6 +68,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -569,7 +572,7 @@ fun WorkoutSettings(
         AlertDialog(
             onDismissRequest = { diagnostics = null },
             title = { Text("운동 알림 진단") },
-            text = { Text(text) },
+            text = { DialogDim(); Text(text) },
             dismissButton = { TextButton(onClick = { diagnostics = null }) { Text("닫기") } },
             confirmButton = {
                 TextButton(onClick = { diagnostics = null; openNotificationSettings(context) }) {
@@ -583,6 +586,7 @@ fun WorkoutSettings(
             onDismissRequest = { showRatio = false },
             title = { Text("60분 운동 시간 배분") },
             text = {
+                DialogDim()
                 Column {
                     listOf(20, 25, 30, 35, 40).forEach { minutes ->
                         Row(
@@ -600,5 +604,16 @@ fun WorkoutSettings(
             },
             confirmButton = { TextButton(onClick = { showRatio = false }) { Text("취소") } }
         )
+    }
+}
+
+
+/** Dims everything behind a Compose dialog so popups read as modal. */
+@Composable
+private fun DialogDim() {
+    val window = (LocalView.current.parent as? DialogWindowProvider)?.window
+    SideEffect {
+        window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+        window?.setDimAmount(0.72f)
     }
 }

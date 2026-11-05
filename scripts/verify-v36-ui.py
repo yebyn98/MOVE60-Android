@@ -14,7 +14,10 @@ old=read("wear/src/main/java/com/move60/watch/WatchActivity.kt")
 for phrase in ("버추얼메이트Me 열기", "별도 앱으로 이동합니다.", "오늘 운동량", "ExercisePhotos.addTo", "openVirtualMate"):
     assert phrase not in main, f"Deleted phone UI came back: {phrase}"
 assert not (root/"app/src/main/java/com/move60/workout/ExercisePhotos.kt").exists()
-assert 'label("MOVE60", 24' in main and 'label("MOVE", 24' not in main
+assert 'detail_back' in main and 'detail_title' in main and 'leaveToOverview' in main, "Detail screen needs back button + title"
+assert 'label("MOVE60", 24' not in main, "Detail screen must not keep the old app bar"
+assert 'ExerciseGuide.create' in main and (root/"app/src/main/assets/exercise/legPress_0.jpg").exists(), "Guide must use the two-frame loop"
+assert 'backgroundDimEnabled' in read("app/src/main/res/values/styles.xml") and 'DialogDim()' in compose, "Popups must dim the background"
 assert 'phone_calendar' not in main and 'showWorkoutCalendar' not in main, "Calendar lives in Compose only"
 for marker in ("MonthGrid(", "calendar-dot-", "calendar_prev", "calendar_next", "운동 기록 있음"):
     assert marker in compose, f"Compose calendar lost: {marker}"
@@ -55,7 +58,7 @@ assert "건강 대시보드" in old
 assert 'horologist-compose-layout:0.6.23' in read("wear/build.gradle")
 targets=read("scripts/release-targets.json")
 assert '"phone": true' in targets and '"watch": true' in targets
-assert "versionCode 39" in read("app/build.gradle") and "versionCode 37" in read("wear/build.gradle")
+assert "versionCode 40" in read("app/build.gradle") and "versionCode 38" in read("wear/build.gradle")
 for manifest_path, activity in (
     ("app/src/main/AndroidManifest.xml", ".health.HealthConsentActivity"),
     ("wear/src/main/AndroidManifest.xml", ".health.WearHealthActivity"),

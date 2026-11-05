@@ -245,7 +245,7 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
             workout.stageIndex == 2 && workout.hasSession ->
                 workout.exerciseName.ifBlank { workout.setLabel } +
                     (if (workout.setTotal > 0) " · ${workout.setNumber}/${workout.setTotal}세트" else "")
-            workout.stageIndex == 1 && workout.intervalTotal > 0 ->
+            (workout.stageIndex == 1 || workout.stageIndex == 3) && workout.intervalTotal > 0 ->
                 "${workout.intervalIndex}/${workout.intervalTotal}구간 · ${workout.detail}"
             workout.running -> workout.detail.ifBlank { "운동 중" }
             workout.hasSession -> "일시정지"
@@ -292,7 +292,7 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
         heartRate.contentDescription = if (bpm in 30..240 && age in 0L..10_000L)
             "심박수 $bpm, ${age / 1000}초 전 측정" else "심박수 연결대기"
         playButton.text = if (workout.running) "일시정지" else if (workout.finished) "새 운동" else "시작"
-        detail.contentDescription = detail.text.toString() + (if (workout.stageIndex == 1 && workout.upcomingInterval.isNotBlank()) " · 다음 구간 ${workout.upcomingInterval}" else "")
+        detail.contentDescription = detail.text.toString() + (if ((workout.stageIndex == 1 || workout.stageIndex == 3) && workout.upcomingInterval.isNotBlank()) " · 다음 구간 ${workout.upcomingInterval}" else "")
         nextButton.text = when {
             workout.stageIndex == 3 -> "운동 완료"
             workout.stageIndex == 2 && workout.restSeconds() > 0 -> "휴식 건너뛰기"

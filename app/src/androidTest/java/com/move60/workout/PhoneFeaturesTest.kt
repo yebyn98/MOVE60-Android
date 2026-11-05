@@ -71,6 +71,36 @@ class PhoneFeaturesTest {
             onView(withTagValue(`is`("phone_settings"))).check(doesNotExist())
         }
     }
+    @Test fun detailHeaderHasBackButtonTitleAndCardioBookends() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            instrumentation.waitForIdleSync()
+            scenario.onActivity { activity ->
+                val root = activity.window.decorView
+                val back = root.findViewWithTag<View>("detail_back")
+                val title = root.findViewWithTag<TextView>("detail_title")
+                assertNotNull(back); assertNotNull(title)
+                assertEquals("오늘의 운동", title.text.toString())
+                assertTrue("back button must be at least 48dp", back.height >= (48 * activity.resources.displayMetrics.density).toInt())
+                assertNull("old MOVE60 app bar must be gone", root.findViewWithTag<View>("phone_app_bar"))
+                val routine = SessionStore(context, WorkoutData(context)).routine
+                assertEquals(listOf("준비운동", "근력운동"), listOf(routine.stages[0].name, routine.stages[2].name))
+                assertTrue(routine.stages[1].tasks.all { it.kind != "마무리 스트레칭" })
+                assertTrue(routine.stages[3].tasks.any { it.kind == "마무리 스트레칭" })
+            }
+            screenshot("phone-v40-detail-header.png")
+            repeat(3) { scenario.onActivity { it.window.decorView.findViewWithTag<TextView>("phone_next").performClick() } }
+            instrumentation.waitForIdleSync()
+            screenshot("phone-v40-cardio-final.png")
+        }
+    }
+    @Test fun guideImagesExistForEveryLicensedExercise() {
+        val files = context.assets.list("exercise")!!.toSet()
+        val ids = files.filter { it.endsWith("_0.jpg") }.map { it.removeSuffix("_0.jpg") }
+        assertEquals(29, ids.size)
+        ids.forEach { assertTrue("missing second frame for $it", "${it}_1.jpg" in files) }
+        assertTrue(ExerciseGuide.create(context, "legPress").tag == "exercise_guide_loop")
+        assertTrue(ExerciseGuide.create(context, "birdDog") is ExerciseDiagram)
+    }
     @Test fun lastStageHasEnabledFinishAction() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             repeat(3) { scenario.onActivity { activity -> activity.window.decorView.findViewWithTag<TextView>("phone_next").performClick() } }
@@ -134,12 +164,16 @@ class PhoneFeaturesTest {
                 for (week in 0L..10L) for (day in 1..5) {
                     val routine = data.routine(day, week)
                     assertEquals(60, routine.stages.sumOf { it.minutes })
-                    assertEquals(minutes*60, routine.stages[1].tasks.sumOf { it.seconds })
-                    val stairs = routine.stages[1].tasks.filter { it.kind == "스텝밀" }.sumOf { it.seconds }
+                    val cardio = (routine.stages[1].tasks + routine.stages[3].tasks).filter { it.kind != "마무리 스트레칭" }
+                    assertEquals(minutes*60, cardio.sumOf { it.seconds })
+                    assertEquals(routine.stages[1].minutes * 60, routine.stages[1].tasks.sumOf { it.seconds })
+                    assertEquals(routine.stages[3].minutes * 60, routine.stages[3].tasks.sumOf { it.seconds })
+                    assertTrue("cardio-strength-cardio", routine.stages[1].minutes in 5..routine.stages[3].minutes)
+                    val stairs = cardio.filter { it.kind == "스텝밀" }.sumOf { it.seconds }
                     if (stairs > 0) {
                         found = true
                         assertTrue(stairs <= (if (condition == "피곤") 10 else 15)*60)
-                        assertTrue(routine.stages[1].tasks.any { it.kind == "실내 사이클" })
+                        assertTrue(cardio.any { it.kind == "실내 사이클" })
                     }
                 }
             }
