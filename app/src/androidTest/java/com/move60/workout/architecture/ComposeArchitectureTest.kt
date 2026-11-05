@@ -6,6 +6,9 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.room.Room
+import android.graphics.Bitmap
+import androidx.test.platform.app.InstrumentationRegistry
+import java.io.File
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -35,6 +38,11 @@ class ComposeArchitectureTest {
         rule.onNodeWithText("운동 현황").assertIsDisplayed()
         rule.onNodeWithText("상세 운동 화면").assertDoesNotExist()
         rule.onNodeWithText("중량 kg").assertDoesNotExist()
+        // Actual emulator screenshot: the PR artifact includes this captured screen.
+        rule.waitForIdle()
+        val bitmap = requireNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot())
+        val file = File(rule.activity.getExternalFilesDir(null), "move60-home-overview.png")
+        file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 
     @Test fun roomDaoCanUpsertAndObserveAWorkoutDay() = runBlocking {
