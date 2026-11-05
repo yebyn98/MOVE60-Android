@@ -20,6 +20,8 @@ for marker in ("MonthGrid(", "calendar-dot-", "calendar_prev", "calendar_next", 
     assert marker in compose, f"Compose calendar lost: {marker}"
 assert 'phone_settings' not in main and 'SettingsActivity' not in main, "Settings live in Compose only"
 assert not (root/"app/src/main/java/com/move60/workout/SettingsActivity.kt").exists()
+assert "body_focus_" not in main and "renderDayStrip" not in main, "Day/body selection lives in the Compose overview only"
+assert "fun buildSetTable" in main and "phone_current_exercise" in main and "buildSetTable(task)" in main.split("fun showDetails")[1], "Set entry: current-exercise card + exercise popup"
 for feature in ("알림 설정 · 진단", "업데이트 확인", "유산소 · 근력 시간 비율 변경", "오늘 컨디션에 맞춘 루틴", "칼로리 계산 체중"):
     assert feature in compose, f"Compose settings lost: {feature}"
 assert 'Icon(Icons.Outlined.CalendarMonth' in compose and 'Icon(Icons.Outlined.Settings' in compose

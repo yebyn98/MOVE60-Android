@@ -89,34 +89,34 @@ class BodyFocusTest {
     }
     private fun descendants(view: View): List<View> = listOf(view) +
         if (view is ViewGroup) (0 until view.childCount).flatMap { descendants(view.getChildAt(it)) } else emptyList()
-    @Test fun homeSelectionChangesExercisesAndOnlyStrengthHasDetails() {
+    @Test fun detailScreenFollowsOverviewSelectionAndOnlyStrengthHasSetEntry() {
+        val data = WorkoutData(context)
+        assertTrue(SessionStore(context,data).selectBodyFocus("lower"))
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             scenario.onActivity { activity ->
                 val root = activity.window.decorView
-                val upper = root.findViewWithTag<TextView>("body_focus_upper")
-                val lower = root.findViewWithTag<TextView>("body_focus_lower")
+                // Selection lives on the Compose overview; the detail screen must not duplicate it.
+                assertNull(root.findViewWithTag<View>("body_focus_upper"))
+                assertNull(root.findViewWithTag<View>("body_focus_lower"))
+                assertTrue(root.findViewWithTag<TextView>("phone_day_info").text.toString().endsWith("하체"))
+                val store = SessionStore(context,data)
+                val rows = descendants(root).filterIsInstance<TextView>()
+                    .filter { it.tag?.toString()?.startsWith("strength_detail_") == true }
+                assertEquals(store.routine.stages[2].tasks.size,rows.size)
+                assertTrue(rows.all { it.text.toString().endsWith("세트 · 기록 ›") })
                 val minTouchHeight = (48 * activity.resources.displayMetrics.density).toInt()
-                assertTrue("Upper selector must have an accessible touch target", upper.layoutParams.height >= minTouchHeight)
-                assertTrue("Lower selector must have an accessible touch target", lower.layoutParams.height >= minTouchHeight)
-                assertEquals("상체", upper.text.toString())
-                assertEquals("하체", lower.text.toString())
-                root.findViewWithTag<TextView>("body_focus_upper").performClick()
-                assertTrue(root.findViewWithTag<TextView>("body_focus_upper").isSelected)
-                root.findViewWithTag<TextView>("body_focus_lower").performClick()
-                assertTrue(root.findViewWithTag<TextView>("body_focus_lower").isSelected)
-                val store = SessionStore(context,WorkoutData(context))
-                assertEquals("lower",store.bodyFocus)
-                val details = descendants(root).filterIsInstance<TextView>().filter { it.text.toString() == "상세 ›" }
-                assertEquals(store.routine.stages[2].tasks.size,details.size)
-                assertTrue(details.all { it.tag.toString().startsWith("strength_detail_") })
+                assertTrue(rows.all { it.minHeight >= minTouchHeight })
                 repeat(2) { root.findViewWithTag<TextView>("phone_next").performClick() }
-                assertTrue(root.findViewWithTag<TextView>("strength_detail_"+store.routine.stages[2].tasks.first().id).isShown)
+                assertTrue(root.findViewWithTag<View>("phone_current_exercise").isShown)
+                assertNotNull(root.findViewWithTag<View>("set-"+store.routine.stages[2].tasks.first().id+"-1-kg"))
             }
             Thread.sleep(800)
             val image = requireNotNull(instrumentation.uiAutomation.takeScreenshot())
             File(context.getExternalFilesDir(null),"phone-v28-body-focus.png").outputStream().use { image.compress(Bitmap.CompressFormat.PNG,100,it) }
             scenario.recreate()
-            scenario.onActivity { activity -> assertTrue(activity.window.decorView.findViewWithTag<TextView>("body_focus_lower").isSelected) }
+            scenario.onActivity { activity ->
+                assertTrue(activity.window.decorView.findViewWithTag<TextView>("phone_day_info").text.toString().endsWith("하체"))
+            }
         }
     }
 }
