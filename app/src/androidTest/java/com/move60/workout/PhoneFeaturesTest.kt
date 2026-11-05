@@ -119,13 +119,9 @@ class PhoneFeaturesTest {
             screenshot("phone-inline-sets.png")
         }
     }
-    @Test fun calendarMarksTrainedDatesWithDots() {
-        WorkoutHistory(context).addActiveSeconds(today, 90)
+    @Test fun calendarIsNotDuplicatedInDetailScreen() {
         ActivityScenario.launch(MainActivity::class.java).use {
-            onView(withTagValue(`is`("phone_calendar"))).perform(click())
-            onView(withTagValue(`is`("calendar-dot-$today"))).check(matches(isDisplayed()))
-            screenshot("phone-calendar.png")
-            pressBack()
+            onView(withTagValue(`is`("phone_calendar"))).check(doesNotExist())
         }
     }
     @Test fun stairClimbingIsCappedAndEveryCombinationRemainsSixtyMinutes() {

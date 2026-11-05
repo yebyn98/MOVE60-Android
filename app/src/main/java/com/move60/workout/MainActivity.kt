@@ -178,62 +178,6 @@ class MainActivity : Activity() {
     }
 
 
-    private fun showWorkoutCalendar() {
-        val history = WorkoutHistory(this)
-        val ledger = EnergyLedger(this)
-        val root = card()
-        val navigation = row().apply { gravity = Gravity.CENTER_VERTICAL }
-        val monthLabel = label("", 18, true, mint).apply { gravity = Gravity.CENTER }
-        var month = java.time.YearMonth.from(data.localToday())
-        var selectedDate = data.localToday()
-        val grid = GridLayout(this).apply { columnCount = 7; contentDescription = "운동 기록 달력" }
-        val totals = label("", 13, false, textSecondary)
-        val selected = label("", 14, true)
-        fun render() {
-            monthLabel.text = "${month.year}년 ${month.monthValue}월"
-            grid.removeAllViews()
-            listOf("월", "화", "수", "목", "금", "토", "일").forEach { name ->
-                grid.addView(label(name, 12, true, textSecondary).apply { gravity = Gravity.CENTER },
-                    GridLayout.LayoutParams().apply { width = 0; height = dp(30); columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f) })
-            }
-            repeat(month.atDay(1).dayOfWeek.value - 1) {
-                grid.addView(View(this), GridLayout.LayoutParams().apply { width = 0; height = dp(46); columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f) })
-            }
-            for (day in 1..month.lengthOfMonth()) {
-                val date = month.atDay(day)
-                val trained = history.record(date).activeSeconds > 0L
-                val cell = column().apply {
-                    gravity = Gravity.CENTER
-                    contentDescription = "$date · ${if (trained) "운동 기록 있음" else "운동 기록 없음"}"
-                    if (date == selectedDate) background = rounded(subtle, 8)
-                    isClickable = true
-                    isFocusable = true
-                    setOnClickListener { selectedDate = date; render() }
-                }
-                cell.addView(label(day.toString(), 13, date == selectedDate).apply { gravity = Gravity.CENTER })
-                cell.addView(View(this).apply { tag = "calendar-dot-$date"; background = rounded(mint, 4); visibility = if (trained) View.VISIBLE else View.INVISIBLE }, LinearLayout.LayoutParams(dp(5), dp(5)).apply { topMargin = dp(8) })
-                grid.addView(cell, GridLayout.LayoutParams().apply { width = 0; height = dp(46); columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f) })
-            }
-            val days = history.month(month)
-            val kcal = days.sumOf { ledger.estimate(it.date) }.toInt()
-            totals.text = "${history.trainedDays(month)}일 · ${history.totalActiveSeconds(month) / 60}분 · 약 ${kcal} kcal\n● 운동한 날"
-            selected.text = "$selectedDate · ${history.record(selectedDate).activeMinutes}분 · 약 ${ledger.estimate(selectedDate).toInt()} kcal"
-        }
-        navigation.addView(actionButton("‹", false) { month = month.minusMonths(1); selectedDate = month.atDay(1); render() }, LinearLayout.LayoutParams(dp(44), dp(44)))
-        navigation.addView(monthLabel, LinearLayout.LayoutParams(0, dp(44), 1f))
-        navigation.addView(actionButton("›", false) { month = month.plusMonths(1); selectedDate = month.atDay(1); render() }, LinearLayout.LayoutParams(dp(44), dp(44)))
-        root.addView(navigation)
-        root.addView(grid)
-        addGap(root, 12)
-        root.addView(totals)
-        addGap(root, 8)
-        root.addView(selected)
-        render()
-        MaterialAlertDialogBuilder(this).setTitle("운동 달력")
-            .setView(ScrollView(this).apply { isFillViewport = false; addView(root) })
-            .setPositiveButton("닫기", null).show()
-    }
-
     private fun constructInterface() {
         content.removeAllViews()
         val header = row().apply { gravity = Gravity.CENTER_VERTICAL }
@@ -241,11 +185,6 @@ class MainActivity : Activity() {
             contentDescription = "MOVE60"
             isSingleLine = true
         }, LinearLayout.LayoutParams(0, -2, 1f))
-        header.addView(actionButton("▦", false) { showWorkoutCalendar() }.apply {
-            textSize = Theme.Type.heading
-            tag = "phone_calendar"
-            contentDescription = "운동 달력 열기"
-        }, LinearLayout.LayoutParams(dp(48), dp(48)))
         content.addView(header)
         addGap(content, 16)
         content.addView(label(data.localToday().format(DateTimeFormatter.ofPattern("M월 d일"))+" · 상세 운동 및 기록", 20, true))

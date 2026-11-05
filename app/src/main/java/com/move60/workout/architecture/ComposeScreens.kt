@@ -1,6 +1,18 @@
 package com.move60.workout.architecture
 
 import android.content.Intent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.outlined.ChevronLeft
+import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -211,6 +223,8 @@ fun WorkoutCalendar(
     viewModel: HistoryViewModel = hiltViewModel()
 ) {
     val days by viewModel.days.collectAsStateWithLifecycle()
+    val month by viewModel.month.collectAsStateWithLifecycle()
+    val selected by viewModel.selected.collectAsStateWithLifecycle()
     Scaffold(containerColor = MaterialTheme.colorScheme.background,
         topBar = { Row(Modifier.statusBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),verticalAlignment=Alignment.CenterVertically) {
             IconButton(onClick=onBack) {
@@ -221,7 +235,26 @@ fun WorkoutCalendar(
     ) { inner ->
         LazyColumn(Modifier.fillMaxSize().padding(inner),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            item {
+                Move60Card {
+                    MonthGrid(viewModel, month, selected)
+                }
+            }
+            item {
+                val summary = viewModel.monthSummary(month)
+                val day = viewModel.daySummary(selected)
+                Move60Card(Modifier.testTag("calendar_summary")) {
+                    Text("${summary.trainedDays}일 · ${summary.activeMinutes}분 · 약 ${summary.kcal} kcal",
+                        style = MaterialTheme.typography.titleMedium)
+                    Text("● 운동한 날", color = secondary, style = MaterialTheme.typography.bodySmall)
+                    Text("${day.date} · ${day.activeMinutes}분 · 약 ${day.kcal} kcal",
+                        fontWeight = FontWeight.Bold)
+                }
+            }
+            if (days.isNotEmpty()) item {
+                Text("최근 운동 기록", style = MaterialTheme.typography.titleMedium)
+            }
             items(days, key = { it.date }) { item ->
                 Move60Card {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -234,6 +267,64 @@ fun WorkoutCalendar(
                 }
             }
         }
+    }
+}
+
+/** Monday-first month grid; a dot marks days with recorded active time (real records only). */
+@Composable
+private fun MonthGrid(viewModel: HistoryViewModel, month: java.time.YearMonth, selected: java.time.LocalDate) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = viewModel::previousMonth, modifier = Modifier.testTag("calendar_prev")) {
+            Icon(Icons.Outlined.ChevronLeft, contentDescription = "이전 달")
+        }
+        Text("${month.year}년 ${month.monthValue}월", modifier = Modifier.weight(1f),
+            textAlign = TextAlign.Center, style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.primary)
+        IconButton(onClick = viewModel::nextMonth, modifier = Modifier.testTag("calendar_next")) {
+            Icon(Icons.Outlined.ChevronRight, contentDescription = "다음 달")
+        }
+    }
+    Row(Modifier.fillMaxWidth()) {
+        listOf("월", "화", "수", "목", "금", "토", "일").forEach { name ->
+            Text(name, modifier = Modifier.weight(1f), textAlign = TextAlign.Center,
+                color = secondary, style = MaterialTheme.typography.labelMedium)
+        }
+    }
+    val lead = month.atDay(1).dayOfWeek.value - 1
+    val cells: List<java.time.LocalDate?> =
+        List(lead) { null } + (1..month.lengthOfMonth()).map { month.atDay(it) }
+    cells.chunked(7).forEach { week ->
+        Row(Modifier.fillMaxWidth()) {
+            week.forEach { date -> DayCell(viewModel, date, selected, Modifier.weight(1f)) }
+            repeat(7 - week.size) { Spacer(Modifier.weight(1f)) }
+        }
+    }
+}
+
+@Composable
+private fun DayCell(
+    viewModel: HistoryViewModel,
+    date: java.time.LocalDate?,
+    selected: java.time.LocalDate,
+    modifier: Modifier
+) {
+    if (date == null) { Spacer(modifier.heightIn(min = 48.dp)); return }
+    val trained = viewModel.trained(date)
+    val isSelected = date == selected
+    Column(
+        modifier.heightIn(min = 48.dp)
+            .background(if (isSelected) MaterialTheme.colorScheme.outline else Color.Transparent,
+                MaterialTheme.shapes.extraSmall)
+            .clickable(onClickLabel = "날짜 선택") { viewModel.select(date) }
+            .semantics { contentDescription = "$date · ${if (trained) "운동 기록 있음" else "운동 기록 없음"}" },
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text("${date.dayOfMonth}", fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
+        if (trained) {
+            Box(Modifier.padding(top = 4.dp).size(6.dp).testTag("calendar-dot-$date")
+                .background(MaterialTheme.colorScheme.primary, CircleShape))
+        } else Spacer(Modifier.size(10.dp))
     }
 }
 
