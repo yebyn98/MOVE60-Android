@@ -4,7 +4,6 @@ import android.content.Intent
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.hasTestTag
-import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -43,13 +42,10 @@ class ComposeCalendarTest {
         WorkoutHistory(context).addActiveSeconds(today, 90)
         ActivityScenario.launch(ComposeActivity::class.java).use {
             rule.onNodeWithContentDescription("운동 달력").performClick()
-            val dot = rule.onNodeWithTag("calendar-dot-$today")
-            try { dot.assertIsDisplayed() } catch (e: AssertionError) {
-                // Surface the geometry so a CI failure shows why a rendered dot is not visible.
-                val node = dot.fetchSemanticsNode()
-                throw AssertionError("dot bounds=${node.boundsInRoot} root=${rule.onRoot().fetchSemanticsNode().size} " +
-                    "dots=${rule.onAllNodes(hasTestTag("calendar-dot-$today")).fetchSemanticsNodes().size}", e)
-            }
+            // The day cell is a clickable that merges its children, so the dot only exists in the
+            // unmerged tree; the merged cell exposes the same fact to accessibility services.
+            rule.onNodeWithContentDescription("$today · 운동 기록 있음").assertIsDisplayed()
+            rule.onNodeWithTag("calendar-dot-$today", useUnmergedTree = true).assertIsDisplayed()
             rule.onNodeWithTag("calendar_prev").performClick()
             rule.onNodeWithTag("calendar_next").performClick()
             // Summary card is the second LazyColumn item and may start below the fold on small screens.
