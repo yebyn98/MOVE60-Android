@@ -8,6 +8,8 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.hasTestTag
@@ -73,7 +75,11 @@ class ComposeArchitectureTest {
     }
 
     @Test fun dashboardIsOverviewNotDuplicatedWorkoutEditor() {
+        // Today's routine and the start button come first; the weekly plan sits below and may need a scroll.
+        rule.onNodeWithTag("dashboard_routine_card").assertIsDisplayed()
+        rule.onNodeWithTag("dashboard_list").performScrollToNode(hasTestTag("dashboard_plan_card"))
         rule.onNodeWithText("이번 주 운동 계획").assertIsDisplayed()
+        rule.onNodeWithTag("dashboard_list").performScrollToIndex(0)
         rule.onNodeWithTag("workout_dock").assertIsDisplayed()
         rule.onNodeWithText("운동 시작").assertIsDisplayed()
         rule.onNodeWithText("운동 현황").assertIsDisplayed()
@@ -84,6 +90,19 @@ class ComposeArchitectureTest {
         val bitmap = requireNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot())
         val file = File(rule.activity.getExternalFilesDir(null), "move60-home-overview.png")
         file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
+
+    @Test fun weeklyPlanCanBeCollapsedAndReopened() {
+        val hint = "요일과 운동 부위를 선택하면 상세 운동 화면에 적용돼요."
+        rule.onNodeWithTag("dashboard_list").performScrollToNode(hasTestTag("dashboard_plan_header"))
+        // Collapse/expand is a toggle whatever the initial state was: after two clicks we are back where we started.
+        val startedOpen = rule.onAllNodesWithText(hint).fetchSemanticsNodes().isNotEmpty()
+        rule.onNodeWithTag("dashboard_plan_header").performClick()
+        rule.waitForIdle()
+        assertEquals(!startedOpen, rule.onAllNodesWithText(hint).fetchSemanticsNodes().isNotEmpty())
+        rule.onNodeWithTag("dashboard_plan_header").performClick()
+        rule.waitForIdle()
+        assertEquals(startedOpen, rule.onAllNodesWithText(hint).fetchSemanticsNodes().isNotEmpty())
     }
 
     @Test fun roomDaoCanUpsertAndObserveAWorkoutDay() = runBlocking {

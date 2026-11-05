@@ -54,6 +54,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Today
+import androidx.compose.material.icons.outlined.ExpandLess
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.ui.platform.testTag
@@ -76,6 +78,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.move60.workout.MainActivity
+import com.move60.workout.WorkoutHistory
 import com.move60.workout.health.HealthConsentActivity
 import com.move60.workout.ui.Move60Button
 import com.move60.workout.ui.Move60Card
@@ -101,6 +104,8 @@ fun WorkoutDashboard(
             if (event is WorkoutUiEvent.Message) snackbar.showSnackbar(event.message)
         }
     }
+    // Today's routine comes first; the weekly plan stays collapsed once a body part has been chosen.
+    var planOpen by remember { mutableStateOf(state.bodyFocus == null) }
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbar) },
@@ -128,40 +133,32 @@ fun WorkoutDashboard(
         bottomBar = { WorkoutDock(state, viewModel, openDetail) }
     ) { padding ->
         LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding),
+            modifier = Modifier.fillMaxSize().padding(padding).testTag("dashboard_list"),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                Move60Card {
-                    Text("이번 주 운동 계획", style = cardTitle)
-                    Text("요일과 운동 부위를 선택하면 상세 운동 화면에 적용돼요.",
-                        color = secondary, style = MaterialTheme.typography.bodySmall)
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        val days = listOf("월", "화", "수", "목", "금")
-                        days.forEachIndexed { index, title ->
-                            Move60Button(
-                                modifier = Modifier.weight(1f),
-                                primary = state.day == index + 1,
-                                contentPadding = PaddingValues(0.dp),
-                                enabled = !state.running,
-                                onClick = { viewModel.selectDay(index + 1) }
-                            ) { Text(title, maxLines = 1) }
-                        }
-                    }
-                    Text("오늘 운동 부위", color = secondary)
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("upper" to "상체", "lower" to "하체").forEach { (id, title) ->
-                            Move60Button(
-                                modifier = Modifier.weight(1f),
-                                primary = state.bodyFocus == id,
-                                enabled = !state.running,
-                                onClick = { viewModel.selectBody(id) }
-                            ) { Text(title, maxLines = 1) }
+                Move60Card(Modifier.clickable(onClickLabel = "상세 운동 화면 열기", onClick = openDetail)
+                    .testTag("dashboard_routine_card")) {
+                    Text("오늘의 운동 구성", style = cardTitle)
+                    state.stageNames.forEachIndexed { index, name ->
+                        Row(Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Text("${index + 1}", color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold)
+                            Text(name, modifier = Modifier.weight(1f),
+                                fontWeight = if (index == state.stage) FontWeight.Bold else FontWeight.Normal,
+                                color = if (index == state.stage)
+                                    MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurface)
+                            if (index == state.stage) Text("현재", color = secondary,
+                                style = MaterialTheme.typography.labelSmall)
                         }
                     }
                 }
             }
+
             item {
                 Move60Card {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
@@ -192,23 +189,48 @@ fun WorkoutDashboard(
                 }
             }
             item {
-                Move60Card(Modifier.clickable(onClickLabel = "상세 운동 화면 열기", onClick = openDetail)
-                    .testTag("dashboard_routine_card")) {
-                    Text("오늘의 운동 구성", style = cardTitle)
-                    state.stageNames.forEachIndexed { index, name ->
-                        Row(Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically) {
-                            Text("${index + 1}", color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.Bold)
-                            Text(name, modifier = Modifier.weight(1f),
-                                fontWeight = if (index == state.stage) FontWeight.Bold else FontWeight.Normal,
-                                color = if (index == state.stage)
-                                    MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.onSurface)
-                            if (index == state.stage) Text("현재", color = secondary,
-                                style = MaterialTheme.typography.labelSmall)
+                Move60Card(Modifier.testTag("dashboard_plan_card")) {
+                    val dayName = listOf("월", "화", "수", "목", "금").getOrNull(state.day - 1)
+                    val focusName = when (state.bodyFocus) { "upper" -> "상체"; "lower" -> "하체"; else -> "부위 미선택" }
+                    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                        .clickable(onClickLabel = if (planOpen) "주간 계획 접기" else "주간 계획 펼치기") { planOpen = !planOpen }
+                        .testTag("dashboard_plan_header"),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Text("이번 주 운동 계획", style = cardTitle)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (!planOpen) Text(listOfNotNull(dayName?.plus("요일"), focusName).joinToString(" · "),
+                                color = secondary, style = MaterialTheme.typography.bodySmall)
+                            Icon(if (planOpen) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                                contentDescription = if (planOpen) "접기" else "펼치기", tint = secondary)
                         }
+                    }
+                    if (planOpen) {
+                    Text("요일과 운동 부위를 선택하면 상세 운동 화면에 적용돼요.",
+                        color = secondary, style = MaterialTheme.typography.bodySmall)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        val days = listOf("월", "화", "수", "목", "금")
+                        days.forEachIndexed { index, title ->
+                            Move60Button(
+                                modifier = Modifier.weight(1f),
+                                primary = state.day == index + 1,
+                                contentPadding = PaddingValues(0.dp),
+                                enabled = !state.running,
+                                onClick = { viewModel.selectDay(index + 1) }
+                            ) { Text(title, maxLines = 1) }
+                        }
+                    }
+                    Text("오늘 운동 부위", color = secondary)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("upper" to "상체", "lower" to "하체").forEach { (id, title) ->
+                            Move60Button(
+                                modifier = Modifier.weight(1f),
+                                primary = state.bodyFocus == id,
+                                enabled = !state.running,
+                                onClick = { viewModel.selectBody(id) }
+                            ) { Text(title, maxLines = 1) }
+                        }
+                    }
                     }
                 }
             }
@@ -334,7 +356,12 @@ fun WorkoutCalendar(
                 Column(Modifier.fillMaxWidth().testTag("calendar_summary"),
                     verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("● 운동한 날", color = secondary, style = MaterialTheme.typography.bodySmall)
+                        Row(Modifier.testTag("calendar_legend"), horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            LegendDot(MaterialTheme.colorScheme.primary, "상체")
+                            LegendDot(MaterialTheme.colorScheme.onSurface, "하체")
+                            LegendDot(MaterialTheme.colorScheme.secondary, "부위 미기록")
+                        }
                         Text("이번 달 ${summary.trainedDays}일 · ${summary.activeMinutes}분 · 약 ${summary.kcal} kcal",
                             color = secondary, style = MaterialTheme.typography.bodySmall)
                     }
@@ -343,6 +370,15 @@ fun WorkoutCalendar(
                         Text("${day.activeMinutes}분 · 약 ${day.kcal} kcal",
                             style = MaterialTheme.typography.bodySmall)
                     }
+                }
+            }
+            item {
+                val summary = viewModel.monthSummary(month)
+                val week = viewModel.weekTrainedDays()
+                Move60Card(Modifier.testTag("calendar_habit")) {
+                    Text("운동 습관", style = MaterialTheme.typography.titleMedium)
+                    HabitProgress("이번 주", week, WorkoutHistory.WEEKLY_GOAL_DAYS, "calendar_week_progress")
+                    HabitProgress("이번 달 목표", summary.trainedDays, WorkoutHistory.MONTHLY_GOAL_DAYS, "calendar_month_progress")
                 }
             }
             if (days.isNotEmpty()) item {
@@ -410,21 +446,50 @@ private fun DayCell(
 ) {
     if (date == null) { Spacer(modifier.heightIn(min = 48.dp)); return }
     val trained = viewModel.trained(date)
+    val focus = if (trained) viewModel.focus(date) else null
+    val focusLabel = when (focus) { "upper" -> " · 상체"; "lower" -> " · 하체"; else -> "" }
+    val dotColor = when (focus) {
+        "upper" -> MaterialTheme.colorScheme.primary
+        "lower" -> MaterialTheme.colorScheme.onSurface
+        else -> MaterialTheme.colorScheme.secondary
+    }
     val isSelected = date == selected
     Column(
         modifier.heightIn(min = 48.dp)
             .background(if (isSelected) MaterialTheme.colorScheme.outline else Color.Transparent,
                 MaterialTheme.shapes.extraSmall)
             .clickable(onClickLabel = "날짜 선택") { viewModel.select(date) }
-            .semantics { contentDescription = "$date · ${if (trained) "운동 기록 있음" else "운동 기록 없음"}" },
+            .semantics { contentDescription = "$date · ${if (trained) "운동 기록 있음" else "운동 기록 없음"}$focusLabel" },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Text("${date.dayOfMonth}", fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
         if (trained) {
             Box(Modifier.padding(top = 4.dp).size(6.dp).testTag("calendar-dot-$date")
-                .background(MaterialTheme.colorScheme.primary, CircleShape))
+                .background(dotColor, CircleShape))
         } else Spacer(Modifier.size(10.dp))
+    }
+}
+
+@Composable
+private fun LegendDot(color: Color, label: String) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Box(Modifier.size(8.dp).background(color, CircleShape))
+        Text(label, color = secondary, style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+@Composable
+private fun HabitProgress(label: String, done: Int, goal: Int, tag: String) {
+    Column(Modifier.fillMaxWidth().testTag(tag).semantics { contentDescription = "$label ${done}일 / 목표 ${goal}일" },
+        verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(label, color = secondary)
+            Text("$done / ${goal}일", fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary)
+        }
+        LinearProgressIndicator(progress = { (done.toFloat() / goal).coerceIn(0f, 1f) },
+            modifier = Modifier.fillMaxWidth())
     }
 }
 

@@ -142,6 +142,7 @@ class WorkoutService : Service() {
                 if (seconds > 0L) {
                     EnergyLedger(this).add(date, cursor, cursor + seconds * 1000L, old)
                     history.addActiveSeconds(date, seconds)
+                    history.recordFocus(date, old.optString("bodyFocus"))
                     prefs.edit().putLong("history_checkpoint_ms", cursor + seconds * 1000L).commit()
                 }
                 if (seconds == 0L) break

@@ -406,45 +406,86 @@ class MainActivity : Activity() {
             if (doneSets(task) == count) mint else textSecondary)
         progress.setPadding(dp(16), dp(8), 0, dp(8))
         table.addView(progress)
-        val labels = row()
-        listOf("세트", "중량 kg", "횟수", "완료").forEachIndexed { index, title ->
-            labels.addView(label(title, 10, true, textSecondary).apply { gravity = Gravity.CENTER },
-                LinearLayout.LayoutParams(0, dp(28), if (index == 1) 1.3f else 1f))
-        }
-        table.addView(labels)
         for (set in 1..count) {
             val key = "strength-${session.day}-${task.id}-${set}"
             val saved = setRecords.read(session.day, task.id, set, token = session.sessionStartedAt)
-            val fields = row().apply { gravity = Gravity.CENTER_VERTICAL }
+            val prior = setRecords.previous(task.id, set, session.sessionStartedAt)
             val isCurrentSet = key !in session.checked && (1 until set).all { "strength-${session.day}-${task.id}-$it" in session.checked }
-            fields.addView(label("${set}", 12, true, if (isCurrentSet) mint else textPrimary).apply { gravity = Gravity.CENTER }, LinearLayout.LayoutParams(0, dp(48), 1f))
+            // One block per set: header, +/- steppers for kg and reps, and a full-width complete button.
+            val block = column().apply {
+                background = rounded(Theme.Colors.surfaceElevated, 16, Theme.Colors.outline)
+                setPadding(dp(8), dp(8), dp(8), dp(8))
+            }
+            val head = row().apply { gravity = Gravity.CENTER_VERTICAL }
+            head.addView(label("${set}세트", 12, true, if (isCurrentSet) mint else textPrimary), LinearLayout.LayoutParams(0, -2, 1f))
+            if (prior != null) head.addView(label("지난 기록 ${prior.kg} kg × ${prior.reps}회", 10, false, textSecondary))
+            block.addView(head)
             fun input(value: String, hint: String, decimal: Boolean = false): EditText = EditText(this).apply {
                 setText(value)
                 this.hint = hint
                 textSize = Theme.Type.body
+                gravity = Gravity.CENTER
                 setTextColor(textPrimary)
                 setHintTextColor(textSecondary)
                 setSingleLine(true)
                 setSelectAllOnFocus(true)
-                setPadding(dp(8), dp(8), dp(8), dp(8))
+                setPadding(dp(4), dp(8), dp(4), dp(8))
                 inputType = android.text.InputType.TYPE_CLASS_NUMBER or if (decimal) android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL else 0
                 contentDescription = "${task.name} ${set}세트 $hint"
             }
             val kg = input(saved.kg, "kg", true).apply { tag = "set-${task.id}-$set-kg" }
             val reps = input(saved.reps, "회").apply { tag = "set-${task.id}-$set-reps" }
+            fun stepper(field: EditText, unit: String, step: Double, decimal: Boolean, priorValue: String?): LinearLayout {
+                fun adjust(delta: Double) {
+                    val current = field.text.toString().replace(',', '.').toDoubleOrNull()
+                    val next = when {
+                        current != null -> current + delta
+                        delta > 0 -> priorValue?.replace(',', '.')?.toDoubleOrNull() ?: delta
+                        else -> return
+                    }.coerceAtLeast(0.0)
+                    field.setText(if (decimal && next % 1.0 != 0.0) String.format(java.util.Locale.US, "%.1f", next) else next.toLong().toString())
+                    field.setSelection(field.text.length)
+                }
+                fun stepButton(symbol: String, delta: Double, action: String) = actionButton(symbol, false) { adjust(delta) }.apply {
+                    textSize = Theme.Type.body
+                    setPadding(0, 0, 0, 0)
+                    contentDescription = "${task.name} ${set}세트 $unit $action"
+                    tag = "set-${task.id}-$set-" + (if (unit == "중량") "kg" else "reps") + (if (delta < 0) "-minus" else "-plus")
+                }
+                // Stacked rows keep the value field wide enough for "122.5" even in the narrow popup.
+                return row().apply {
+                    gravity = Gravity.CENTER_VERTICAL
+                    addView(label(if (decimal) "kg" else "회", 11, true, textSecondary).apply { gravity = Gravity.CENTER },
+                        LinearLayout.LayoutParams(dp(32), dp(48)))
+                    addView(stepButton("−", -step, "줄이기"), LinearLayout.LayoutParams(dp(48), dp(48)))
+                    addView(field, LinearLayout.LayoutParams(0, dp(48), 1f))
+                    addView(stepButton("+", step, "늘리기"), LinearLayout.LayoutParams(dp(48), dp(48)))
+                }
+            }
+            block.addView(stepper(kg, "중량", 2.5, true, prior?.kg), LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4) })
+            block.addView(stepper(reps, "횟수", 1.0, false, prior?.reps), LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4) })
             // Old per-set intensity is retained in storage for compatibility.
             // New UI exposes only equipment load and repetitions.
             val retainedEffort = saved.rpe.ifBlank { "5" }
-            fields.addView(kg, LinearLayout.LayoutParams(0, dp(48), 1.3f))
-            fields.addView(reps, LinearLayout.LayoutParams(0, dp(48), 1f))
             val check = CheckBox(this).apply {
                 tag = "set-${task.id}-$set-check"
                 isChecked = key in session.checked || saved.completed
-                buttonTintList = android.content.res.ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()), intArrayOf(mint, textSecondary))
-                contentDescription = "${task.name} ${set}세트 완료"
+                buttonDrawable = null
                 gravity = Gravity.CENTER
-                setPadding(0, 0, 0, 0)
+                textSize = Theme.Type.body
+                setTypeface(typeface, android.graphics.Typeface.BOLD)
+                background = android.graphics.drawable.StateListDrawable().apply {
+                    addState(intArrayOf(android.R.attr.state_checked), rounded(mint, 16))
+                    addState(intArrayOf(), rounded(Theme.Colors.surface, 16, Theme.Colors.outline))
+                }
+                contentDescription = "${task.name} ${set}세트 완료"
+                setPadding(dp(8), 0, dp(8), 0)
             }
+            fun styleCheck() {
+                check.text = if (check.isChecked) "✓ ${set}세트 완료" else "${set}세트 완료"
+                check.setTextColor(if (check.isChecked) Theme.Colors.onPrimary else textPrimary)
+            }
+            styleCheck()
             fun saveEntry() {
                 val record = SetRecordStore.Record(kg.text.toString(), reps.text.toString(), retainedEffort, check.isChecked)
                 setRecords.write(session.day, task.id, set, record, token = session.sessionStartedAt)
@@ -461,6 +502,7 @@ class MainActivity : Activity() {
                 })
             }
             check.setOnCheckedChangeListener { _, checked ->
+                styleCheck()
                 val record = SetRecordStore.Record(kg.text.toString(), reps.text.toString(), retainedEffort, checked)
                 if (checked && !record.valid) {
                     check.isChecked = false
@@ -479,10 +521,8 @@ class MainActivity : Activity() {
                     if (checked && done == count) handler.post { renderStages(); renderSummary() }
                 }
             }
-            fields.addView(check, LinearLayout.LayoutParams(0, dp(48), 1f))
-            table.addView(fields)
-            val prior = setRecords.previous(task.id,set,session.sessionStartedAt)
-            if (prior != null) table.addView(label("지난 기록  "+prior.kg+" kg × "+prior.reps+"회",10,false,textSecondary).apply { setPadding(dp(16),0,0,dp(8)) })
+            block.addView(check, LinearLayout.LayoutParams(-1, dp(56)).apply { topMargin = dp(8) })
+            table.addView(block, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
         }
         table.addView(label(if (showHint) "맨몸은 0kg · 체크하면 휴식이 자동으로 시작돼요"
             else "맨몸은 0kg · 중량과 횟수 자동 저장", 10, false, textSecondary))
