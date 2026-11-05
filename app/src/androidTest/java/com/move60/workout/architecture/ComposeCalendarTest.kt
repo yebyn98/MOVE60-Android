@@ -1,7 +1,6 @@
 package com.move60.workout.architecture
 
 import android.content.Intent
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.captureToImage
