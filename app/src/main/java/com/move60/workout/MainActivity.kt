@@ -178,29 +178,6 @@ class MainActivity : Activity() {
     }
 
 
-    private fun showPerformanceDashboard() {
-        val history = WorkoutHistory(this)
-        val month = java.time.YearMonth.now(java.time.ZoneId.of("Asia/Seoul"))
-        val days = history.month(month)
-        val trained = days.count { it.activeSeconds > 0L }
-        val minutes = days.sumOf { it.activeMinutes }
-        val estimated = days.sumOf { EnergyLedger(this).estimate(it.date) }.toInt()
-        val panel = card()
-        panel.addView(label("${month.year}년 ${month.monthValue}월 운동 요약", 19, true, mint))
-        addGap(panel, 12)
-        panel.addView(label("운동한 날  ${trained}일", 17, true))
-        panel.addView(label("누적 운동  ${minutes}분", 17, true))
-        panel.addView(label("추정 소모  약 ${estimated} kcal", 17, true))
-        addGap(panel, 12)
-        panel.addView(label("일별 운동 시간", 13, true, textSecondary))
-        panel.addView(MonthlyActivityChart(this, days.map { it.activeMinutes }))
-        addGap(panel, 10)
-        panel.addView(label("실제 활동시간과 입력한 완료 세트 기반 추정치입니다. 이전 기록은 평균 MET 4.5를 사용합니다.", 12, false, textSecondary))
-        AlertDialog.Builder(this).setTitle("운동 성과")
-            .setView(ScrollView(this).apply { isFillViewport = false; addView(panel) })
-            .setPositiveButton("닫기", null).show()
-    }
-
     private fun showWorkoutCalendar() {
         val history = WorkoutHistory(this)
         val ledger = EnergyLedger(this)
