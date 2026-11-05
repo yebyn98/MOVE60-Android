@@ -47,7 +47,7 @@ class ExerciseDiagram(context: Context, private val exerciseId: String) : View(c
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val measuredWidth = resolveSize((320 * resources.displayMetrics.density).toInt(), widthMeasureSpec)
-        // The figures are drawn in a 360-unit-wide design space that is ~290 units tall; derive the
+        // The figures are drawn in a 360-unit-wide design space that is ~310 units tall; derive the
         // height from the width so the legs and the captions are never clipped or overlapped.
         val preferredHeight = (measuredWidth * DESIGN_HEIGHT / DESIGN_WIDTH).toInt()
         setMeasuredDimension(measuredWidth, resolveSize(preferredHeight, heightMeasureSpec))
@@ -165,4 +165,4 @@ class ExerciseDiagram(context: Context, private val exerciseId: String) : View(c
 }
 
 private const val DESIGN_WIDTH = 360f
-private const val DESIGN_HEIGHT = 290f
+private const val DESIGN_HEIGHT = 310f
