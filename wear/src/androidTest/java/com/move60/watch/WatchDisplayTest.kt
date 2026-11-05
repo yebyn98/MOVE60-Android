@@ -91,12 +91,26 @@ class WatchDisplayTest {
                 assertFalse(activity.window.decorView.findViewWithTag<TextView>("ambient_time").text.contains(":"))
             }
             capture("watch-ambient.png")
-            scenario.onActivity { it.setAmbientMode(false) }
-            instrumentation.waitForIdleSync()
-            scenario.onActivity { activity ->
-                assertButtonInsideCircle(activity, activity.window.decorView.findViewWithTag("watch_next"))
-                assertEquals("일시정지", activity.window.decorView.findViewWithTag<Button>("watch_play").text.toString())
-            }
+            // Actual Wear OS may dispatch ambient lifecycle callbacks while the
+            // emulator is stabilizing. Verify the explicit exit transition with
+            // a bounded recheck rather than racing another ambient callback.
+            val deadline = android.os.SystemClock.uptimeMillis() + 5_000L
+            var restored = false
+            do {
+                scenario.onActivity { activity ->
+                    activity.setAmbientMode(false)
+                    val next = activity.window.decorView.findViewWithTag<Button>("watch_next")
+                    val play = activity.window.decorView.findViewWithTag<Button>("watch_play")
+                    restored = next.isShown && play.isShown
+                    if (restored) {
+                        assertButtonInsideCircle(activity, next)
+                        assertButtonInsideCircle(activity, play)
+                        assertEquals("일시정지", play.text.toString())
+                    }
+                }
+                if (!restored) Thread.sleep(100L)
+            } while (!restored && android.os.SystemClock.uptimeMillis() < deadline)
+            assertTrue("Interactive controls did not return after exiting ambient", restored)
             capture("watch-restored.png")
         }
     }
