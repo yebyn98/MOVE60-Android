@@ -29,6 +29,14 @@ class ComposeArchitectureTest {
         rule.onNodeWithText("칼로리 계산 기준").assertIsDisplayed()
     }
 
+    @Test fun dashboardIsOverviewNotDuplicatedWorkoutEditor() {
+        rule.onNodeWithText("이번 주 운동 계획").assertIsDisplayed()
+        rule.onNodeWithText("운동 상세 및 시작").assertIsDisplayed()
+        rule.onNodeWithText("운동 현황").assertIsDisplayed()
+        rule.onNodeWithText("상세 운동 화면").assertDoesNotExist()
+        rule.onNodeWithText("중량 kg").assertDoesNotExist()
+    }
+
     @Test fun roomDaoCanUpsertAndObserveAWorkoutDay() = runBlocking {
         val context = rule.activity.applicationContext
         val db = Room.inMemoryDatabaseBuilder(context, WorkoutDatabase::class.java).build()
