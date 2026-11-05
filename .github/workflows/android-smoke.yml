@@ -11,6 +11,11 @@ on:
       - 'app/build.gradle'
       - 'scripts/smoke-android.sh'
       - '.github/workflows/android-smoke.yml'
+# Superseded PR commits must not keep running expensive emulators in parallel.
+# Main release remains controlled by the separate release workflow.
+concurrency:
+  group: move60-pr-check-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 permissions:
   contents: read
 jobs:
