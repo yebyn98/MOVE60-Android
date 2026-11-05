@@ -103,7 +103,7 @@ class BodyFocusTest {
                 val rows = descendants(root).filterIsInstance<TextView>()
                     .filter { it.tag?.toString()?.startsWith("strength_detail_") == true }
                 assertEquals(store.routine.stages[2].tasks.size,rows.size)
-                assertTrue(rows.all { it.text.toString().endsWith("세트 · 기록 ›") })
+                assertTrue(rows.all { it.text.toString().endsWith("상세 ›") })
                 val minTouchHeight = (48 * activity.resources.displayMetrics.density).toInt()
                 assertTrue(rows.all { it.minHeight >= minTouchHeight })
                 repeat(2) { root.findViewWithTag<TextView>("phone_next").performClick() }
