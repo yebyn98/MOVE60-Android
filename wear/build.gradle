@@ -44,6 +44,8 @@ dependencies {
     androidTestImplementation 'androidx.compose.ui:ui-test-junit4'
     debugImplementation 'androidx.compose.ui:ui-test-manifest'
     implementation 'androidx.activity:activity:1.9.3'
+    // Activity Result APIs require Fragment >=1.3; make the runtime contract explicit.
+    implementation 'androidx.fragment:fragment:1.8.5'
     implementation 'androidx.core:core:1.13.1'
     implementation 'androidx.wear:wear:1.3.0'
     implementation 'androidx.wear:wear-ongoing:1.0.0'
