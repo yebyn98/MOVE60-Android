@@ -3,7 +3,6 @@ package com.move60.workout.health
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,7 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.health.connect.client.permission.PermissionController
+import androidx.health.connect.client.PermissionController
 import androidx.lifecycle.lifecycleScope
 import com.move60.workout.Move60Theme
 import dagger.hilt.android.AndroidEntryPoint
@@ -41,12 +40,12 @@ class HealthConsentActivity : ComponentActivity() {
 
     private val requestPermissions = registerForActivityResult(
         PermissionController.createRequestPermissionResultContract()
-    ) { granted ->
+    ) { granted: Set<String> ->
         if (granted.containsAll(HealthConnectGateway.readPermissions)) {
             gateway.enable()
             readAndSend()
         } else {
-            status = "일부 권한이 거부됐어요. 심박수·수면을 모두 동의해야 읽을 수 있어요."
+            status = "심박수 읽기 권한이 필요해요."
         }
     }
 
@@ -74,9 +73,7 @@ class HealthConsentActivity : ComponentActivity() {
                         colors = CardDefaults.cardColors(containerColor = Color(palette.surface))
                     ) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("동의 항목: 심박수·수면 기록(읽기 전용)")
-                            Text("워치4는 혈관 스트레스(Vascular Load)를 측정하지 못하며 공개 데이터 SDK에서도 제공되지 않습니다.",
-                                color = Color(palette.textMedium))
+                            Text("동의 항목: 심박수 기록(읽기 전용)")
                             Text(status, color = Color(palette.primary))
                             Text(summary, color = Color(palette.textMedium))
                         }
@@ -143,12 +140,11 @@ class HealthConsentActivity : ComponentActivity() {
 
     private fun readAndSend() {
         lifecycleScope.launch {
-            status = "동의한 심박수·수면 기록을 확인하고 있어요."
+            status = "동의한 심박수 기록을 확인하고 있어요."
             try {
                 val metrics = gateway.readWithConsent()
                 gateway.sendToWatch(metrics, true)
-                summary = "최근 심박수: ${metrics.lastHeartBpm?.let { "$it bpm" } ?: "기록 없음"} · " +
-                    "최근 수면: ${metrics.sleepMinutes?.let { "${it / 60}시간 ${it % 60}분" } ?: "기록 없음"}"
+                summary = "최근 심박수: ${metrics.lastHeartBpm?.let { "$it bpm" } ?: "기록 없음"}"
                 status = "공유 요청 완료 · 워치가 연결되면 최신 데이터가 표시돼요."
             } catch (error: SecurityException) {
                 gateway.disable()
