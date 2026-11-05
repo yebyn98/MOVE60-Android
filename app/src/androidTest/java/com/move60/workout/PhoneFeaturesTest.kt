@@ -86,6 +86,8 @@ class PhoneFeaturesTest {
                     val bounds = (b as? com.google.android.material.button.MaterialButton)?.background?.bounds
                     assertTrue("$tag must be at least 48dp tall", b.height >= (48 * activity.resources.displayMetrics.density).toInt())
                     if (bounds != null) assertTrue("$tag drawable ${bounds.height()} clipped by view ${b.height}", bounds.height() <= b.height)
+                    val parent = b.parent as View
+                    assertTrue("$tag outside its row: top=${b.top} bottom=${b.bottom} row=${parent.height}", b.top >= 0 && b.bottom <= parent.height)
                     assertTrue("$tag text must not be truncated", b.layout == null || b.layout.lineCount <= 1)
                 }
                 assertNull("old MOVE60 app bar must be gone", root.findViewWithTag<View>("phone_app_bar"))

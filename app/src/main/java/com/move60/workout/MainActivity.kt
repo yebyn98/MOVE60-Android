@@ -213,7 +213,7 @@ class MainActivity : Activity() {
         restValue = label("", 23, true, mint).apply { tag = "phone_rest_time" }
         restPanel.addView(label("세트 휴식", 12, true, textSecondary))
         restPanel.addView(restValue)
-        val restActions = row()
+        val restActions = row().apply { isBaselineAligned = false }
         restActions.addView(actionButton("+15초", false) { session.adjustRest(15); syncService(); refreshTimer() }.apply { tag="phone_rest_add" },LinearLayout.LayoutParams(0,dp(52),1f))
         restActions.addView(actionButton("건너뛰기", false) { session.skipRest(); syncService(); refreshTimer() }.apply { tag="phone_rest_skip" },LinearLayout.LayoutParams(0,dp(52),1f).apply { leftMargin = dp(8) })
         restPanel.addView(restActions)
@@ -307,7 +307,8 @@ class MainActivity : Activity() {
             renderStages()
             refreshTimer()
         }.apply { contentDescription = "운동 시작 또는 일시정지"; tag = "phone_play" }
-        val buttons = row()
+        // Baseline alignment shifts buttons with different text sizes out of the row and clips their outline.
+        val buttons = row().apply { isBaselineAligned = false; gravity = Gravity.CENTER_VERTICAL }
         previous = actionButton("← 이전", false) { session.jumpTo(session.stage - 1); afterAction() }.apply { tag = "phone_prev" }
         next = actionButton("다음 →", false) { session.nextStage(); afterAction() }.apply { tag = "phone_next" }
         listOf(previous, next, play).forEach { it.minHeight = dp(56); it.minimumHeight = dp(56); it.maxLines = 1 }
