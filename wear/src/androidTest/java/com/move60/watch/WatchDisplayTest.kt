@@ -91,16 +91,30 @@ class WatchDisplayTest {
                 assertFalse(activity.window.decorView.findViewWithTag<TextView>("ambient_time").text.contains(":"))
             }
             capture("watch-ambient.png")
-            // Actual Wear OS may dispatch ambient lifecycle callbacks while the
-            // emulator is stabilizing. Verify the explicit exit transition with
-            // a bounded recheck rather than racing another ambient callback.
-            val deadline = android.os.SystemClock.uptimeMillis() + 5_000L
+            // Simulate an actual wrist wake/foreground transition. An explicit
+            // setAmbientMode(false) while the emulator still has an ambient window
+            // cannot guarantee isShown(), even when the View visibility is VISIBLE.
+            instrumentation.uiAutomation.executeShellCommand(
+                "input keyevent KEYCODE_WAKEUP"
+            ).close()
+            instrumentation.uiAutomation.executeShellCommand(
+                "wm dismiss-keyguard"
+            ).close()
+            scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
+            val deadline = android.os.SystemClock.uptimeMillis() + 8_000L
             var restored = false
+            var diagnostics = ""
             do {
                 scenario.onActivity { activity ->
                     activity.setAmbientMode(false)
-                    val next = activity.window.decorView.findViewWithTag<Button>("watch_next")
-                    val play = activity.window.decorView.findViewWithTag<Button>("watch_play")
+                    val root = activity.window.decorView
+                    val next = root.findViewWithTag<Button>("watch_next")
+                    val play = root.findViewWithTag<Button>("watch_play")
+                    val scroll = root.findViewWithTag<View>("watch_scroll")
+                    diagnostics = "window=${root.windowVisibility} root=${root.visibility} " +
+                        "scroll=${scroll.visibility}/${scroll.isShown} " +
+                        "next=${next.visibility}/${next.isShown} " +
+                        "play=${play.visibility}/${play.isShown}"
                     restored = next.isShown && play.isShown
                     if (restored) {
                         assertButtonInsideCircle(activity, next)
@@ -108,9 +122,10 @@ class WatchDisplayTest {
                         assertEquals("일시정지", play.text.toString())
                     }
                 }
-                if (!restored) Thread.sleep(100L)
+                if (!restored) Thread.sleep(200L)
             } while (!restored && android.os.SystemClock.uptimeMillis() < deadline)
-            assertTrue("Interactive controls did not return after exiting ambient", restored)
+            if (!restored) capture("watch-restoration-failed.png")
+            assertTrue("Interactive controls did not return after wake: $diagnostics", restored)
             capture("watch-restored.png")
         }
     }
