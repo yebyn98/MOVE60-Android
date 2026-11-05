@@ -366,7 +366,7 @@ fun WorkoutSettings(
             item {
                 Move60Card {
                     Text("건강 데이터 연동", style = MaterialTheme.typography.titleMedium)
-                    Text("삼성 헬스 심박수·수면 기록을 동의 후 불러오기", color = secondary)
+                    Text("삼성 헬스 심박수 기록을 동의 후 불러오기", color = secondary)
                     Button(onClick = { context.startActivity(Intent(context, HealthConsentActivity::class.java)) }) {
                         Text("연동 권한 및 기록 확인")
                     }
