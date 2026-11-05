@@ -25,7 +25,7 @@ object WatchStatePublisher {
         val sequence = maxOf(now, prefs.getLong("sequence",0L)+1L)
         prefs.edit().putLong("sequence",sequence).apply()
         val index = state.optInt("stage", 0).coerceIn(0, 3)
-        val names = listOf("준비운동", "유산소", when (current.bodyFocus) { "upper" -> "상체 근력"; "lower" -> "하체 근력"; else -> "근력운동" }, "마무리 스트레칭")
+        val names = listOf("준비운동", "유산소 ①", when (current.bodyFocus) { "upper" -> "상체 근력"; "lower" -> "하체 근력"; else -> "근력운동" }, "유산소 ② · 마무리")
         val running = state.optBoolean("running") && !state.optBoolean("finished")
         val deadline = state.optLong("deadlineAt")
         val remaining = if (running) ceil((deadline - now) / 1000.0).toInt().coerceAtLeast(0)
@@ -34,11 +34,11 @@ object WatchStatePublisher {
         var intervalIndex = 0
         var intervalCount = 0
         var upcomingInterval = ""
-        if (index == 1) {
+        if (index == 1 || index == 3) {
             val duration = state.optJSONArray("stageSeconds")?.optInt(index, 1800) ?: 1800
             var elapsed = if (running) (duration - remaining).coerceAtLeast(0)
                 else state.optInt("stageElapsedSeconds").coerceAtLeast(0)
-            val phases = state.optJSONArray("phases")
+            val phases = state.optJSONArray(if (index == 3) "phases3" else "phases")
             if (phases != null) for (i in 0 until phases.length()) {
                 val phase = phases.optJSONObject(i) ?: continue
                 if (elapsed < phase.optInt("seconds", 60) || i == phases.length() - 1) {

@@ -31,6 +31,9 @@
     <style name="Move60AlertDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
         <item name="colorSurfaceContainerHigh">@color/move60_surface_elevated</item>
         <item name="shapeAppearanceOverlay">@style/Move60DialogShape</item>
+        <!-- Everything behind a popup is dimmed so the popup reads as modal. -->
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:backgroundDimAmount">0.72</item>
     </style>
     <style name="Move60DialogShape">
         <item name="cornerFamily">rounded</item>

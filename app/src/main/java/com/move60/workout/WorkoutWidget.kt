@@ -26,7 +26,7 @@ class WorkoutWidget : AppWidgetProvider() {
                 .getString("snapshot", "{}") ?: "{}")
             val running = state.optBoolean("running", false) && !state.optBoolean("finished", false)
             val stage = state.optInt("stage", 0).coerceIn(0, 3)
-            val stages = arrayOf("준비운동", "유산소", "근력운동", "마무리")
+            val stages = arrayOf("준비운동", "유산소 ①", "근력운동", "유산소 ②")
             val deadline = state.optLong("deadlineAt", System.currentTimeMillis())
             val remaining = ((deadline - System.currentTimeMillis()) / 1000L).coerceAtLeast(0L)
             val open = PendingIntent.getActivity(context, 601, Intent(context, MainActivity::class.java),

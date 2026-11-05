@@ -129,6 +129,20 @@ class WorkoutData(private val context: Context) {
             segment("실내 사이클", "유지", cycle - 5, "4~5")
             segment("실내 사이클", "정리", minOf(2, (cycle-3).coerceAtLeast(0)), "3")
         }
+        // 유산소 - 근력 - 유산소: cardio is split around strength; the second block is the cool-down.
+        val firstCardioMinutes = (cardioMinutes() / 2 + 2) / 5 * 5
+        val firstSeconds = firstCardioMinutes.coerceAtLeast(5) * 60
+        val cardioFirst = mutableListOf<WorkoutTask>()
+        val cardioSecond = mutableListOf<WorkoutTask>()
+        var cursor = 0
+        for (phase in phases) {
+            val head = (firstSeconds - cursor).coerceIn(0, phase.seconds)
+            fun part(seconds: Int) = phase.copy(seconds = seconds,
+                detail = phase.detail.replace(Regex("^\\d+분"), "${seconds / 60}분"))
+            if (head > 0) cardioFirst += part(head).copy(phaseIndex = cardioFirst.size)
+            if (phase.seconds - head > 0) cardioSecond += part(phase.seconds - head).copy(phaseIndex = cardioSecond.size)
+            cursor += phase.seconds
+        }
         val pool = strengthPool(d, focus)
         val repsForDay = reps.getJSONArray(d.toString())
         val used = mutableSetOf<String>()
@@ -149,15 +163,25 @@ class WorkoutData(private val context: Context) {
                 else "2세트 × 12회 · 휴식 45초"
             WorkoutTask(exercise.getJSONArray(picked).getString(0), prescription, "근력운동", id = picked)
         }
-        val finish = stretches.pairs().map { (name, note) -> WorkoutTask(name, note, "마무리 스트레칭") }
+        val stretchMinutes = obj.getInt("stretch")
+        val stretchPairs = stretches.pairs()
+        val perStretch = stretchMinutes * 60 / stretchPairs.size
+        val finish = stretchPairs.mapIndexed { i, (name, note) ->
+            val seconds = if (i == stretchPairs.lastIndex) stretchMinutes * 60 - perStretch * i else perStretch
+            WorkoutTask(name, note, "마무리 스트레칭", seconds = seconds, description = note, phaseIndex = cardioSecond.size + i)
+        }
+        val machineName = if (cardioMachine == "스텝밀") "스텝밀 + 실내 사이클" else cardioMachine
+        val firstMinutes = cardioFirst.sumOf { it.seconds } / 60
+        val secondMinutes = cardioSecond.sumOf { it.seconds } / 60
         val stages = listOf(
             WorkoutStage("준비운동", "관절 가동성 · 워밍업", obj.getInt("warm"), warm),
-            WorkoutStage(if (cardioMachine == "스텝밀") "스텝밀 + 실내 사이클" else cardioMachine, "이번 주 유산소 · 실시간 구간 체크리스트", cardioMinutes(), phases),
+            WorkoutStage("유산소 ① · $machineName", "실시간 구간 체크리스트", firstMinutes, cardioFirst),
             WorkoutStage("근력운동", when (focus) { "upper" -> "상체 · 가슴/등/어깨/팔"; "lower" -> "하체 · 허벅지/둔근/종아리"; else -> "이번 주 랜덤 운동 · 세트/횟수" }, 50 - cardioMinutes(), strength),
-            WorkoutStage("마무리 스트레칭", "호흡 회복 · 유연성", obj.getInt("stretch"), finish)
+            WorkoutStage("유산소 ② · 마무리", "유산소 정리 + 스트레칭", secondMinutes + stretchMinutes, cardioSecond + finish)
         )
         require(stages.sumOf { it.minutes } == 60) { "Daily routine must be exactly 60 minutes" }
-        require(phases.sumOf { it.seconds } == stages[1].minutes * 60) { "Cardio phase mismatch" }
+        require(cardioFirst.sumOf { it.seconds } + cardioSecond.sumOf { it.seconds } == cardioMinutes() * 60) { "Cardio phase mismatch" }
+        require(stages[3].tasks.sumOf { it.seconds } == stages[3].minutes * 60) { "Final block phase mismatch" }
 
         return DailyRoutine(d, obj.getString("day"), obj.getString("short"), when (focus) { "upper" -> "오늘 선택 · 상체"; "lower" -> "오늘 선택 · 하체"; else -> obj.getString("focus") }, obj.getString("desc"), obj.getString("tag"), stages)
     }
