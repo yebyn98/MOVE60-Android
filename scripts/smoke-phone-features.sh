@@ -12,7 +12,7 @@ adb pull /sdcard/Android/data/com.move60.workout/files/. smoke-debug/features/ >
 test "$result" -eq 0
 # Require an instrumentation success result and at least the baseline suite size.
 # Exact-count checks break whenever a valid new test is added.
-passed_tests="$(sed -nE 's/^OK \\(([0-9]+) tests?\\).*$/\\1/p' smoke-debug/features/instrumentation.txt | tail -n 1)"
+passed_tests="$(sed -nE 's/^OK \(([0-9]+) tests?\).*$/\1/p' smoke-debug/features/instrumentation.txt | tail -n 1)"
 test -n "$passed_tests"
 test "$passed_tests" -ge 27
 ! grep -q -E 'FAILURES!!!|INSTRUMENTATION_FAILED' smoke-debug/features/instrumentation.txt
