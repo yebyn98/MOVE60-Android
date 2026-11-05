@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -92,7 +94,7 @@ fun WorkoutDashboard(
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -112,7 +114,7 @@ fun WorkoutDashboard(
             }
         },
         bottomBar = {
-            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
+            Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp)) {
                 Button(
                     modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
                     onClick = { context.startActivity(Intent(context, MainActivity::class.java)) }
@@ -235,7 +237,7 @@ fun WorkoutCalendar(
 ) {
     val days by viewModel.days.collectAsStateWithLifecycle()
     Scaffold(containerColor = MaterialTheme.colorScheme.background,
-        topBar = { Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically) {
+        topBar = { Row(Modifier.statusBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),verticalAlignment=Alignment.CenterVertically) {
             IconButton(onClick=onBack) {
                 Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "뒤로 가기")
             }
@@ -277,7 +279,7 @@ fun WorkoutSettings(
     }
     Scaffold(containerColor=MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(message) },
-        topBar = { Row(Modifier.padding(16.dp), verticalAlignment=Alignment.CenterVertically) {
+        topBar = { Row(Modifier.statusBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment=Alignment.CenterVertically) {
             TextButton(onClick=onBack) { Text("←") }
             Text("앱 설정",style=MaterialTheme.typography.titleLarge)
         } }
