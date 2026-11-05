@@ -661,48 +661,73 @@ class MainActivity : Activity() {
             .trim(' ', '·', ',')
 
     private fun showDetails(stage: Int, task: WorkoutTask) {
-        if (stage != 2) return
+        if (stage != 2) return // Guidance is only meaningful for strength exercises.
         val info = data.detail(task.id)
         val steps = info?.steps ?: listOf("운동 범위를 천천히 확인하고 무리 없는 자세를 유지하세요.")
-        val caution = info?.caution ?: "통증이 생기면 강도를 줄이거나 중단하세요."
-        val alternative = info?.alternative ?: "같은 부위의 다른 운동 기구"
-
-        val panel = column().apply { setPadding(dp(16), dp(8), dp(16), dp(8)) }
-        val scroll = ScrollView(this)
+        val panel = column().apply {
+            setPadding(dp(Theme.Space.two), dp(Theme.Space.one),
+                dp(Theme.Space.two), dp(Theme.Space.one))
+        }
+        val scroll = ScrollView(this).apply {
+            isVerticalScrollBarEnabled = false
+            isFillViewport = false
+        }
         val detailContent = column()
         scroll.addView(detailContent)
-        if (task.id.isNotEmpty()) {
-            detailContent.addView(label("운동 가이드", 17, true, mint))
-            addGap(detailContent, 12)
-            detailContent.addView(label("부위: ${info?.area ?: "근력"}  ·  기구: ${info?.equipment ?: "운동 기구"}", 12, false, textSecondary))
-            addGap(detailContent, Theme.Space.two)
-            detailContent.addView(label("단계별 동작", 15, true, mint))
-            for ((index, step) in steps.withIndex()) {
-                val stepBox = column().apply {
-                    background = rounded(panelLight, 10, subtle)
-                    setPadding(dp(8), dp(8), dp(8), dp(8))
-                }
-                stepBox.addView(label("${index + 1}단계", 12, true, mint))
-                stepBox.addView(label(step, 13, false))
-                detailContent.addView(stepBox)
-                addGap(detailContent, 7)
-            }
-            detailContent.addView(label("주의 사항", 15, true, Theme.Colors.heart))
-            detailContent.addView(label(displayDetail(caution), 13, false))
+        detailContent.addView(label("근력운동 자세 가이드", 17, true, mint))
+        addGap(detailContent, 8)
+        detailContent.addView(label(
+            "${info?.area ?: "근력"} · ${info?.equipment ?: "운동 기구"}",
+            12, false, textSecondary))
+        addGap(detailContent, 12)
+        if (task.id.isNotEmpty() && info != null) {
+            // Local illustration is a fallback, not a fabricated or unlicensed video.
+            detailContent.addView(ExerciseDiagram(this, task.id),
+                LinearLayout.LayoutParams(-1, dp(168)))
             addGap(detailContent, 8)
-            detailContent.addView(label("대체 운동", 15, true, mint))
-            detailContent.addView(label(displayDetail(alternative), 13, false))
-            addGap(detailContent, 12)
-            val slot = session.routine.stages[2].tasks.indexOfFirst { it.id == task.id }
-            detailContent.addView(label("최근 기록: ${exercisePrefs.log(task.id)}", 12, false, mint))
+            detailContent.addView(label(
+                "동작 참고 이미지 · 영상은 아직 연결되지 않았어요.",
+                12, false, textSecondary))
             addGap(detailContent, 8)
-            detailContent.addView(label("중량·횟수는 운동 화면의 각 세트에서 입력하세요.", 12, false, textSecondary))
-            addGap(detailContent, 6)
-            if (slot >= 0) detailContent.addView(actionButton("같은 부위 운동으로 교체", false) { showExerciseSwap(slot) })
+            detailContent.addView(actionButton("운동 가이드 영상 검색 ↗", false) {
+                val query = Uri.encode(task.name + " 운동 자세 가이드")
+                startActivity(Intent(Intent.ACTION_VIEW,
+                    Uri.parse("https://www.youtube.com/results?search_query=" + query)))
+            }.apply { contentDescription = task.name + " 운동 가이드 영상 검색" })
+            addGap(detailContent, 16)
         }
-        panel.addView(scroll, LinearLayout.LayoutParams(-1, dp(460)))
-        AlertDialog.Builder(this).setTitle(task.name).setView(panel)
-            .setPositiveButton("닫기", null).show()
+        detailContent.addView(label("동작 순서", 15, true))
+        addGap(detailContent, 8)
+        steps.forEachIndexed { index, step ->
+            val stepBox = card()
+            stepBox.addView(label("${index + 1}. " + step, 13, false))
+            detailContent.addView(stepBox)
+            addGap(detailContent, 8)
+        }
+        val slot = session.routine.stages[2].tasks.indexOfFirst { it.id == task.id }
+        if (slot >= 0) {
+            detailContent.addView(label("지난 기록: ${exercisePrefs.log(task.id)}",
+                12, false, textSecondary))
+            addGap(detailContent, 12)
+            detailContent.addView(actionButton("같은 부위의 다른 운동 선택", false) {
+                showExerciseSwap(slot)
+            })
+        }
+        addGap(detailContent, 8)
+        detailContent.addView(label("중량·횟수와 세트 완료는 운동 상세 화면에서 입력하세요.",
+            12, false, textSecondary))
+        val maxHeight = (resources.displayMetrics.heightPixels * 0.62f).toInt()
+        panel.addView(scroll, LinearLayout.LayoutParams(-1, maxHeight))
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(task.name)
+            .setView(panel)
+            .setPositiveButton("닫기", null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.window?.setBackgroundDrawable(rounded(panelLight, Theme.Radius.card, subtle))
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(mint)
+        }
+        dialog.show()
     }
 
     private fun showExerciseSwap(slot: Int) {
