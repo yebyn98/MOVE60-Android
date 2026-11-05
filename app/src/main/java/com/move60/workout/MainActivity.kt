@@ -732,14 +732,22 @@ class MainActivity : Activity() {
 
     private fun showExerciseSwap(slot: Int) {
         val options = data.alternatives(session.day, slot, session.bodyFocus)
-        AlertDialog.Builder(this).setTitle("대체 운동 선택")
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("대체 운동 선택")
             .setItems(options.map { it.second }.toTypedArray()) { _, index ->
                 if (data.replaceExercise(session.day, slot, options[index].first, session.bodyFocus)) {
                     session.refreshRoutine()
                     renderStages()
                     renderSummary()
                 }
-            }.setNegativeButton("취소", null).show()
+            }
+            .setNegativeButton("취소", null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.window?.setBackgroundDrawable(rounded(panelLight, Theme.Radius.card, subtle))
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(mint)
+        }
+        dialog.show()
     }
 
     private fun refreshTimer() {
