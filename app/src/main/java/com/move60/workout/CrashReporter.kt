@@ -1,6 +1,6 @@
 package com.move60.workout
 import android.app.Activity
-import android.app.AlertDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -50,7 +50,7 @@ object CrashReporter {
         val prefs = activity.getSharedPreferences(PREF, Context.MODE_PRIVATE)
         val detail = prefs.getString(KEY, null) ?: return
         if (activity.isFinishing || activity.isDestroyed) return
-        AlertDialog.Builder(activity).setTitle("지난 실행 중 오류 기록")
+        MaterialAlertDialogBuilder(activity).setTitle("지난 실행 중 오류 기록")
             .setMessage("MOVE60에서 오류가 감지됐어요. 내용을 복사하면 원인을 확인할 수 있어요.")
             .setNegativeButton("나중에", null)
             .setPositiveButton("오류 내용 복사") { _, _ -> copy(activity, detail); prefs.edit().remove(KEY).apply() }.show()
@@ -59,7 +59,7 @@ object CrashReporter {
     fun showDiagnostics(activity: Activity) {
         val p = activity.getSharedPreferences(PREF, Context.MODE_PRIVATE)
         val detail = listOfNotNull(p.getString(KEY, null), p.getString("last_warning", null)).joinToString("\n\n")
-        AlertDialog.Builder(activity).setTitle("MOVE60 오류 기록")
+        MaterialAlertDialogBuilder(activity).setTitle("MOVE60 오류 기록")
             .setMessage(detail.ifBlank { "저장된 오류 기록이 없어요." })
             .setNegativeButton("삭제") { _, _ ->
                 p.edit().remove(KEY).remove("last_warning").remove("crash_epoch")

@@ -1,9 +1,9 @@
 package com.move60.workout.architecture
 
 import android.content.Intent
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,14 +13,9 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -51,22 +46,11 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.move60.workout.MainActivity
 import com.move60.workout.health.HealthConsentActivity
-import com.move60.workout.Move60Theme
+import com.move60.workout.ui.Move60Button
+import com.move60.workout.ui.Move60Card
 import java.util.Locale
 
-private val tileShape = RoundedCornerShape(Move60Theme.Radius.card.dp)
-private val colorBorder @Composable get() = MaterialTheme.colorScheme.outline
 private val secondary @Composable get() = MaterialTheme.colorScheme.secondary
-
-@Composable
-private fun Move60Card(content: @Composable () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = tileShape,
-        border = BorderStroke(1.dp, colorBorder),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { content() } }
-}
 
 @Composable
 fun WorkoutDashboard(
@@ -108,8 +92,9 @@ fun WorkoutDashboard(
         },
         bottomBar = {
             Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp)) {
-                Button(
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                Move60Button(
+                    modifier = Modifier.fillMaxWidth(),
+                    minHeight = 52,
                     onClick = { context.startActivity(Intent(context, MainActivity::class.java)) }
                 ) {
                     Text(if (state.running) "운동 화면으로 이동" else "운동 상세 및 시작")
@@ -131,40 +116,24 @@ fun WorkoutDashboard(
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         val days = listOf("월", "화", "수", "목", "금")
                         days.forEachIndexed { index, title ->
-                            val selected = state.day == index + 1
-                            if (selected) {
-                                Button(
-                                    modifier = Modifier.weight(1f).heightIn(min = 48.dp),
-                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
-                                    enabled = !state.running,
-                                    onClick = { viewModel.selectDay(index + 1) }
-                                ) { Text(title, maxLines = 1) }
-                            } else {
-                                OutlinedButton(
-                                    modifier = Modifier.weight(1f).heightIn(min = 48.dp),
-                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
-                                    enabled = !state.running,
-                                    onClick = { viewModel.selectDay(index + 1) }
-                                ) { Text(title, maxLines = 1) }
-                            }
+                            Move60Button(
+                                modifier = Modifier.weight(1f),
+                                primary = state.day == index + 1,
+                                contentPadding = PaddingValues(0.dp),
+                                enabled = !state.running,
+                                onClick = { viewModel.selectDay(index + 1) }
+                            ) { Text(title, maxLines = 1) }
                         }
                     }
                     Text("오늘 운동 부위", color = secondary)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         listOf("upper" to "상체", "lower" to "하체").forEach { (id, title) ->
-                            if (state.bodyFocus == id) {
-                                Button(
-                                    modifier = Modifier.weight(1f).heightIn(min = 48.dp),
-                                    enabled = !state.running,
-                                    onClick = { viewModel.selectBody(id) }
-                                ) { Text(title, maxLines = 1) }
-                            } else {
-                                OutlinedButton(
-                                    modifier = Modifier.weight(1f).heightIn(min = 48.dp),
-                                    enabled = !state.running,
-                                    onClick = { viewModel.selectBody(id) }
-                                ) { Text(title, maxLines = 1) }
-                            }
+                            Move60Button(
+                                modifier = Modifier.weight(1f),
+                                primary = state.bodyFocus == id,
+                                enabled = !state.running,
+                                onClick = { viewModel.selectBody(id) }
+                            ) { Text(title, maxLines = 1) }
                         }
                     }
                 }
@@ -296,7 +265,7 @@ fun WorkoutSettings(
                 Move60Card {
                     Text("건강 데이터 연동", style = MaterialTheme.typography.titleMedium)
                     Text("Health Connect 심박수 기록을 동의 후 불러오기", color = secondary)
-                    Button(modifier = Modifier.heightIn(min = 48.dp),
+                    Move60Button(
                         onClick = { context.startActivity(Intent(context, HealthConsentActivity::class.java)) }) {
                         Text("연동 권한 및 기록 확인")
                     }
@@ -308,8 +277,7 @@ fun WorkoutSettings(
                     OutlinedTextField(value=weight,onValueChange={weight=it},
                         label={Text("체중(kg)")},singleLine=true,
                         keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal))
-                    Button(modifier = Modifier.heightIn(min = 48.dp),
-                        onClick={viewModel.setWeight(weight)}) { Text("체중 저장") }
+                    Move60Button(onClick = { viewModel.setWeight(weight) }) { Text("체중 저장") }
                 }
             }
             item {

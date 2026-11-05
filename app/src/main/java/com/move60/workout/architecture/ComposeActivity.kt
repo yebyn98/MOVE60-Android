@@ -12,9 +12,7 @@ import javax.inject.Inject
 import kotlinx.coroutines.launch
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
+import com.move60.workout.ui.Move60ComposeTheme
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -64,18 +62,7 @@ class ComposeActivity : ComponentActivity() {
 @Composable
 fun Move60ComposeApp() {
     val nav = rememberNavController()
-    val legacy = com.move60.workout.Move60Theme.Colors
-    val colors = darkColorScheme(
-        primary = Color(legacy.primary),
-        onPrimary = Color(legacy.onPrimary),
-        background = Color(legacy.background),
-        surface = Color(legacy.surface),
-        onBackground = Color(legacy.textHigh),
-        onSurface = Color(legacy.textHigh),
-        secondary = Color(legacy.textMedium),
-        outline = Color(legacy.outline)
-    )
-    MaterialTheme(colorScheme = colors) {
+    Move60ComposeTheme {
         NavHost(navController = nav, startDestination = "dashboard") {
             composable("dashboard") {
                 WorkoutDashboard(

@@ -25,7 +25,12 @@ app=read("app/src/main/java/com/move60/workout/Move60Application.kt")
 assert "@HiltAndroidApp" in app and "HiltWorkerFactory" in app
 assert "workManagerConfiguration" in app
 styles=read("app/src/main/java/com/move60/workout/architecture/ComposeActivity.kt")
-assert "NavHost(" in styles and "MaterialTheme(" in styles
+assert "NavHost(" in styles and "Move60ComposeTheme" in styles
+theme=read("app/src/main/java/com/move60/workout/ui/Move60ComposeTheme.kt")
+assert "MaterialTheme(" in theme and "Move60Theme.Colors" in theme
+components=read("app/src/main/java/com/move60/workout/ui/Move60Components.kt")
+assert "fun Move60Card(" in components and "fun Move60Button(" in components
+assert "com.google.android.material:material" in gradle
 screens=read("app/src/main/java/com/move60/workout/architecture/ComposeScreens.kt")
 for marker in ("@Composable","WorkoutDashboard(","WorkoutCalendar(","WorkoutSettings(",
                "collectAsStateWithLifecycle()","오늘 누적","세트","hiltViewModel()"):

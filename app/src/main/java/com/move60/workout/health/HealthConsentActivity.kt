@@ -12,14 +12,8 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -33,6 +27,9 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import com.move60.workout.Move60Theme
+import com.move60.workout.ui.Move60Button
+import com.move60.workout.ui.Move60Card
+import com.move60.workout.ui.Move60ComposeTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -60,14 +57,7 @@ class HealthConsentActivity : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         setContent {
             val palette = Move60Theme.Colors
-            MaterialTheme(
-                colorScheme = darkColorScheme(
-                    background = Color(palette.background),
-                    surface = Color(palette.surface),
-                    primary = Color(palette.primary),
-                    onSurface = Color(palette.textHigh)
-                )
-            ) {
+            Move60ComposeTheme {
                 Column(
                     Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()
                         .verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 24.dp),
@@ -76,27 +66,22 @@ class HealthConsentActivity : ComponentActivity() {
                     Text("건강 데이터 연동", style = MaterialTheme.typography.headlineSmall)
                     Text("삼성 헬스 → Health Connect → MOVE60 → 내 워치",
                         color = Color(palette.textMedium))
-                    Card(
-                        shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(palette.surface))
-                    ) {
-                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("동의 항목: 심박수 기록(읽기 전용)")
-                            Text(status, color = Color(palette.primary))
-                            Text(summary, color = Color(palette.textMedium))
-                        }
+                    Move60Card {
+                        Text("동의 항목: 심박수 기록(읽기 전용)")
+                        Text(status, color = Color(palette.primary))
+                        Text(summary, color = Color(palette.textMedium))
                     }
-                    Button(onClick = { consentOrRead() }, modifier = Modifier.fillMaxWidth()) {
+                    Move60Button(onClick = { consentOrRead() }, modifier = Modifier.fillMaxWidth()) {
                         Text("동의하고 건강 기록 불러오기")
                     }
-                    OutlinedButton(onClick = {
+                    Move60Button(primary = false, onClick = {
                         gateway.disable()
                         status = "연동 중지 · 워치에 공유한 기록을 지우도록 요청했어요."
                         summary = "Health Connect 권한은 휴대폰 설정에서 별도로 철회할 수 있어요."
                     }, modifier = Modifier.fillMaxWidth()) {
                         Text("MOVE60 연동 중지 및 워치 데이터 초기화")
                     }
-                    OutlinedButton(onClick = { finish() }, modifier = Modifier.fillMaxWidth()) {
+                    Move60Button(primary = false, onClick = { finish() }, modifier = Modifier.fillMaxWidth()) {
                         Text("닫기")
                     }
                     Text("삼성 헬스 데이터 SDK의 직접 연동은 별도 파트너 등록과 AAR이 필요해요. 이 화면은 지원되는 Health Connect 동기화 방식입니다.",

@@ -1,7 +1,7 @@
 package com.move60.workout
 
 import android.app.Activity
-import android.app.AlertDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import android.app.NotificationManager
 import android.Manifest
 import android.content.Intent
@@ -103,7 +103,7 @@ class SettingsActivity : Activity() {
                 Toast.makeText(this, "운동 시작 전 초기 상태에서 변경해 주세요.", Toast.LENGTH_LONG).show()
             } else {
                 val minutes = listOf(20, 25, 30, 35, 40)
-                AlertDialog.Builder(this).setTitle("60분 운동 시간 배분")
+                MaterialAlertDialogBuilder(this).setTitle("60분 운동 시간 배분")
                     .setSingleChoiceItems(minutes.map { "유산소 ${it}분 · 근력 ${50 - it}분" }.toTypedArray(),
                         minutes.indexOf(data.cardioMinutes())) { dialog, which ->
                         data.setCardioMinutes(minutes[which])
@@ -123,7 +123,7 @@ class SettingsActivity : Activity() {
                 inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
                 setText(calorieWeightKg.toString())
             }
-            AlertDialog.Builder(this).setTitle("칼로리 추정용 체중 (kg)")
+            MaterialAlertDialogBuilder(this).setTitle("칼로리 추정용 체중 (kg)")
                 .setMessage("운동 칼로리는 추정치이며 실제 소모량과 다를 수 있어요.")
                 .setView(input)
                 .setNegativeButton("취소", null)
@@ -196,7 +196,7 @@ class SettingsActivity : Activity() {
             "\n잠금화면 표시: 기기 설정에서도 '알림 내용 표시'를 허용해야 해요" +
             (if (lastError == null) "" else "\n최근 알림 오류: " + lastError) +
             "\n\n운동 시작 버튼을 누른 상태에서만 진행 알림이 표시돼요."
-        AlertDialog.Builder(this).setTitle("운동 알림 진단").setMessage(diagnostic)
+        MaterialAlertDialogBuilder(this).setTitle("운동 알림 진단").setMessage(diagnostic)
             .setNegativeButton("닫기", null)
             .setPositiveButton("알림 설정 열기") { _, _ -> openLockscreenSettings() }.show()
     }

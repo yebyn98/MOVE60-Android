@@ -2,7 +2,7 @@ package com.move60.workout
 
 import android.Manifest
 import android.app.Activity
-import android.app.AlertDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
@@ -162,7 +162,7 @@ class MainActivity : Activity() {
         } else {
             handler.postDelayed({
                 if (!isFinishing && !isDestroyed) {
-                    AlertDialog.Builder(this)
+                    MaterialAlertDialogBuilder(this)
                         .setTitle("MOVE60 안전 복구 모드")
                         .setMessage("이전 실행의 종료 오류가 기록되어 자동 알림 재시작을 중지했어요. 운동 기록은 그대로 남아 있어요. 오류 기록을 확인한 뒤 알림을 다시 켤 수 있어요.")
                         .setNegativeButton("오류 기록 확인") { _, _ -> CrashReporter.showDiagnostics(this) }
@@ -229,7 +229,7 @@ class MainActivity : Activity() {
         addGap(root, 8)
         root.addView(selected)
         render()
-        AlertDialog.Builder(this).setTitle("운동 달력")
+        MaterialAlertDialogBuilder(this).setTitle("운동 달력")
             .setView(ScrollView(this).apply { isFillViewport = false; addView(root) })
             .setPositiveButton("닫기", null).show()
     }
@@ -459,7 +459,7 @@ class MainActivity : Activity() {
         addGap(box,10)
         box.addView(progress,LinearLayout.LayoutParams(-1,dp(5)))
         box.setOnLongClickListener {
-            AlertDialog.Builder(this).setTitle("운동 초기화")
+            MaterialAlertDialogBuilder(this).setTitle("운동 초기화")
                 .setItems(arrayOf("현재 단계 초기화","오늘 진행 초기화")) { _, which ->
                     if (which == 0) session.resetStage() else session.resetAll()
                     afterAction()
@@ -701,21 +701,16 @@ class MainActivity : Activity() {
             12, false, textSecondary))
         val maxHeight = (resources.displayMetrics.heightPixels * 0.62f).toInt()
         panel.addView(scroll, LinearLayout.LayoutParams(-1, maxHeight))
-        val dialog = AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle(task.name)
             .setView(panel)
             .setPositiveButton("닫기", null)
-            .create()
-        dialog.setOnShowListener {
-            dialog.window?.setBackgroundDrawable(rounded(panelLight, Theme.Radius.card, subtle))
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(mint)
-        }
-        dialog.show()
+            .show()
     }
 
     private fun showExerciseSwap(slot: Int) {
         val options = data.alternatives(session.day, slot, session.bodyFocus)
-        val dialog = AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle("대체 운동 선택")
             .setItems(options.map { it.second }.toTypedArray()) { _, index ->
                 if (data.replaceExercise(session.day, slot, options[index].first, session.bodyFocus)) {
@@ -725,12 +720,7 @@ class MainActivity : Activity() {
                 }
             }
             .setNegativeButton("취소", null)
-            .create()
-        dialog.setOnShowListener {
-            dialog.window?.setBackgroundDrawable(rounded(panelLight, Theme.Radius.card, subtle))
-            dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(mint)
-        }
-        dialog.show()
+            .show()
     }
 
     private fun refreshTimer() {
@@ -839,7 +829,7 @@ class MainActivity : Activity() {
             "\n잠금화면 표시: 기기 설정에서도 '알림 내용 표시'를 허용해야 해요" +
             (if (lastError == null) "" else "\n최근 알림 오류: " + lastError) +
             "\n\n운동 시작 버튼을 누른 상태에서만 진행 알림이 표시돼요."
-        AlertDialog.Builder(this).setTitle("운동 알림 진단").setMessage(diagnostic)
+        MaterialAlertDialogBuilder(this).setTitle("운동 알림 진단").setMessage(diagnostic)
             .setNegativeButton("닫기", null)
             .setPositiveButton("알림 설정 열기") { _, _ -> openLockscreenSettings() }.show()
     }

@@ -1,13 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="AppTheme" parent="android:style/Theme.Material.NoActionBar">
+    <!-- Material 3 View theme; tokens mirror design/tokens.json and Move60ComposeTheme. -->
+    <style name="AppTheme" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:statusBarColor">@color/move60_bg</item>
         <item name="android:navigationBarColor">@color/move60_bg</item>
-        <item name="android:colorAccent">@color/move60_accent</item>
         <item name="android:windowBackground">@color/move60_bg</item>
         <item name="android:textColorPrimary">@color/move60_text</item>
         <item name="android:textColorSecondary">@color/move60_text_medium</item>
+        <item name="colorPrimary">@color/move60_accent</item>
+        <item name="colorOnPrimary">@color/move60_on_accent</item>
+        <item name="colorPrimaryContainer">@color/move60_surface_elevated</item>
+        <item name="colorOnPrimaryContainer">@color/move60_text</item>
+        <item name="colorSecondary">@color/move60_text_medium</item>
+        <item name="colorSecondaryContainer">@color/move60_surface_elevated</item>
+        <item name="colorOnSecondaryContainer">@color/move60_text</item>
+        <item name="colorTertiary">@color/move60_heart</item>
+        <item name="colorError">@color/move60_heart</item>
+        <item name="android:colorBackground">@color/move60_bg</item>
+        <item name="colorSurface">@color/move60_surface</item>
+        <item name="colorOnSurface">@color/move60_text</item>
+        <item name="colorOnSurfaceVariant">@color/move60_text_medium</item>
+        <item name="colorSurfaceContainerHigh">@color/move60_surface_elevated</item>
+        <item name="colorSurfaceContainerHighest">@color/move60_surface_elevated</item>
+        <item name="colorOutline">@color/move60_outline</item>
+        <item name="colorOutlineVariant">@color/move60_outline</item>
+        <item name="materialAlertDialogTheme">@style/Move60AlertDialog</item>
+    </style>
+    <style name="Move60AlertDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="colorSurfaceContainerHigh">@color/move60_surface_elevated</item>
+        <item name="shapeAppearanceOverlay">@style/Move60DialogShape</item>
+    </style>
+    <style name="Move60DialogShape">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">20dp</item>
     </style>
 </resources>
