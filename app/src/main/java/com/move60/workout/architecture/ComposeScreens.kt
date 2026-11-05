@@ -380,6 +380,7 @@ private fun MonthGrid(viewModel: HistoryViewModel, month: java.time.YearMonth, s
                 tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
         }
     }
+    Spacer(Modifier.size(8.dp))
     Row(Modifier.fillMaxWidth()) {
         listOf("월", "화", "수", "목", "금", "토", "일").forEach { name ->
             Text(name, modifier = Modifier.weight(1f), textAlign = TextAlign.Center,
