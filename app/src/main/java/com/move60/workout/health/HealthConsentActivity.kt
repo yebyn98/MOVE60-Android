@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,6 +28,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.health.connect.client.PermissionController
 import androidx.lifecycle.lifecycleScope
+import androidx.core.view.WindowCompat
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import com.move60.workout.Move60Theme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -51,6 +57,7 @@ class HealthConsentActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         setContent {
             val palette = Move60Theme.Colors
             MaterialTheme(
@@ -62,7 +69,8 @@ class HealthConsentActivity : ComponentActivity() {
                 )
             ) {
                 Column(
-                    Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
+                    Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()
+                        .verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Text("건강 데이터 연동", style = MaterialTheme.typography.headlineSmall)
@@ -111,6 +119,9 @@ class HealthConsentActivity : ComponentActivity() {
                         gateway.disable()
                         status = "건강 데이터 권한이 철회되어 워치 공유를 중지했어요."
                         summary = "다시 연결하려면 읽기 권한을 허용해 주세요."
+                    } else {
+                        // Existing opt-in is sufficient to refresh data when this screen reopens.
+                        readAndSend()
                     }
                 } catch (_: Exception) {
                     // Fail closed: do not keep showing previously approved health data.
@@ -144,8 +155,18 @@ class HealthConsentActivity : ComponentActivity() {
             try {
                 val metrics = gateway.readWithConsent()
                 gateway.sendToWatch(metrics, true)
-                summary = "최근 심박수: ${metrics.lastHeartBpm?.let { "$it bpm" } ?: "기록 없음"}"
-                status = "공유 요청 완료 · 워치가 연결되면 최신 데이터가 표시돼요."
+                if (metrics.lastHeartBpm != null) {
+                    val measured = Instant.ofEpochMilli(metrics.heartMeasuredAt)
+                        .atZone(ZoneId.systemDefault())
+                        .format(DateTimeFormatter.ofPattern("M월 d일 HH:mm"))
+                    val source = if (metrics.sourcePackage == "com.sec.android.app.shealth")
+                        "삼성 헬스" else metrics.sourcePackage ?: "출처 미확인"
+                    summary = "최근 심박수: ${metrics.lastHeartBpm} bpm · $measured · $source"
+                    status = "Health Connect 읽기 완료 · 워치에 공유를 요청했어요."
+                } else {
+                    summary = "최근 7일 내 읽을 수 있는 심박수 기록이 없어요. Health Connect의 데이터 및 접근 권한에서 기록 출처와 동기화를 확인해 주세요."
+                    status = "권한은 확인됐지만 심박수 데이터가 없어요."
+                }
             } catch (error: SecurityException) {
                 gateway.disable()
                 status = "권한이 변경되어 연동을 중지했어요. 다시 동의해 주세요."
