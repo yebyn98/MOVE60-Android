@@ -104,7 +104,9 @@ class WatchDisplayTest {
             instrumentation.uiAutomation.executeShellCommand(
                 "wm dismiss-keyguard"
             ).close()
-            scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
+            // Do not call ActivityScenario.moveToState(RESUMED) on Wear OS here:
+            // ambient lifecycle transitions may keep the scenario in a paused state,
+            // making moveToState block until the instrumentation timeout.
             val deadline = android.os.SystemClock.uptimeMillis() + 8_000L
             var restored = false
             var diagnostics = ""
