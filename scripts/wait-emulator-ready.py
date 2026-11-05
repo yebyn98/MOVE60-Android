@@ -45,7 +45,7 @@ while time.monotonic()-started < 180:
                               if n.get('text') in ('Close app', '앱 닫기')), None)
                 if close is not None:
                     import re
-                    coords = [int(x) for x in re.findall(r'\\d+', close.get('bounds',''))]
+                    coords = [int(x) for x in re.findall(r'\d+', close.get('bounds',''))]
                     if len(coords) == 4:
                         adb('shell','input','tap',str((coords[0]+coords[2])//2),
                             str((coords[1]+coords[3])//2))
