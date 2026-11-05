@@ -273,7 +273,7 @@ fun WorkoutSettings(
     Scaffold(containerColor=MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(message) },
         topBar = { Row(Modifier.statusBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment=Alignment.CenterVertically) {
-            TextButton(onClick=onBack) { Text("←") }
+            TextButton(onClick=onBack, modifier = Modifier.heightIn(min = 48.dp)) { Text("←") }
             Text("앱 설정",style=MaterialTheme.typography.titleLarge)
         } }
     ) { inner ->
@@ -295,8 +295,9 @@ fun WorkoutSettings(
             item {
                 Move60Card {
                     Text("건강 데이터 연동", style = MaterialTheme.typography.titleMedium)
-                    Text("삼성 헬스 심박수 기록을 동의 후 불러오기", color = secondary)
-                    Button(onClick = { context.startActivity(Intent(context, HealthConsentActivity::class.java)) }) {
+                    Text("Health Connect 심박수 기록을 동의 후 불러오기", color = secondary)
+                    Button(modifier = Modifier.heightIn(min = 48.dp),
+                        onClick = { context.startActivity(Intent(context, HealthConsentActivity::class.java)) }) {
                         Text("연동 권한 및 기록 확인")
                     }
                 }
@@ -307,7 +308,8 @@ fun WorkoutSettings(
                     OutlinedTextField(value=weight,onValueChange={weight=it},
                         label={Text("체중(kg)")},singleLine=true,
                         keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal))
-                    Button(onClick={viewModel.setWeight(weight)}) { Text("체중 저장") }
+                    Button(modifier = Modifier.heightIn(min = 48.dp),
+                        onClick={viewModel.setWeight(weight)}) { Text("체중 저장") }
                 }
             }
             item {
