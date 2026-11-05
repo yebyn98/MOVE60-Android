@@ -13,10 +13,14 @@ adb('shell', 'settings', 'put', 'global', 'hide_error_dialogs', '0')
 adb('shell', 'settings', 'put', 'system', 'screen_off_timeout', '300000')
 adb('shell', 'input', 'keyevent', 'KEYCODE_WAKEUP')
 adb('shell', 'wm', 'dismiss-keyguard')
+# Google APIs emulator setup may hang independently of MOVE60 during first boot.
+# Stop it before testing, while keeping Android/app crash dialogs enabled.
+adb('shell', 'pm', 'disable-user', '--user', '0', 'com.google.android.googlesdksetup')
 # Boot completion alone does not mean SystemUI and package manager are ready.
 time.sleep(20)
 started = time.monotonic()
 stable = 0
+recovered_setup_anrs = 0
 while time.monotonic()-started < 180:
     try:
         boot = adb('shell', 'getprop', 'sys.boot_completed')
@@ -31,6 +35,24 @@ while time.monotonic()-started < 180:
         root = ET.fromstring(xml)
         texts = [n.get('text','') for n in root.iter('node')]
         if any("isn't responding" in t or 'keeps stopping' in t or '응답하지' in t for t in texts):
+            # Only recover the known, unrelated Google SDK setup ANR.
+            # Never dismiss MOVE60 or arbitrary system errors as a successful test.
+            setup_anr = any('com.google.android.googlesdksetup' in t for t in texts)
+            if setup_anr and recovered_setup_anrs < 2:
+                recovered_setup_anrs += 1
+                (out/f'google-setup-anr-{recovered_setup_anrs}.xml').write_text(xml)
+                close = next((n for n in root.iter('node')
+                              if n.get('text') in ('Close app', '앱 닫기')), None)
+                if close is not None:
+                    import re
+                    coords = [int(x) for x in re.findall(r'\\d+', close.get('bounds',''))]
+                    if len(coords) == 4:
+                        adb('shell','input','tap',str((coords[0]+coords[2])//2),
+                            str((coords[1]+coords[3])//2))
+                adb('shell','am','force-stop','com.google.android.googlesdksetup')
+                stable = 0
+                time.sleep(8)
+                continue
             raise RuntimeError('Android preflight blocked by crash/ANR dialog: '+str(texts))
         stable += 1
         if stable >= 2:
