@@ -278,7 +278,7 @@ class MainActivity : Activity() {
         }, LinearLayout.LayoutParams(dp(48), dp(48)).apply { leftMargin = dp(8) })
         content.addView(header)
         addGap(content, 16)
-        content.addView(label(data.localToday().format(DateTimeFormatter.ofPattern("M월 d일"))+" · 오늘 루틴", 20, true))
+        content.addView(label(data.localToday().format(DateTimeFormatter.ofPattern("M월 d일"))+" · 상세 운동 및 기록", 20, true))
         addGap(content, 12)
 
         dayStrip = row()
@@ -328,14 +328,25 @@ class MainActivity : Activity() {
         focusRow.removeAllViews()
         listOf("upper" to "상체", "lower" to "하체").forEachIndexed { index, (value, title) ->
             val selected = session.bodyFocus == value
-            val button = actionButton((if (selected) "✓ " else "") + title + " 운동", selected) {
+            val button = actionButton(title, selected) {
                 if (!session.selectBodyFocus(value)) {
                     Toast.makeText(this, "운동 중에는 부위를 바꿀 수 없어요. 운동을 종료한 뒤 선택해 주세요.", Toast.LENGTH_LONG).show()
                 } else {
                     afterAction()
                 }
-            }.apply { tag = "body_focus_"+value; contentDescription = title + " 운동 선택"; isSelected = selected }
-            focusRow.addView(button, LinearLayout.LayoutParams(0, -2, 1f).apply { if (index > 0) leftMargin = dp(8) })
+            }.apply {
+                tag = "body_focus_"+value
+                contentDescription = title + " 운동 선택"
+                isSelected = selected
+                textSize = Theme.Type.body
+                isSingleLine = true
+                ellipsize = android.text.TextUtils.TruncateAt.END
+                gravity = Gravity.CENTER
+                minWidth = 0
+            }
+            focusRow.addView(button, LinearLayout.LayoutParams(0, dp(52), 1f).apply {
+                if (index > 0) leftMargin = dp(8)
+            })
         }
     }
 
@@ -373,12 +384,12 @@ class MainActivity : Activity() {
         if (!::summary.isInitialized) return
         summary.removeAllViews()
         val routine = session.routine
-        summary.addView(label("60분 운동 계획", 20, true))
+        summary.addView(label("운동 진행 요약", 16, true))
         addGap(summary, Theme.Space.one)
         summary.addView(label("준비 5분 · 유산소 "+routine.stages[1].minutes+"분 · 근력 "+routine.stages[2].minutes+"분 · 정리 5분",12,false,textSecondary))
         addGap(summary, Theme.Space.one)
         val kcal = CalorieEstimator.totalKcal(routine,calorieWeightKg)
-        summary.addView(label("예상 소모량  약 "+kcal+" kcal",24,true,mint))
+        summary.addView(label("예상 소모량  약 "+kcal+" kcal",16,true,mint))
         addGap(summary, Theme.Space.one)
         summary.addView(ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             tag = "phone_dashboard_progress"
