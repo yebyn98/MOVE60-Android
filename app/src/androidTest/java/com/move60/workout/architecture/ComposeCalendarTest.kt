@@ -2,6 +2,9 @@ package com.move60.workout.architecture
 
 import android.content.Intent
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -31,6 +34,14 @@ class ComposeCalendarTest {
     private val context get() = instrumentation.targetContext
     private val today get() = LocalDate.now(ZoneId.of("Asia/Seoul"))
 
+    /** Saves a real screen capture next to the other smoke evidence (pulled into the CI artifact). */
+    private fun capture(name: String) {
+        val bitmap = rule.onRoot().captureToImage().asAndroidBitmap()
+        java.io.File(context.getExternalFilesDir(null), name).outputStream().use {
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+        }
+    }
+
     @Before fun isolate() {
         context.stopService(Intent(context, WorkoutService::class.java))
         instrumentation.waitForIdleSync()
@@ -46,6 +57,7 @@ class ComposeCalendarTest {
             // unmerged tree; the merged cell exposes the same fact to accessibility services.
             rule.onNodeWithContentDescription("$today · 운동 기록 있음").assertIsDisplayed()
             rule.onNodeWithTag("calendar-dot-$today", useUnmergedTree = true).assertIsDisplayed()
+            capture("compose-calendar.png")
             rule.onNodeWithTag("calendar_prev").performClick()
             rule.onNodeWithTag("calendar_next").performClick()
             // Summary card is the second LazyColumn item and may start below the fold on small screens.

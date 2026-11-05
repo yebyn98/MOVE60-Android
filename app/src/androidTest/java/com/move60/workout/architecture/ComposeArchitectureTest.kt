@@ -1,6 +1,9 @@
 package com.move60.workout.architecture
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -26,12 +29,21 @@ import org.junit.runner.RunWith
 class ComposeArchitectureTest {
     @get:Rule val rule = createAndroidComposeRule<ComposeActivity>()
 
+    private fun capture(name: String) {
+        val bitmap = rule.onRoot().captureToImage().asAndroidBitmap()
+        File(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null), name).outputStream().use {
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+        }
+    }
+
     @Test fun composeNavigationShowsDashboardCalendarAndSettings() {
         rule.onNodeWithText("MOVE60").assertIsDisplayed()
+        capture("compose-dashboard.png")
         rule.onNodeWithContentDescription("운동 달력").performClick()
         rule.onNodeWithText("운동 기록").assertIsDisplayed()
         rule.onNodeWithContentDescription("뒤로 가기").performClick()
         rule.onNodeWithContentDescription("앱 설정").performClick()
+        capture("compose-settings.png")
         // Settings is a long LazyColumn: scroll to each section before asserting it is visible.
         rule.onNodeWithTag("settings_list").performScrollToNode(hasText("칼로리 계산 기준"))
         rule.onNodeWithText("칼로리 계산 기준").assertIsDisplayed()

@@ -113,6 +113,18 @@ class BodyFocusTest {
             Thread.sleep(800)
             val image = requireNotNull(instrumentation.uiAutomation.takeScreenshot())
             File(context.getExternalFilesDir(null),"phone-v28-body-focus.png").outputStream().use { image.compress(Bitmap.CompressFormat.PNG,100,it) }
+            // Open the per-exercise popup (set entry + guide + alternatives) and capture it.
+            scenario.onActivity { activity ->
+                val first = activity.window.decorView.findViewWithTag<TextView>(
+                    "strength_detail_"+SessionStore(context,data).routine.stages[2].tasks.first().id)
+                (first.parent as View).performClick()
+            }
+            instrumentation.waitForIdleSync()
+            Thread.sleep(800)
+            val popup = requireNotNull(instrumentation.uiAutomation.takeScreenshot())
+            File(context.getExternalFilesDir(null),"phone-exercise-popup.png").outputStream().use { popup.compress(Bitmap.CompressFormat.PNG,100,it) }
+            instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+            instrumentation.waitForIdleSync()
             scenario.recreate()
             scenario.onActivity { activity ->
                 assertTrue(activity.window.decorView.findViewWithTag<TextView>("phone_day_info").text.toString().endsWith("하체"))
