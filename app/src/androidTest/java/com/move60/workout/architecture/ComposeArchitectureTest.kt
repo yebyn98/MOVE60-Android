@@ -1,6 +1,7 @@
 package com.move60.workout.architecture
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -20,10 +21,10 @@ class ComposeArchitectureTest {
 
     @Test fun composeNavigationShowsDashboardCalendarAndSettings() {
         rule.onNodeWithText("MOVE60").assertIsDisplayed()
-        rule.onNodeWithText("기록").performClick()
+        rule.onNodeWithContentDescription("운동 달력").performClick()
         rule.onNodeWithText("운동 기록").assertIsDisplayed()
-        rule.onNodeWithText("←").performClick()
-        rule.onNodeWithText("설정").performClick()
+        rule.onNodeWithContentDescription("뒤로 가기").performClick()
+        rule.onNodeWithContentDescription("앱 설정").performClick()
         rule.onNodeWithText("앱 정보").assertIsDisplayed()
         rule.onNodeWithText("칼로리 계산 기준").assertIsDisplayed()
     }

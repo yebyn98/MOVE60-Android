@@ -260,12 +260,22 @@ class MainActivity : Activity() {
     private fun constructInterface() {
         content.removeAllViews()
         val header = row().apply { gravity = Gravity.CENTER_VERTICAL }
-        header.addView(label("MOVE", 24, true), LinearLayout.LayoutParams(0, -2, 1f))
-        header.addView(label("60", 24, true, mint))
-        header.addView(actionButton("운동 달력", false) { showWorkoutCalendar() }.apply { textSize = Theme.Type.caption; tag = "phone_calendar" }, LinearLayout.LayoutParams(-2, dp(40)).apply { leftMargin = dp(8) })
-        header.addView(actionButton("앱 설정", false) {
+        header.addView(label("MOVE60", 24, true, mint).apply {
+            contentDescription = "MOVE60"
+            isSingleLine = true
+        }, LinearLayout.LayoutParams(0, -2, 1f))
+        header.addView(actionButton("▦", false) { showWorkoutCalendar() }.apply {
+            textSize = Theme.Type.heading
+            tag = "phone_calendar"
+            contentDescription = "운동 달력 열기"
+        }, LinearLayout.LayoutParams(dp(48), dp(48)))
+        header.addView(actionButton("⚙", false) {
             startActivity(Intent(this, SettingsActivity::class.java).putExtra("day", session.day))
-        }.apply { textSize = Theme.Type.caption; tag = "phone_settings" }, LinearLayout.LayoutParams(-2, dp(40)).apply { leftMargin = dp(8) })
+        }.apply {
+            textSize = Theme.Type.heading
+            tag = "phone_settings"
+            contentDescription = "앱 설정 열기"
+        }, LinearLayout.LayoutParams(dp(48), dp(48)).apply { leftMargin = dp(8) })
         content.addView(header)
         addGap(content, 16)
         content.addView(label(data.localToday().format(DateTimeFormatter.ofPattern("M월 d일"))+" · 오늘 루틴", 20, true))
@@ -292,10 +302,12 @@ class MainActivity : Activity() {
         restPanel.addView(restActions)
         content.addView(restPanel)
         addGap(content, 14)
-        val heading = row()
+        val heading = row().apply { gravity = Gravity.CENTER_VERTICAL }
         heading.addView(label("운동 · 세트 기록",18,true).apply { tag = "phone_training_heading" },LinearLayout.LayoutParams(0,-2,1f))
         sectionCount = label("",11,false,textSecondary)
-        heading.addView(sectionCount)
+        heading.addView(sectionCount, LinearLayout.LayoutParams(-2, -2).apply {
+            leftMargin = dp(Theme.Space.two)
+        })
         content.addView(heading)
         addGap(content, Theme.Space.two)
         stageStack = column().apply { tag = "phone_stage_stack" }
@@ -651,18 +663,8 @@ class MainActivity : Activity() {
         if (task.id.isNotEmpty()) {
             detailContent.addView(label("운동 가이드", 17, true, mint))
             addGap(detailContent, 12)
-            detailContent.addView(actionButton("버추얼메이트Me 열기 ↗", false) { openVirtualMate() }.apply { tag = "virtual_mate_open" })
-            addGap(detailContent, 6)
-            detailContent.addView(label("별도 앱으로 이동합니다. 운동 영상은 해당 앱에서 선택해 주세요.", 12, false, textSecondary))
-            addGap(detailContent, 16)
             detailContent.addView(label("부위: ${info?.area ?: "근력"}  ·  기구: ${info?.equipment ?: "운동 기구"}", 12, false, textSecondary))
-            addGap(detailContent, 10)
-            if (ExercisePhotos.hasPhotos(task.id)) {
-                ExercisePhotos.addTo(this, detailContent, task.id) { caption ->
-                    label(caption, 12, false, textSecondary)
-                }
-            }
-            addGap(detailContent, 12)
+            addGap(detailContent, Theme.Space.two)
             detailContent.addView(label("단계별 동작", 15, true, mint))
             for ((index, step) in steps.withIndex()) {
                 val stepBox = column().apply {
@@ -690,15 +692,6 @@ class MainActivity : Activity() {
         panel.addView(scroll, LinearLayout.LayoutParams(-1, dp(460)))
         AlertDialog.Builder(this).setTitle(task.name).setView(panel)
             .setPositiveButton("닫기", null).show()
-    }
-
-    private fun openVirtualMate() {
-        try {
-            val launch = packageManager.getLaunchIntentForPackage("com.mybenefit.vmme.senior")
-            startActivity(launch ?: Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://play.google.com/store/apps/details?id=com.mybenefit.vmme.senior")))
-        } catch (_: android.content.ActivityNotFoundException) {
-            Toast.makeText(this, "버추얼메이트Me를 열 수 없어요. Play 스토어에서 앱을 확인해 주세요.", Toast.LENGTH_LONG).show()
-        }
     }
 
     private fun showExerciseSwap(slot: Int) {
@@ -773,7 +766,7 @@ class MainActivity : Activity() {
         }
         sectionCount.text = "근력 세트 $doneSets / $totalSets · 단계 ${session.completed.size}/4"
         val volume = SetRecordStore(this).completed(data.localToday()).sumOf { it.volume }.toInt()
-        trackingSummary.text = "근력 세트 $doneSets/$totalSets 완료 · 오늘 운동량 ${volume} kg·회"
+        trackingSummary.text = "근력 세트 $doneSets/$totalSets 완료"
         // Daily, not per-session: includes multiple workouts on the same Korean calendar day.
         // Previous dates are never combined with today's displayed total.
         dockCalories.text = "오늘 누적 ${"%.1f".format(EnergyLedger(this).estimate(data.localToday(), org.json.JSONObject(session.snapshot())))} kcal · 추정"

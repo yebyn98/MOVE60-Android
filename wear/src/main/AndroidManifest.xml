@@ -11,6 +11,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <application android:label="MOVE60 Watch" android:theme="@android:style/Theme.Material.NoActionBar">
         <uses-library android:name="com.google.android.wearable" android:required="false" />
+        <activity android:name=".health.WearHealthActivity" android:exported="false" />
         <activity android:name=".WatchActivity" android:exported="true" android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

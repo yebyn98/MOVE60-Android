@@ -114,6 +114,10 @@ class SettingsActivity : Activity() {
             }
         })
         addGap(workoutSettings, 16)
+        workoutSettings.addView(actionButton("삼성 헬스 · 심박수 연동 ↗", false) {
+            startActivity(Intent(this, com.move60.workout.health.HealthConsentActivity::class.java))
+        })
+        addGap(workoutSettings, Theme.Space.two)
         workoutSettings.addView(actionButton("칼로리 계산 체중 설정 ↗", false) {
             val input = EditText(this).apply {
                 inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
