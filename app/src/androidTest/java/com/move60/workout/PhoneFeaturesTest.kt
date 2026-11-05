@@ -81,6 +81,13 @@ class PhoneFeaturesTest {
                 assertNotNull(back); assertNotNull(title)
                 assertEquals("오늘의 운동", title.text.toString())
                 assertTrue("back button must be at least 48dp", back.height >= (48 * activity.resources.displayMetrics.density).toInt())
+                listOf("phone_prev", "phone_play", "phone_next").forEach { tag ->
+                    val b = root.findViewWithTag<TextView>(tag) ?: return@forEach
+                    val bounds = (b as? com.google.android.material.button.MaterialButton)?.background?.bounds
+                    assertTrue("$tag must be at least 48dp tall", b.height >= (48 * activity.resources.displayMetrics.density).toInt())
+                    if (bounds != null) assertTrue("$tag drawable ${bounds.height()} clipped by view ${b.height}", bounds.height() <= b.height)
+                    assertTrue("$tag text must not be truncated", b.layout == null || b.layout.lineCount <= 1)
+                }
                 assertNull("old MOVE60 app bar must be gone", root.findViewWithTag<View>("phone_app_bar"))
                 val routine = SessionStore(context, WorkoutData(context)).routine
                 assertEquals(listOf("준비운동", "근력운동"), listOf(routine.stages[0].name, routine.stages[2].name))

@@ -175,7 +175,7 @@ class WorkoutData(private val context: Context) {
         val secondMinutes = cardioSecond.sumOf { it.seconds } / 60
         val stages = listOf(
             WorkoutStage("준비운동", "관절 가동성 · 워밍업", obj.getInt("warm"), warm),
-            WorkoutStage(machineName, "유산소 ① · 실시간 구간 체크리스트", firstMinutes, cardioFirst),
+            WorkoutStage("유산소 ① · $machineName", "실시간 구간 체크리스트", firstMinutes, cardioFirst),
             WorkoutStage("근력운동", when (focus) { "upper" -> "상체 · 가슴/등/어깨/팔"; "lower" -> "하체 · 허벅지/둔근/종아리"; else -> "이번 주 랜덤 운동 · 세트/횟수" }, 50 - cardioMinutes(), strength),
             WorkoutStage("유산소 ② · 마무리", "유산소 정리 + 스트레칭", secondMinutes + stretchMinutes, cardioSecond + finish)
         )

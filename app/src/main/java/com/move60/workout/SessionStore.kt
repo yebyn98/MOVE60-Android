@@ -312,7 +312,7 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
             .put("day", day).put("stage", stage).put("remaining", remaining)
             .put("deadlineAt", deadlineAt).put("activeSeconds", accumulatedActiveSeconds)
             .put("stageElapsedSeconds", stageElapsedSeconds)
-            .put("cardioMachine", routine.stages[1].name).put("stageSeconds", times).put("phases", phases).put("phases3", phases3).toString()
+            .put("cardioMachine", routine.stages[1].tasks.firstOrNull()?.kind ?: routine.stages[1].name).put("stageSeconds", times).put("phases", phases).put("phases3", phases3).toString()
     }
 }
 
