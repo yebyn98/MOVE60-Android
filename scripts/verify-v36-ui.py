@@ -46,7 +46,7 @@ assert "건강 대시보드" in old
 assert 'horologist-compose-layout:0.6.23' in read("wear/build.gradle")
 targets=read("scripts/release-targets.json")
 assert '"phone": true' in targets and '"watch": true' in targets
-assert "versionCode 36" in read("app/build.gradle") and "versionCode 34" in read("wear/build.gradle")
+assert "versionCode 37" in read("app/build.gradle") and "versionCode 35" in read("wear/build.gradle")
 for manifest_path, activity in (
     ("app/src/main/AndroidManifest.xml", ".health.HealthConsentActivity"),
     ("wear/src/main/AndroidManifest.xml", ".health.WearHealthActivity"),
