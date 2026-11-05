@@ -20,14 +20,13 @@ class WearHealthScreenTest {
         val persisted = rule.activity.getSharedPreferences("move60_phone_health_v1", 0)
         if (!persisted.getBoolean("consented", false)) {
             org.junit.Assert.assertFalse("No consent: health metrics must not be imported",
-                persisted.contains("sleepMinutes"))
+                persisted.contains("lastHeartBpm"))
         }
     }
 
-    @Test fun vascularLoadHasNoSyntheticReadPath() {
+    @Test fun heartRateOnlyStateHasNoUnconsentedValues() {
         org.junit.Assert.assertEquals("/move60/health", WearHealthActivity.HEALTH_PATH)
         val state = WearHealthActivity.HealthState()
-        org.junit.Assert.assertNull(state.sleepMinutes)
         org.junit.Assert.assertNull(state.liveBpm)
         org.junit.Assert.assertFalse(state.healthConsent)
     }
