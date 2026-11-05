@@ -23,13 +23,17 @@ assert "PermissionController.createRequestPermissionResultContract()" in consent
 assert "granted.containsAll(HealthConnectGateway.readPermissions)" in consent
 assert 'putBoolean("enabled", false)' in health and 'putBoolean("consented", consented)' in health
 assert "getGrantedPermissions().containsAll(readPermissions)" in health
-assert "HeartRateRecord::class" in health and "SleepSessionRecord::class" in health
+assert "HeartRateRecord::class" in health and "SleepSessionRecord::class" not in health
+assert "sleepMinutes" not in health and "sleepEndedAt" not in health
+assert "android.permission.health.READ_SLEEP" not in read("app/src/main/AndroidManifest.xml")
 assert 'DataOrigin("com.sec.android.app.shealth")' in health
-assert health.count("dataOriginFilter = samsungOrigin") == 2, "Do not read other apps' health records"
+assert health.count("dataOriginFilter = samsungOrigin") == 1, "Only read consented Samsung Health heart rate records"
 assert "now - lastSynced in 0L..86_400_000L" in wear, "Stale shared health data must expire"
-assert "unsupported_watch4" in health
+assert "vascularLoad" not in health
+assert "sleepMinutes" not in wear and "최근 수면" not in wear
+assert "혈관 스트레스" not in wear and "워치4 미지원" not in wear
 assert "fillMaxRectangle()" in wear and "ScalingLazyColumn(" in wear
-assert "워치4 미지원" in wear and "추정값을 만들지 않아요." in wear
+assert "현재 심박수" in wear and "심박수 측정 시작" in wear
 assert "consented" in wear and "startForegroundService" in wear
 assert "건강 대시보드" in old
 assert 'horologist-compose-layout:0.6.23' in read("wear/build.gradle")
@@ -43,4 +47,4 @@ for manifest_path, activity in (
     xml=ET.fromstring(read(manifest_path))
     android="{http://schemas.android.com/apk/res/android}"
     assert any(x.get(android+"name")==activity for x in xml.findall(".//activity"))
-print("PASS: phone clean-up, accessible nav icons, Wear Compose Horologist, consent checks, no fabricated vascular values and both-target release")
+print("PASS: phone clean-up, accessible nav icons, Wear Compose Horologist, heart-rate-only consent/data, no sleep or vascular load and both-target release")
