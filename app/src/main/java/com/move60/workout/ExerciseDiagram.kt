@@ -46,7 +46,10 @@ class ExerciseDiagram(context: Context, private val exerciseId: String) : View(c
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), (210 * resources.displayMetrics.density).toInt())
+        val preferredHeight = (168 * resources.displayMetrics.density).toInt()
+        val measuredHeight = resolveSize(preferredHeight, heightMeasureSpec)
+        val measuredWidth = resolveSize((320 * resources.displayMetrics.density).toInt(), widthMeasureSpec)
+        setMeasuredDimension(measuredWidth, measuredHeight)
     }
 
     override fun onDraw(canvas: Canvas) {

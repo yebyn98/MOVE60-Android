@@ -49,6 +49,9 @@ object DashboardUi {
             Move60Theme.Radius.control,
             if (primary) Move60Theme.Colors.primary else Move60Theme.Colors.outline)
         gravity = Gravity.CENTER
+        includeFontPadding = false
+        maxLines = 2
+        ellipsize = android.text.TextUtils.TruncateAt.END
         minHeight = dp(context, 48)
         val py = dp(context, Move60Theme.Space.one)
         val px = dp(context, if (compact) Move60Theme.Space.one else Move60Theme.Space.two)

@@ -93,6 +93,13 @@ class BodyFocusTest {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             scenario.onActivity { activity ->
                 val root = activity.window.decorView
+                val upper = root.findViewWithTag<TextView>("body_focus_upper")
+                val lower = root.findViewWithTag<TextView>("body_focus_lower")
+                val minTouchHeight = (48 * activity.resources.displayMetrics.density).toInt()
+                assertTrue("Upper selector must have an accessible touch target", upper.layoutParams.height >= minTouchHeight)
+                assertTrue("Lower selector must have an accessible touch target", lower.layoutParams.height >= minTouchHeight)
+                assertEquals("상체", upper.text.toString())
+                assertEquals("하체", lower.text.toString())
                 root.findViewWithTag<TextView>("body_focus_upper").performClick()
                 assertTrue(root.findViewWithTag<TextView>("body_focus_upper").isSelected)
                 root.findViewWithTag<TextView>("body_focus_lower").performClick()

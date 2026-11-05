@@ -5,7 +5,6 @@ import android.os.Build
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.HeartRateRecord
-import androidx.health.connect.client.records.metadata.DataOrigin
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import com.google.android.gms.wearable.PutDataMapRequest
@@ -38,10 +37,9 @@ class HealthConnectGateway @Inject constructor(
 
     data class Metrics(
         val lastHeartBpm: Int? = null,
-        val heartMeasuredAt: Long = 0L
+        val heartMeasuredAt: Long = 0L,
+        val sourcePackage: String? = null
     )
-
-    private val samsungOrigin = setOf(DataOrigin("com.sec.android.app.shealth"))
 
     private val preferences by lazy {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -62,20 +60,36 @@ class HealthConnectGateway @Inject constructor(
         check(isOptedIn()) { "MOVE60 health sharing is not enabled." }
         check(permissionsGranted()) { "Health Connect read permissions were not granted." }
         val end = Instant.now()
-        val heart = client().readRecords(
-            ReadRecordsRequest(
-                HeartRateRecord::class,
-                timeRangeFilter = TimeRangeFilter.between(end.minus(Duration.ofHours(24)), end),
-                pageSize = 100,
-                dataOriginFilter = samsungOrigin
+        // Data is often synced from a watch hours or days later. Do not restrict
+        // records to a single writer package: Health Connect can expose heart-rate
+        // samples under multiple app origins, even when Samsung Health is installed.
+        val timeRange = TimeRangeFilter.between(end.minus(Duration.ofDays(7)), end)
+        var nextPage: String? = null
+        var latest: Triple<Instant, Int, String>? = null
+        do {
+            val page = client().readRecords(
+                ReadRecordsRequest(
+                    HeartRateRecord::class,
+                    timeRangeFilter = timeRange,
+                    pageSize = 100,
+                    pageToken = nextPage
+                )
             )
-        ).records
-        val mostRecent = heart.flatMap { item ->
-            item.samples.map { it.time to it.beatsPerMinute.toInt() }
-        }.filter { it.second in 30..240 }.maxByOrNull { it.first }
+            for (record in page.records) {
+                val origin = record.metadata.dataOrigin.packageName
+                for (sample in record.samples) {
+                    val bpm = sample.beatsPerMinute.toInt()
+                    if (bpm in 30..240 && (latest == null || sample.time.isAfter(latest.first))) {
+                        latest = Triple(sample.time, bpm, origin)
+                    }
+                }
+            }
+            nextPage = page.pageToken
+        } while (!nextPage.isNullOrEmpty())
         return Metrics(
-            lastHeartBpm = mostRecent?.second,
-            heartMeasuredAt = mostRecent?.first?.toEpochMilli() ?: 0L
+            lastHeartBpm = latest?.second,
+            heartMeasuredAt = latest?.first?.toEpochMilli() ?: 0L,
+            sourcePackage = latest?.third
         )
     }
 

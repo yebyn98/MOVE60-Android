@@ -23,9 +23,17 @@ User-initiated phone consent grants read-only heart-rate access. The watch recei
 Opt-out clears the synced watch summary. The user can separately revoke Android Health Connect access in OS settings. No automatic permission popups or fake values.
 
 ## Validation
-- Phone versionCode 36, Watch versionCode 34; both-device selective release.
+- Current maintenance build: phone versionCode 37, Watch versionCode 35; both-device selective release.
 - Phone and Watch instrumentation suites must pass with at least 27 and 9 tests respectively; tests may grow without changing a hard-coded exact count.
 - scripts/verify-v36-ui.py is a mandatory CI preflight. Main may publish only after signed build, phone runtime and all Wear tests succeed.
 - Pull requests must compile debug instrumentation, pass Release Lint and exercise round-screen Wear tests before merge.
 - Phone emulator preflight may recover only a documented Google SDK setup ANR; MOVE60 or other crash/ANR dialogs remain hard failures.
 - Actual Watch4 sensor, Samsung Health records and consent dialogs still require physical-device validation. Do not claim emulator verification covers these.
+
+## Health Connect import and visual verification (post-v36 maintenance)
+- Heart-rate records can be written by Samsung Health or another consented source. Read the most recent available sample in the last seven days using page tokens; show the actual recorded timestamp and source on the phone. Never label a historical sample as a live sensor reading.
+- Reading and Wear Data Layer sharing require explicit MOVE60 opt-in and the platform's heart-rate read permission. When the app reopens, refresh the existing opt-in without requesting a new permission automatically.
+- If no samples are available, show a helpful no-data state. Confirm that Samsung Health has actually written heart-rate samples into Health Connect; permissions alone are not evidence that records exist.
+- Phone Compose screens must handle status and navigation bars through explicit safe-area padding. Native detail has its own inset handling.
+- Each UI change must ship an emulator/device screenshot artifact, including `move60-home-overview.png`, `move60-health-connect-screen.png` and relevant native detail screenshots. CI images do not establish live Samsung Health or real Watch4 pairing success.
+- Do not delete persisted workout history when removing obsolete source files or version-specific notes.

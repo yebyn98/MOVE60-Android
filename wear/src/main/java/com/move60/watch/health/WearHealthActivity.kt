@@ -213,8 +213,8 @@ fun HealthScreen(
                             color = secondary, fontSize = 11.sp, maxLines = 2)
                         Text(
                             if (state.healthConsent)
-                                "삼성 헬스 최근 기록: " + (state.sharedBpm?.let { "$it bpm" } ?: "기록 없음")
-                            else "삼성 헬스 기록: 동의 필요",
+                                "Health Connect 최근 기록: " + (state.sharedBpm?.let { "$it bpm" } ?: "기록 없음")
+                            else "Health Connect 기록: 동의 또는 동기화 필요",
                             color = secondary, fontSize = 10.sp, maxLines = 2
                         )
                     }
