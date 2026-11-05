@@ -32,8 +32,11 @@ class ComposeArchitectureTest {
         rule.onNodeWithText("운동 기록").assertIsDisplayed()
         rule.onNodeWithContentDescription("뒤로 가기").performClick()
         rule.onNodeWithContentDescription("앱 설정").performClick()
-        rule.onNodeWithText("앱 정보").assertIsDisplayed()
+        // Settings is a long LazyColumn: scroll to each section before asserting it is visible.
+        rule.onNodeWithTag("settings_list").performScrollToNode(hasText("칼로리 계산 기준"))
         rule.onNodeWithText("칼로리 계산 기준").assertIsDisplayed()
+        rule.onNodeWithTag("settings_list").performScrollToNode(hasText("앱 정보"))
+        rule.onNodeWithText("앱 정보").assertIsDisplayed()
     }
 
     @Test fun composeSettingsHasEveryLegacySettingsFeature() {

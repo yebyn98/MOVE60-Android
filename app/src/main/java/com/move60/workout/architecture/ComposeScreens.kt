@@ -233,7 +233,7 @@ fun WorkoutCalendar(
             Text("운동 기록",style=MaterialTheme.typography.titleLarge)
         } }
     ) { inner ->
-        LazyColumn(Modifier.fillMaxSize().padding(inner),
+        LazyColumn(Modifier.fillMaxSize().padding(inner).testTag("calendar_list"),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)) {
             item {
