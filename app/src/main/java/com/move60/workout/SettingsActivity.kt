@@ -114,7 +114,7 @@ class SettingsActivity : Activity() {
             }
         })
         addGap(workoutSettings, 16)
-        workoutSettings.addView(actionButton("삼성 헬스 · 심박수·수면 연동 ↗", false) {
+        workoutSettings.addView(actionButton("삼성 헬스 · 심박수 연동 ↗", false) {
             startActivity(Intent(this, com.move60.workout.health.HealthConsentActivity::class.java))
         })
         addGap(workoutSettings, Theme.Space.two)
