@@ -80,15 +80,19 @@ class WatchDisplayTest {
                 activity.applyWorkoutState(WatchWorkoutState(
                     running = true, hasSession = true, stageIndex = 1, stageName = "유산소",
                     detail = "중강도", deadline = System.currentTimeMillis()+600_000L))
+                // Set and verify ambient state in one main-thread transaction.
+                // Wear OS can deliver onExitAmbient between separate scenario
+                // callbacks on release emulators, making that test non-deterministic.
                 activity.setAmbientMode(true)
-            }
-            instrumentation.waitForIdleSync()
-            scenario.onActivity { activity ->
-                assertTrue(activity.window.decorView.findViewWithTag<View>("watch_ambient").isShown)
-                assertFalse(activity.window.decorView.findViewWithTag<Button>("watch_next").isShown)
-                assertEquals("2/4 · 유산소", activity.window.decorView.findViewWithTag<TextView>("ambient_stage").text.toString())
-                assertTrue(activity.window.decorView.findViewWithTag<TextView>("ambient_time").text.contains("분"))
-                assertFalse(activity.window.decorView.findViewWithTag<TextView>("ambient_time").text.contains(":"))
+                val root = activity.window.decorView
+                assertTrue("Ambient panel must be shown after entry",
+                    root.findViewWithTag<View>("watch_ambient").isShown)
+                assertFalse("Interactive buttons must hide in ambient",
+                    root.findViewWithTag<Button>("watch_next").isShown)
+                assertEquals("2/4 · 유산소",
+                    root.findViewWithTag<TextView>("ambient_stage").text.toString())
+                assertTrue(root.findViewWithTag<TextView>("ambient_time").text.contains("분"))
+                assertFalse(root.findViewWithTag<TextView>("ambient_time").text.contains(":"))
             }
             capture("watch-ambient.png")
             // Simulate an actual wrist wake/foreground transition. An explicit
