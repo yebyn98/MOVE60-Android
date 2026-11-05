@@ -52,6 +52,11 @@ class HistoryViewModel @Inject constructor(
     /** True only when at least one full minute of real active time was recorded (0 min = not trained). */
     fun trained(date: LocalDate): Boolean = history.isTrained(date)
 
+    /** "upper", "lower" or null (no body part recorded for that day). */
+    fun focus(date: LocalDate): String? = history.focus(date)
+
+    fun weekTrainedDays(): Int = history.weekTrainedDays(today)
+
     fun monthSummary(month: YearMonth): MonthSummary = MonthSummary(
         trainedDays = history.trainedDays(month),
         activeMinutes = history.totalActiveSeconds(month) / 60,

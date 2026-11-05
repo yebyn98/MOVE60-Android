@@ -13,6 +13,8 @@ import java.time.ZoneId
  */
 class WorkoutHistory(context: Context) {
     private val prefs = context.getSharedPreferences("move60_workout_history_v1", Context.MODE_PRIVATE)
+    // Body part (upper/lower) trained on a day, stored separately so existing history keeps its format.
+    private val focusPrefs = context.getSharedPreferences("move60_workout_focus_v1", Context.MODE_PRIVATE)
     private val zone = ZoneId.of("Asia/Seoul")
 
     data class DayRecord(val date: LocalDate, val activeSeconds: Long) {
@@ -35,6 +37,20 @@ class WorkoutHistory(context: Context) {
         return DayRecord(date, updated)
     }
 
+    /** Remember which body part was trained that day (only real upper/lower selections are stored). */
+    fun recordFocus(date: LocalDate, focus: String?) {
+        if (focus == "upper" || focus == "lower") focusPrefs.edit().putString(date.toString(), focus).apply()
+    }
+
+    /** "upper", "lower" or null when the day has no recorded body part (e.g. data from older versions). */
+    fun focus(date: LocalDate): String? = focusPrefs.getString(date.toString(), null)
+
+    /** Trained days in the Monday-first week containing [today], counting only up to today. */
+    fun weekTrainedDays(today: LocalDate): Int {
+        val monday = today.minusDays((today.dayOfWeek.value - 1).toLong())
+        return (0..6).count { val d = monday.plusDays(it.toLong()); !d.isAfter(today) && isTrained(d) }
+    }
+
     fun today(): DayRecord = record(LocalDate.now(zone))
 
     fun month(month: YearMonth): List<DayRecord> =
@@ -50,4 +66,11 @@ class WorkoutHistory(context: Context) {
             if (Long.MAX_VALUE - total < day.activeSeconds) Long.MAX_VALUE
             else total + day.activeSeconds
         }
+
+    companion object {
+        /** The weekly plan covers Monday to Friday. */
+        const val WEEKLY_GOAL_DAYS = 5
+        /** Default monthly goal (about four plan weeks); not user-configurable yet. */
+        const val MONTHLY_GOAL_DAYS = 20
+    }
 }

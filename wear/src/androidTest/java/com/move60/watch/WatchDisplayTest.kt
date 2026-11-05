@@ -203,7 +203,7 @@ class WatchDisplayTest {
             }
             instrumentation.waitForIdleSync()
             scenario.onActivity { activity ->
-                assertEquals("휴식 건너뛰기",activity.window.decorView.findViewWithTag<Button>("watch_next").text.toString())
+                assertEquals("건너뛰기",activity.window.decorView.findViewWithTag<Button>("watch_next").text.toString())
                 assertTrue(activity.window.decorView.findViewWithTag<TextView>("watch_timer").contentDescription.contains("15초"))
                 assertButtonInsideCircle(activity,activity.window.decorView.findViewWithTag("watch_next"))
             }
@@ -218,7 +218,12 @@ class WatchDisplayTest {
                 assertEquals("60:18",activity.window.decorView.findViewWithTag<TextView>("watch_timer").text.toString())
                 assertEquals(1000,activity.window.decorView.findViewWithTag<android.widget.ProgressBar>("watch_progress").progress)
                 assertEquals(1000,activity.window.decorView.findViewWithTag<WorkoutProgressRing>("watch_progress_ring").progress)
-                assertTrue(activity.window.decorView.findViewWithTag<TextView>("watch_heart").text.contains("307 kcal"))
+                val v = activity.window.decorView
+                assertEquals("오늘 기록 저장됨",v.findViewWithTag<TextView>("watch_detail").text.toString())
+                assertTrue(v.findViewWithTag<TextView>("watch_heart").text.contains("워치 착용 시 심박이 기록돼요"))
+                assertEquals("종료",v.findViewWithTag<Button>("watch_play").text.toString())
+                assertTrue(v.findViewWithTag<Button>("watch_play").isEnabled)
+                assertEquals(android.view.View.GONE,v.findViewWithTag<Button>("watch_next").visibility)
             }
             capture("watch-v30-finish.png")
         }

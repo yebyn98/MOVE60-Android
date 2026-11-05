@@ -63,7 +63,21 @@ class ComposeCalendarTest {
             // Summary card is the second LazyColumn item and may start below the fold on small screens.
             rule.onNodeWithTag("calendar_list").performScrollToNode(hasTestTag("calendar_summary"))
             rule.onNodeWithTag("calendar_summary").assertIsDisplayed()
-            rule.onNodeWithText("● 운동한 날").assertIsDisplayed()
+            rule.onNodeWithTag("calendar_legend").assertIsDisplayed()
+            rule.onNodeWithText("상체").assertIsDisplayed()
+            rule.onNodeWithText("하체").assertIsDisplayed()
+        }
+    }
+
+    @Test fun calendarShowsWeekStreakAndMonthGoalProgress() {
+        WorkoutHistory(context).addActiveSeconds(today, 90 * 60)
+        ActivityScenario.launch(ComposeActivity::class.java).use {
+            rule.onNodeWithContentDescription("운동 달력").performClick()
+            rule.onNodeWithTag("calendar_list").performScrollToNode(hasTestTag("calendar_habit"))
+            rule.onNodeWithTag("calendar_habit").assertIsDisplayed()
+            rule.onNodeWithTag("calendar_week_progress", useUnmergedTree = true).assertExists()
+            rule.onNodeWithTag("calendar_month_progress", useUnmergedTree = true).assertExists()
+            capture("compose-calendar-habit.png")
         }
     }
 

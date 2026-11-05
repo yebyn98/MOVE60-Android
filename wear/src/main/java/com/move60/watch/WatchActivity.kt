@@ -139,7 +139,8 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
         body.addView(progressBar, LinearLayout.LayoutParams(-1, dp(1)))
         val buttons = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         playButton = button("시작", "watch_play") {
-            sendCommand(if (workout.running) "pause" else "start")
+            // Finished sessions end here; starting a new workout is handled on the phone.
+            if (workout.finished) finish() else sendCommand(if (workout.running) "pause" else "start")
         }
         nextButton = button("다음 단계", "watch_next") {
             sendCommand(if (workout.stageIndex == 2 && workout.restSeconds() > 0) "rest_skip"
@@ -246,7 +247,7 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
         val resting = workout.stageIndex == 2 && workout.restSeconds() > 0 && !workout.finished
         detail.text = when {
             pending.isNotBlank() -> requestStatus
-            workout.finished -> "근력 ${workout.completedSets}/${workout.totalSets}세트 완료"
+            workout.finished -> "오늘 기록 저장됨"
             resting -> "휴식 · 타이머 탭해 ±15초"
             workout.stageIndex == 2 && workout.hasSession ->
                 workout.exerciseName.ifBlank { workout.setLabel } +
@@ -290,25 +291,28 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
         val maxHeart = getSharedPreferences("watch_settings", MODE_PRIVATE).getInt("max_heart_rate",0)
         val zone = if (maxHeart in 120..230 && bpm in 30..240) ((bpm * 100 / maxHeart - 40) / 10).coerceIn(1,5) else 0
         heartRate.text = when {
-            workout.finished -> "약 ${workout.estimatedKcal.toInt()} kcal · ${if (sampleCount > 0) "평균 ${sampleAverage}bpm" else "심박 기록 없음"}"
+            // Finished: show only the real heart-rate outcome. With no samples, explain why and what to do.
+            workout.finished -> if (sampleCount > 0) "평균 ${sampleAverage}bpm" else "워치 착용 시 심박이 기록돼요"
             !connected -> "폰 연결 끊김"
             bpm in 30..240 && age in 0L..10_000L -> if (zone > 0) "♥ $bpm bpm · 추정 Z$zone" else "♥ $bpm bpm"
             else -> "♥ 연결대기"
         }
+        heartRate.setTextColor(if (workout.finished) Theme.Colors.textMedium else Theme.Colors.heart)
         heartRate.contentDescription = if (bpm in 30..240 && age in 0L..10_000L)
             "심박수 $bpm, ${age / 1000}초 전 측정" else "심박수 연결대기"
-        playButton.text = if (workout.running) "일시정지" else if (workout.finished) "새 운동" else "시작"
+        playButton.text = if (workout.finished) "종료" else if (workout.running) "일시정지" else "시작"
         detail.contentDescription = detail.text.toString() + (if ((workout.stageIndex == 1 || workout.stageIndex == 3) && workout.upcomingInterval.isNotBlank()) " · 다음 구간 ${workout.upcomingInterval}" else "")
         nextButton.text = when {
             workout.stageIndex == 3 -> "운동 완료"
-            workout.stageIndex == 2 && workout.restSeconds() > 0 -> "휴식 건너뛰기"
+            workout.stageIndex == 2 && workout.restSeconds() > 0 -> "건너뛰기"
             workout.stageIndex == 2 && workout.canComplete -> "세트 완료"
             else -> "다음 단계"
         }
         val enabled = connected && ready && pending.isBlank() && workout.protocol >= 26
-        playButton.isEnabled = enabled
+        playButton.isEnabled = workout.finished || enabled
+        nextButton.visibility = if (workout.finished) View.GONE else View.VISIBLE
         nextButton.isEnabled = !workout.finished && enabled
-        nextButton.contentDescription = nextButton.text.toString()+" · 길게 눌러 추가 조작"
+        nextButton.contentDescription = (if (nextButton.text.toString() == "건너뛰기") "휴식 건너뛰기" else nextButton.text.toString()) + " · 길게 눌러 추가 조작"
     }
     fun setAmbientMode(enabled: Boolean) {
         ambient = enabled

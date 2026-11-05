@@ -122,6 +122,35 @@ class PhoneFeaturesTest {
             scenario.onActivity { activity -> assertFalse(activity.window.decorView.findViewWithTag<TextView>("phone_next").isEnabled) }
         }
     }
+    @Test fun setStepperAdjustsKgAndRepsAndCompleteButtonIsLarge() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { activity ->
+                repeat(2) { activity.window.decorView.findViewWithTag<TextView>("phone_next").performClick() }
+            }
+            val id = WorkoutData(context).routine(WorkoutData(context).todayDay()).stages[2].tasks.first().id
+            scenario.onActivity { activity ->
+                val root = activity.window.decorView
+                val kg = root.findViewWithTag<EditText>("set-$id-1-kg")
+                val reps = root.findViewWithTag<EditText>("set-$id-1-reps")
+                kg.setText("20"); reps.setText("10")
+                root.findViewWithTag<TextView>("set-$id-1-kg-plus").performClick()
+                assertEquals("22.5", kg.text.toString())
+                root.findViewWithTag<TextView>("set-$id-1-kg-minus").performClick()
+                assertEquals("20", kg.text.toString())
+                root.findViewWithTag<TextView>("set-$id-1-reps-plus").performClick()
+                assertEquals("11", reps.text.toString())
+                root.findViewWithTag<TextView>("set-$id-1-reps-minus").performClick()
+                root.findViewWithTag<TextView>("set-$id-1-reps-minus").performClick()
+                assertEquals("9", reps.text.toString())
+                // One large tappable row (>= 48dp) completes the set.
+                val check = root.findViewWithTag<CheckBox>("set-$id-1-check")
+                assertTrue(check.height >= (48 * activity.resources.displayMetrics.density).toInt())
+                assertTrue(root.findViewWithTag<TextView>("set-$id-1-kg-plus").height >= (48 * activity.resources.displayMetrics.density).toInt())
+                check.isChecked = true
+                assertTrue(check.isChecked)
+            }
+        }
+    }
     @Test fun inlinePerSetFieldsSurviveTimerTicksAndPersist() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             scenario.onActivity { activity ->
