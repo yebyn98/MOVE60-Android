@@ -4,11 +4,14 @@ import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.border
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.outlined.Pause
+import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.outlined.ChevronLeft
-import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -77,6 +80,9 @@ import java.util.Locale
 
 private val secondary @Composable get() = MaterialTheme.colorScheme.secondary
 
+private val cardTitle: TextStyle
+    @Composable get() = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Normal)
+
 @Composable
 fun WorkoutDashboard(
     onCalendar: () -> Unit,
@@ -86,6 +92,7 @@ fun WorkoutDashboard(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
+    val openDetail = { context.startActivity(Intent(context, MainActivity::class.java)) }
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
             if (event is WorkoutUiEvent.Message) snackbar.showSnackbar(event.message)
@@ -115,27 +122,16 @@ fun WorkoutDashboard(
                 }
             }
         },
-        bottomBar = {
-            Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp)) {
-                Move60Button(
-                    modifier = Modifier.fillMaxWidth(),
-                    minHeight = 52,
-                    onClick = { context.startActivity(Intent(context, MainActivity::class.java)) }
-                ) {
-                    Text(if (state.running) "운동 화면으로 이동" else "운동 상세 및 시작")
-                }
-            }
-        }
+        bottomBar = { WorkoutDock(state, viewModel, openDetail) }
     ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
                 Move60Card {
-                    Text("이번 주 운동 계획", style = MaterialTheme.typography.titleLarge)
+                    Text("이번 주 운동 계획", style = cardTitle)
                     Text("요일과 운동 부위를 선택하면 상세 운동 화면에 적용돼요.",
                         color = secondary, style = MaterialTheme.typography.bodySmall)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -165,14 +161,18 @@ fun WorkoutDashboard(
             }
             item {
                 Move60Card {
-                    Text("운동 현황", style = MaterialTheme.typography.titleLarge)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Text("운동 현황", style = cardTitle)
+                        Text(when {
+                            state.finished -> "오늘 운동 완료"
+                            state.running -> "운동 진행 중"
+                            state.activeSeconds > 0 -> "일시정지"
+                            else -> "운동 대기"
+                        }, color = secondary, modifier = Modifier.testTag("dashboard_status"))
+                    }
                     Text(state.stageName, style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold)
-                    Text(when {
-                        state.finished -> "오늘 운동 완료"
-                        state.running -> "운동 진행 중"
-                        else -> "운동 대기 또는 일시정지"
-                    }, color = secondary)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically) {
                         Text("실제 운동시간", color = secondary)
@@ -189,8 +189,9 @@ fun WorkoutDashboard(
                 }
             }
             item {
-                Move60Card {
-                    Text("오늘의 운동 구성", style = MaterialTheme.typography.titleLarge)
+                Move60Card(Modifier.clickable(onClickLabel = "상세 운동 화면 열기", onClick = openDetail)
+                    .testTag("dashboard_routine_card")) {
+                    Text("오늘의 운동 구성", style = cardTitle)
                     state.stageNames.forEachIndexed { index, name ->
                         Row(Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -198,6 +199,7 @@ fun WorkoutDashboard(
                             Text("${index + 1}", color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.Bold)
                             Text(name, modifier = Modifier.weight(1f),
+                                fontWeight = if (index == state.stage) FontWeight.Bold else FontWeight.Normal,
                                 color = if (index == state.stage)
                                     MaterialTheme.colorScheme.primary
                                     else MaterialTheme.colorScheme.onSurface)
@@ -205,9 +207,95 @@ fun WorkoutDashboard(
                                 style = MaterialTheme.typography.labelSmall)
                         }
                     }
-                    Text("운동별 자세 안내, 대체 운동, 중량·횟수 및 세트 기록은 상세 화면에서 관리해요.",
-                        color = secondary, style = MaterialTheme.typography.bodySmall)
                 }
+            }
+        }
+    }
+}
+
+/** Fixed bottom dock (Figma "FixedBottomDock"): stage/time/heart summary plus step controls. */
+@Composable
+private fun WorkoutDock(state: WorkoutUiState, viewModel: WorkoutViewModel, onOpenDetail: () -> Unit) {
+    val context = LocalContext.current
+    // Heart rate is only shown when the watch reported a fresh sample (never an old value).
+    val prefs = context.getSharedPreferences("preferences", android.content.Context.MODE_PRIVATE)
+    val heart = prefs.getInt("watch_heart_rate", 0)
+    val heartAge = System.currentTimeMillis() - prefs.getLong("watch_heart_rate_at", 0L)
+    val heartText = if (heart in 30..240 && heartAge in 0L..10_000L) "$heart bpm" else "연결대기"
+    val lastStage = (state.stageNames.size - 1).coerceAtLeast(0)
+    Column(
+        Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)
+            .testTag("workout_dock").navigationBarsPadding()
+            .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                .clickable(onClickLabel = "상세 운동 화면 열기", onClick = onOpenDetail)
+                .testTag("dock_summary"),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("${state.stageName} · ${state.stage + 1}/${state.stageNames.size.coerceAtLeast(1)} 단계",
+                    style = MaterialTheme.typography.titleMedium, maxLines = 1)
+                Text("${formatSeconds(state.activeSeconds)} / 60:00", color = secondary,
+                    style = MaterialTheme.typography.bodySmall)
+                Text("오늘 누적 " + String.format(Locale.KOREA, "%.1f", state.todayKcal) + " kcal · 추정",
+                    color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.bodySmall)
+            }
+            Box(
+                Modifier.heightIn(min = 40.dp)
+                    .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.small)
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .semantics { contentDescription = "심박수 $heartText" },
+                contentAlignment = Alignment.Center
+            ) {
+                Text("♥ $heartText", color = MaterialTheme.colorScheme.tertiary,
+                    fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
+            }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Move60Button(
+                modifier = Modifier.weight(1f), primary = false, minHeight = 52,
+                enabled = state.stage > 0 && !state.finished,
+                contentPadding = PaddingValues(horizontal = 8.dp),
+                onClick = viewModel::previous
+            ) {
+                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = null,
+                    modifier = Modifier.size(18.dp))
+                Spacer(Modifier.size(6.dp))
+                Text("이전", maxLines = 1, style = MaterialTheme.typography.labelMedium)
+            }
+            Move60Button(
+                modifier = Modifier.weight(1.35f).testTag("dock_play"), minHeight = 52,
+                onClick = {
+                    val starting = !state.running
+                    viewModel.playPause()
+                    // Starting opens the detail screen where sets are entered.
+                    if (starting) onOpenDetail()
+                }
+            ) {
+                Icon(if (state.running) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
+                    contentDescription = null, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.size(6.dp))
+                Text(when {
+                    state.finished -> "새 운동 시작"
+                    state.running -> "일시정지"
+                    else -> "운동 시작"
+                }, maxLines = 1)
+            }
+            Move60Button(
+                modifier = Modifier.weight(1f), primary = false, minHeight = 52,
+                enabled = !state.finished,
+                contentPadding = PaddingValues(horizontal = 8.dp),
+                onClick = viewModel::next
+            ) {
+                Text(if (state.stage >= lastStage) "종료" else "다음", maxLines = 1,
+                    style = MaterialTheme.typography.labelMedium)
+                Spacer(Modifier.size(6.dp))
+                Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = null,
+                    modifier = Modifier.size(18.dp))
             }
         }
     }
@@ -230,26 +318,28 @@ fun WorkoutCalendar(
             IconButton(onClick=onBack) {
                 Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "뒤로 가기")
             }
-            Text("운동 기록",style=MaterialTheme.typography.titleLarge)
+            Text("운동 달력", style = cardTitle)
         } }
     ) { inner ->
         LazyColumn(Modifier.fillMaxSize().padding(inner).testTag("calendar_list"),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+            contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            item {
-                Move60Card {
-                    MonthGrid(viewModel, month, selected)
-                }
-            }
+            item { MonthGrid(viewModel, month, selected) }
             item {
                 val summary = viewModel.monthSummary(month)
                 val day = viewModel.daySummary(selected)
-                Move60Card(Modifier.testTag("calendar_summary")) {
-                    Text("${summary.trainedDays}일 · ${summary.activeMinutes}분 · 약 ${summary.kcal} kcal",
-                        style = MaterialTheme.typography.titleMedium)
-                    Text("● 운동한 날", color = secondary, style = MaterialTheme.typography.bodySmall)
-                    Text("${day.date} · ${day.activeMinutes}분 · 약 ${day.kcal} kcal",
-                        fontWeight = FontWeight.Bold)
+                Column(Modifier.fillMaxWidth().testTag("calendar_summary"),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("● 운동한 날", color = secondary, style = MaterialTheme.typography.bodySmall)
+                        Text("이번 달 ${summary.trainedDays}일 · ${summary.activeMinutes}분 · 약 ${summary.kcal} kcal",
+                            color = secondary, style = MaterialTheme.typography.bodySmall)
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(day.date.toString(), style = MaterialTheme.typography.bodySmall)
+                        Text("${day.activeMinutes}분 · 약 ${day.kcal} kcal",
+                            style = MaterialTheme.typography.bodySmall)
+                    }
                 }
             }
             if (days.isNotEmpty()) item {
@@ -273,15 +363,21 @@ fun WorkoutCalendar(
 /** Monday-first month grid; a dot marks days with recorded active time (real records only). */
 @Composable
 private fun MonthGrid(viewModel: HistoryViewModel, month: java.time.YearMonth, selected: java.time.LocalDate) {
+    val navShape = MaterialTheme.shapes.small
+    val navModifier = Modifier.size(48.dp)
+        .background(MaterialTheme.colorScheme.surface, navShape)
+        .border(1.dp, MaterialTheme.colorScheme.outline, navShape)
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = viewModel::previousMonth, modifier = Modifier.testTag("calendar_prev")) {
-            Icon(Icons.Outlined.ChevronLeft, contentDescription = "이전 달")
+        IconButton(onClick = viewModel::previousMonth, modifier = navModifier.testTag("calendar_prev")) {
+            Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "이전 달",
+                tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
         }
         Text("${month.year}년 ${month.monthValue}월", modifier = Modifier.weight(1f),
             textAlign = TextAlign.Center, style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.primary)
-        IconButton(onClick = viewModel::nextMonth, modifier = Modifier.testTag("calendar_next")) {
-            Icon(Icons.Outlined.ChevronRight, contentDescription = "다음 달")
+        IconButton(onClick = viewModel::nextMonth, modifier = navModifier.testTag("calendar_next")) {
+            Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = "다음 달",
+                tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
         }
     }
     Row(Modifier.fillMaxWidth()) {
@@ -372,16 +468,28 @@ fun WorkoutSettings(
             contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)) {
             item {
+                Move60Card(Modifier.testTag("settings_about_card")) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Text("앱 정보", style = MaterialTheme.typography.titleMedium)
+                        Text("v$version", color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.testTag("settings_version"))
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        Move60Button(onClick = { updateManager.check(true) }) { Text("업데이트") }
+                    }
+                }
+            }
+            item {
                 Move60Card {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("알림 · 업데이트", style = MaterialTheme.typography.titleMedium)
+                        Text("알림", style = MaterialTheme.typography.titleMedium)
                         Switch(checked = settings.soundEnabled,
                             onCheckedChange = viewModel::setSound,
                             modifier = Modifier.testTag("settings_sound_toggle"))
                     }
-                    Text("구간 전환 알림음 설정", style = MaterialTheme.typography.bodySmall,
-                        color = secondary)
                     Move60Button(primary = false, modifier = Modifier.fillMaxWidth(), onClick = {
                         if (Build.VERSION.SDK_INT >= 33 &&
                             context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
@@ -391,18 +499,43 @@ fun WorkoutSettings(
                             diagnostics = notificationDiagnostics(context, viewModel.sessionRunning())
                         }
                     }) { Text("알림 설정 · 진단") }
-                    Move60Button(primary = false, modifier = Modifier.fillMaxWidth(),
-                        onClick = { updateManager.check(true) }) { Text("업데이트 확인") }
                 }
             }
             item {
                 Move60Card {
-                    Text("운동 설정", style = MaterialTheme.typography.titleMedium)
+                    // Explicit opt-in only: this opens the consent screen, it never requests permissions itself.
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("건강 데이터 연동", style = MaterialTheme.typography.titleMedium)
+                        Move60Button(
+                            onClick = { context.startActivity(Intent(context, HealthConsentActivity::class.java)) }) {
+                            Text("연동")
+                        }
+                    }
+                }
+            }
+            item {
+                Move60Card {
+                    Text("칼로리 계산 체중", style = MaterialTheme.typography.titleMedium)
+                    OutlinedTextField(value = weight, onValueChange = { weight = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("체중(kg)") }, singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+                    Move60Button(onClick = { viewModel.setWeight(weight) }) { Text("체중 저장") }
+                }
+            }
+            item {
+                Move60Card {
+                    Text("유산소 · 근력 시간 비율", style = MaterialTheme.typography.titleMedium)
                     Move60Button(primary = false, modifier = Modifier.fillMaxWidth(),
                         onClick = { showRatio = true }) {
                         Text("유산소 · 근력 시간 비율 변경 (유산소 ${cardioMinutes}분)")
                     }
-                    Text("오늘 컨디션에 맞춘 루틴", style = MaterialTheme.typography.titleSmall)
+                }
+            }
+            item {
+                Move60Card {
+                    Text("오늘 컨디션 루틴", style = MaterialTheme.typography.titleMedium)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         listOf(
                             "피곤" to "스텝밀 최대 10분 · 편안한 강도",
@@ -418,38 +551,6 @@ fun WorkoutSettings(
                         }
                     }
                     Text("운동 중 변경한 컨디션은 다음 운동부터 적용됩니다.",
-                        style = MaterialTheme.typography.bodySmall, color = secondary)
-                }
-            }
-            item {
-                Move60Card {
-                    Text("건강 데이터 연동", style = MaterialTheme.typography.titleMedium)
-                    Text("Health Connect 심박수 기록을 동의 후 불러오기", color = secondary)
-                    Move60Button(
-                        onClick = { context.startActivity(Intent(context, HealthConsentActivity::class.java)) }) {
-                        Text("연동 권한 및 기록 확인")
-                    }
-                }
-            }
-            item {
-                Move60Card {
-                    Text("칼로리 계산 체중", style = MaterialTheme.typography.titleMedium)
-                    OutlinedTextField(value = weight, onValueChange = { weight = it },
-                        label = { Text("체중(kg)") }, singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
-                    Text("운동 칼로리는 추정치이며 실제 소모량과 다를 수 있어요.",
-                        style = MaterialTheme.typography.bodySmall, color = secondary)
-                    Move60Button(onClick = { viewModel.setWeight(weight) }) { Text("체중 저장") }
-                }
-            }
-            item {
-                Move60Card(Modifier.testTag("settings_about_card")) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("앱 정보", style = MaterialTheme.typography.titleMedium)
-                        Text("v$version", color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.testTag("settings_version"))
-                    }
-                    Text("MOVE60 · 60분 운동을 매일 더 간결하게",
                         style = MaterialTheme.typography.bodySmall, color = secondary)
                 }
             }

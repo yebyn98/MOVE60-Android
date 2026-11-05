@@ -47,7 +47,7 @@ main=(root/"app/src/main/java/com/move60/workout/MainActivity.kt").read_text()
 settings=(root/"app/src/main/java/com/move60/workout/architecture/ComposeScreens.kt").read_text()
 wear=(root/"wear/src/main/java/com/move60/watch/WatchActivity.kt").read_text()
 tile=(root/"wear/src/main/java/com/move60/watch/WorkoutTileService.kt").read_text()
-assert 'val block = card().apply' in main and 'phone_dashboard_summary' in main
+assert 'val block = card()' in main and 'phone_dashboard_summary' in main
 assert '지난 기록 불러오기' not in main
 assert 'tag = "set-' not in main or '-rpe"' not in main
 assert '"오늘 누적 ' in main
