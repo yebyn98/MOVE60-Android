@@ -5,7 +5,6 @@ import android.os.Build
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.HeartRateRecord
-import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.metadata.DataOrigin
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
@@ -31,8 +30,7 @@ class HealthConnectGateway @Inject constructor(
 ) {
     companion object {
         val readPermissions: Set<String> = setOf(
-            HealthPermission.getReadPermission(HeartRateRecord::class),
-            HealthPermission.getReadPermission(SleepSessionRecord::class)
+            HealthPermission.getReadPermission(HeartRateRecord::class)
         )
         const val DATA_PATH = "/move60/health"
         private const val PREFS = "move60_health_opt_in_v1"
@@ -40,9 +38,7 @@ class HealthConnectGateway @Inject constructor(
 
     data class Metrics(
         val lastHeartBpm: Int? = null,
-        val heartMeasuredAt: Long = 0L,
-        val sleepMinutes: Long? = null,
-        val sleepEndedAt: Long = 0L
+        val heartMeasuredAt: Long = 0L
     )
 
     private val samsungOrigin = setOf(DataOrigin("com.sec.android.app.shealth"))
@@ -66,7 +62,6 @@ class HealthConnectGateway @Inject constructor(
         check(isOptedIn()) { "MOVE60 health sharing is not enabled." }
         check(permissionsGranted()) { "Health Connect read permissions were not granted." }
         val end = Instant.now()
-        val sleepStart = end.minus(Duration.ofDays(3))
         val heart = client().readRecords(
             ReadRecordsRequest(
                 HeartRateRecord::class,
@@ -78,19 +73,9 @@ class HealthConnectGateway @Inject constructor(
         val mostRecent = heart.flatMap { item ->
             item.samples.map { it.time to it.beatsPerMinute.toInt() }
         }.filter { it.second in 30..240 }.maxByOrNull { it.first }
-        val sleep = client().readRecords(
-            ReadRecordsRequest(
-                SleepSessionRecord::class,
-                timeRangeFilter = TimeRangeFilter.between(sleepStart, end),
-                pageSize = 100,
-                dataOriginFilter = samsungOrigin
-            )
-        ).records.maxByOrNull { it.endTime }
         return Metrics(
             lastHeartBpm = mostRecent?.second,
-            heartMeasuredAt = mostRecent?.first?.toEpochMilli() ?: 0L,
-            sleepMinutes = sleep?.let { Duration.between(it.startTime, it.endTime).toMinutes().coerceAtLeast(0) },
-            sleepEndedAt = sleep?.endTime?.toEpochMilli() ?: 0L
+            heartMeasuredAt = mostRecent?.first?.toEpochMilli() ?: 0L
         )
     }
 
@@ -110,9 +95,6 @@ class HealthConnectGateway @Inject constructor(
         request.dataMap.putBoolean("consented", consented)
         request.dataMap.putInt("lastHeartBpm", metrics.lastHeartBpm ?: 0)
         request.dataMap.putLong("heartMeasuredAt", metrics.heartMeasuredAt)
-        request.dataMap.putLong("sleepMinutes", metrics.sleepMinutes ?: -1L)
-        request.dataMap.putLong("sleepEndedAt", metrics.sleepEndedAt)
-        request.dataMap.putString("vascularLoad", "unsupported_watch4")
         request.dataMap.putLong("syncedAt", System.currentTimeMillis())
         Wearable.getDataClient(context).putDataItem(request.asPutDataRequest().setUrgent())
     }
