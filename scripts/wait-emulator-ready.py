@@ -35,12 +35,13 @@ while time.monotonic()-started < 180:
         root = ET.fromstring(xml)
         texts = [n.get('text','') for n in root.iter('node')]
         if any("isn't responding" in t or 'keeps stopping' in t or '응답하지' in t for t in texts):
-            # Only recover the known, unrelated Google SDK setup ANR.
-            # Never dismiss MOVE60 or arbitrary system errors as a successful test.
-            setup_anr = any('com.google.android.googlesdksetup' in t for t in texts)
-            if setup_anr and recovered_setup_anrs < 2:
+            # Recover only known launcher / Google setup FIRST-BOOT ANRs.
+            # These are emulator infrastructure apps, never MOVE60 or an unknown app.
+            google_setup = any('com.google.android.googlesdksetup' in t for t in texts)
+            pixel_launcher = any('Pixel Launcher' in t for t in texts)
+            if (google_setup or pixel_launcher) and recovered_setup_anrs < 2:
                 recovered_setup_anrs += 1
-                (out/f'google-setup-anr-{recovered_setup_anrs}.xml').write_text(xml)
+                (out/f'emulator-first-boot-anr-{recovered_setup_anrs}.xml').write_text(xml)
                 close = next((n for n in root.iter('node')
                               if n.get('text') in ('Close app', '앱 닫기')), None)
                 if close is not None:
@@ -49,7 +50,9 @@ while time.monotonic()-started < 180:
                     if len(coords) == 4:
                         adb('shell','input','tap',str((coords[0]+coords[2])//2),
                             str((coords[1]+coords[3])//2))
-                adb('shell','am','force-stop','com.google.android.googlesdksetup')
+                package = ('com.google.android.googlesdksetup' if google_setup
+                           else 'com.google.android.apps.nexuslauncher')
+                adb('shell','am','force-stop',package)
                 stable = 0
                 time.sleep(8)
                 continue
