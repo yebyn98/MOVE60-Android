@@ -48,13 +48,12 @@ jobs:
         run: node scripts/verify-plan.cjs
       - name: Validate phone-only and Watch4-only release isolation
         run: python3 scripts/test_publish_selected.py
-      - name: Verify exercise photo animation integration
+      - name: Verify removed exercise photos stay removed
         shell: bash
         run: |
-          test -f app/src/main/java/com/move60/workout/ExercisePhotos.kt
-          grep -q 'ExercisePhotos.addTo' app/src/main/java/com/move60/workout/MainActivity.kt
-          grep -q 'handler.postDelayed(this, 900L)' app/src/main/java/com/move60/workout/ExercisePhotos.kt
-          ! grep -q 'id: String, text: (String) -> TextView' app/src/main/java/com/move60/workout/ExercisePhotos.kt
+          test ! -e app/src/main/java/com/move60/workout/ExercisePhotos.kt
+          ! grep -q 'ExercisePhotos.addTo' app/src/main/java/com/move60/workout/MainActivity.kt
+          ! grep -q 'openVirtualMate' app/src/main/java/com/move60/workout/MainActivity.kt
       - name: Check native Kotlin-only sources
         shell: bash
         run: |
