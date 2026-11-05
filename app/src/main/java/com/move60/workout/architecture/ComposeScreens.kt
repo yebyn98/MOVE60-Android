@@ -481,7 +481,7 @@ private fun LegendDot(color: Color, label: String) {
 
 @Composable
 private fun HabitProgress(label: String, done: Int, goal: Int, tag: String) {
-    Column(Modifier.fillMaxWidth().testTag(tag).semantics { contentDescription = "$label $done일 / 목표 ${goal}일" },
+    Column(Modifier.fillMaxWidth().testTag(tag).semantics { contentDescription = "$label ${done}일 / 목표 ${goal}일" },
         verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(label, color = secondary)
