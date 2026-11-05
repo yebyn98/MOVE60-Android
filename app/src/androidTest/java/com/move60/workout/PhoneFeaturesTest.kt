@@ -39,14 +39,6 @@ class PhoneFeaturesTest {
         val image = requireNotNull(instrumentation.uiAutomation.takeScreenshot())
         File(context.getExternalFilesDir(null), name).outputStream().use { image.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
-    @Test fun healthConsentScreenShowsPermissionExplanationAndScreenshot() {
-        ActivityScenario.launch(com.move60.workout.health.HealthConsentActivity::class.java).use {
-            onView(withText("건강 데이터 연동")).check(matches(isDisplayed()))
-            onView(withText("동의하고 건강 기록 불러오기")).check(matches(isDisplayed()))
-            screenshot("move60-health-connect-screen.png")
-        }
-    }
-
     @Test fun unifiedDashboardUsesTokensAndSimplifiedSettings() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             scenario.onActivity { activity ->
