@@ -29,7 +29,7 @@ assert "오늘의 운동 구성" in main and "상세 ›" in main and "phone_cur
 assert "fun buildSetTable" in main and "phone_current_exercise" in main and "buildSetTable(task)" in main.split("fun showDetails")[1], "Set entry: current-exercise card + exercise popup"
 for feature in ("알림 설정 · 진단", "updateManager.check(true)", "유산소 · 근력 시간 비율 변경", "오늘 컨디션 루틴", "칼로리 계산 체중"):
     assert feature in compose, f"Compose settings lost: {feature}"
-assert 'Icon(Icons.Outlined.CalendarMonth' in compose and 'Icon(Icons.Outlined.Settings' in compose
+assert 'Icon(Icons.Outlined.Today' in compose and 'Icon(Icons.Outlined.Settings' in compose
 assert "동작 영상" not in compose
 assert "PermissionController.createRequestPermissionResultContract()" in consent
 assert "granted.containsAll(HealthConnectGateway.readPermissions)" in consent
@@ -58,7 +58,7 @@ assert "건강 대시보드" in old
 assert 'horologist-compose-layout:0.6.23' in read("wear/build.gradle")
 targets=read("scripts/release-targets.json")
 assert '"phone": true' in targets and '"watch": true' in targets
-assert "versionCode 40" in read("app/build.gradle") and "versionCode 38" in read("wear/build.gradle")
+assert "versionCode 41" in read("app/build.gradle") and "versionCode 39" in read("wear/build.gradle")
 for manifest_path, activity in (
     ("app/src/main/AndroidManifest.xml", ".health.HealthConsentActivity"),
     ("wear/src/main/AndroidManifest.xml", ".health.WearHealthActivity"),

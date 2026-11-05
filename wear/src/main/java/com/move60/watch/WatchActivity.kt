@@ -91,21 +91,27 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
         root.addOnLayoutChangeListener { _, left, top, right, bottom, _, _, _, _ ->
             val width = right - left
             val height = bottom - top
-            val side = ((minOf(width, height) * 0.7071f).toInt() - dp(4)).coerceAtLeast(1)
+            // The ring owns the outer band of the round display (full bleed). Content lives in the
+            // circle inside that band: 64% wide keeps the bottom button corners and the top title
+            // clear of the ring on 396px (40 mm) and 450px (44 mm) Galaxy Watch4 screens.
+            val short = minOf(width, height)
+            val boxWidth = (short * 0.64f).toInt().coerceAtLeast(1)
+            val boxHeight = (short * 0.80f).toInt().coerceAtLeast(1)
             val params = safeArea.layoutParams as FrameLayout.LayoutParams
-            if (params.width != side || params.height != side) {
-                params.width = side
-                params.height = side
+            if (params.width != boxWidth || params.height != boxHeight) {
+                params.width = boxWidth
+                params.height = boxHeight
                 params.gravity = Gravity.CENTER
                 safeArea.layoutParams = params
             }
         }
         progressRing = WorkoutProgressRing(this).apply { tag = "watch_progress_ring" }
-        safeArea.addView(progressRing, FrameLayout.LayoutParams(-1, -1))
+        // Full-bleed ring behind the content box.
+        root.addView(progressRing, 0, FrameLayout.LayoutParams(-1, -1))
         val body = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(dp(Theme.Space.one), 0, dp(Theme.Space.one), 0)
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, 0)
         }
         stage = text(16, lime, "watch_stage").apply {
             setTypeface(null, Typeface.BOLD)
@@ -113,7 +119,7 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
             setOnLongClickListener { showWatchSettings(); true }
         }
         detail = text(12, Theme.Colors.textMedium, "watch_detail")
-        timer = text(26, Theme.Colors.textHigh, "watch_timer").apply {
+        timer = text(30, Theme.Colors.textHigh, "watch_timer").apply {
             setOnClickListener { if (workout.restSeconds() > 0 && workout.stageIndex == 2) showRestAdjustments() }
         }
         heartRate = text(12, Theme.Colors.heart, "watch_heart").apply {
@@ -128,7 +134,7 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
         }
         body.addView(stage, LinearLayout.LayoutParams(-1, dp(16)))
         body.addView(detail, LinearLayout.LayoutParams(-1, dp(16)))
-        body.addView(timer, LinearLayout.LayoutParams(-1, dp(32)))
+        body.addView(timer, LinearLayout.LayoutParams(-1, dp(36)))
         body.addView(heartRate, LinearLayout.LayoutParams(-1, dp(16)))
         body.addView(progressBar, LinearLayout.LayoutParams(-1, dp(1)))
         val buttons = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
@@ -210,10 +216,10 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
         minWidth = 0
         minimumWidth = 0
         includeFontPadding = false
-        setPadding(dp(8), 0, dp(8), 0)
+        setPadding(dp(4), 0, dp(4), 0)
         setTextColor(Theme.Colors.textHigh)
         setSingleLine(true)
-        setAutoSizeTextTypeUniformWithConfiguration(10, 12, 1, TypedValue.COMPLEX_UNIT_SP)
+        setAutoSizeTextTypeUniformWithConfiguration(9, 12, 1, TypedValue.COMPLEX_UNIT_SP)
         background = Theme.shape(this@WatchActivity,
             Theme.Colors.surfaceElevated, Theme.Radius.control, Theme.Colors.outline)
         setOnClickListener { action() }

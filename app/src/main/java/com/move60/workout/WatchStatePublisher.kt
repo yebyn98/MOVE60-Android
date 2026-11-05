@@ -25,7 +25,7 @@ object WatchStatePublisher {
         val sequence = maxOf(now, prefs.getLong("sequence",0L)+1L)
         prefs.edit().putLong("sequence",sequence).apply()
         val index = state.optInt("stage", 0).coerceIn(0, 3)
-        val names = listOf("준비운동", "유산소 ①", when (current.bodyFocus) { "upper" -> "상체 근력"; "lower" -> "하체 근력"; else -> "근력운동" }, "유산소 ② · 마무리")
+        val names = listOf("준비운동", "유산소 ①", when (current.bodyFocus) { "upper" -> "상체 근력"; "lower" -> "하체 근력"; else -> "근력운동" }, "유산소 ②")
         val running = state.optBoolean("running") && !state.optBoolean("finished")
         val deadline = state.optLong("deadlineAt")
         val remaining = if (running) ceil((deadline - now) / 1000.0).toInt().coerceAtLeast(0)

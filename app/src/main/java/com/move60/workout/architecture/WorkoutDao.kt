@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface WorkoutDao {
-    @Query("SELECT * FROM daily_workouts ORDER BY date DESC LIMIT :limit")
+    @Query("SELECT * FROM daily_workouts WHERE activeSeconds >= 60 ORDER BY date DESC LIMIT :limit")
     fun observeRecentDays(limit: Int = 35): Flow<List<DailyWorkoutEntity>>
 
     @Query("SELECT * FROM daily_workouts WHERE date = :date LIMIT 1")

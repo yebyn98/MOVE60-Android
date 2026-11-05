@@ -1,6 +1,7 @@
 package com.move60.workout.architecture
 
 import android.content.Intent
+import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.captureToImage
@@ -64,6 +65,19 @@ class ComposeCalendarTest {
             rule.onNodeWithTag("calendar_list").performScrollToNode(hasTestTag("calendar_summary"))
             rule.onNodeWithTag("calendar_summary").assertIsDisplayed()
             rule.onNodeWithText("● 운동한 날").assertIsDisplayed()
+        }
+    }
+
+    @Test fun zeroMinuteDaysAreNotTrainedAndAreHiddenFromRecentRecords() {
+        // 30 s is 0 whole minutes: not a workout day, no dot, no entry in the recent list.
+        WorkoutHistory(context).addActiveSeconds(today, 30)
+        ActivityScenario.launch(ComposeActivity::class.java).use {
+            rule.onNodeWithContentDescription("운동 달력").performClick()
+            rule.onNodeWithContentDescription("$today · 운동 기록 없음").assertIsDisplayed()
+            rule.onNodeWithTag("calendar-dot-$today", useUnmergedTree = true).assertDoesNotExist()
+            rule.onNodeWithText("최근 운동 기록").assertDoesNotExist()
+            assertEquals(0, WorkoutHistory(context).trainedDays(java.time.YearMonth.from(today)))
+            capture("compose-calendar-zero-minutes.png")
         }
     }
 

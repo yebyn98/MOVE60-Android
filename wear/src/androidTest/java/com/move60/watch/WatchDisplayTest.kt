@@ -50,7 +50,7 @@ class WatchDisplayTest {
     }
     @Test fun allFourStagesAndBothButtonsFitSmallRoundScreen() {
         ActivityScenario.launch(WatchActivity::class.java).use { scenario ->
-            val names = listOf("준비운동", "유산소", "근력운동", "마무리 스트레칭")
+            val names = listOf("준비운동", "유산소 ①", "근력운동", "유산소 ②")
             names.forEachIndexed { index, name ->
                 scenario.onActivity { activity ->
                     activity.applyWorkoutState(WatchWorkoutState(
@@ -65,6 +65,20 @@ class WatchDisplayTest {
                     val ring = activity.window.decorView.findViewWithTag<WorkoutProgressRing>("watch_progress_ring")
                     assertTrue("Circular exercise progress must remain visible", ring.isShown)
                     assertTrue(ring.progress in 0..1000)
+                    // Nothing may touch the ring band (ring stroke band ends 6dp inside the display edge).
+                    val decor = activity.window.decorView
+                    val density = activity.resources.displayMetrics.density
+                    val origin = IntArray(2).also { decor.getLocationOnScreen(it) }
+                    val cx = origin[0] + decor.width / 2.0
+                    val cy = origin[1] + decor.height / 2.0
+                    val limit = minOf(decor.width, decor.height) / 2.0 - 6 * density
+                    for (tag in listOf("watch_stage", "watch_detail", "watch_timer", "watch_heart", "watch_play", "watch_next")) {
+                        val v = decor.findViewWithTag<View>(tag)
+                        val xy = IntArray(2).also { v.getLocationOnScreen(it) }
+                        for (x in listOf(xy[0], xy[0] + v.width)) for (y in listOf(xy[1], xy[1] + v.height))
+                            assertTrue("$tag corner overlaps the progress ring at $x,$y", (x-cx)*(x-cx) + (y-cy)*(y-cy) <= limit*limit)
+                    }
+                    assertEquals("Next button text clipped", 0, activity.window.decorView.findViewWithTag<Button>("watch_next").layout.getEllipsisCount(0))
                     assertButtonInsideCircle(activity, activity.window.decorView.findViewWithTag("watch_play"))
                     assertButtonInsideCircle(activity, activity.window.decorView.findViewWithTag("watch_next"))
                     assertEquals(if (index == 3) "운동 완료" else "다음 단계",

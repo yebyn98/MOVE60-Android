@@ -49,8 +49,8 @@ class HistoryViewModel @Inject constructor(
         _selected.value = month.atDay(1)
     }
 
-    /** True only when real active time was recorded for the date. */
-    fun trained(date: LocalDate): Boolean = history.record(date).activeSeconds > 0L
+    /** True only when at least one full minute of real active time was recorded (0 min = not trained). */
+    fun trained(date: LocalDate): Boolean = history.isTrained(date)
 
     fun monthSummary(month: YearMonth): MonthSummary = MonthSummary(
         trainedDays = history.trainedDays(month),

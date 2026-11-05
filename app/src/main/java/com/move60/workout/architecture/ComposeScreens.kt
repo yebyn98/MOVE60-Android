@@ -53,7 +53,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Today
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.ui.platform.testTag
@@ -115,7 +115,7 @@ fun WorkoutDashboard(
                     fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     IconButton(onClick = onCalendar, modifier = Modifier.testTag("compose_calendar_icon")) {
-                        Icon(Icons.Outlined.CalendarMonth, contentDescription = "운동 달력",
+                        Icon(Icons.Outlined.Today, contentDescription = "운동 달력",
                             tint = MaterialTheme.colorScheme.primary)
                     }
                     IconButton(onClick = onSettings, modifier = Modifier.testTag("compose_settings_icon")) {
