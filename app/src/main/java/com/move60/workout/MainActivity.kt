@@ -354,7 +354,7 @@ class MainActivity : Activity() {
                 .setItems(arrayOf("현재 단계 초기화","오늘 진행 초기화")) { _, which ->
                     if (which == 0) session.resetStage() else session.resetAll()
                     afterAction()
-                }.setNegativeButton("취소",null).showDimmed()
+                }.setNegativeButton("취소",null).show()
             true
         }
         return box
