@@ -412,7 +412,7 @@ private val upperDot: Color @Composable get() = MaterialTheme.colorScheme.primar
 private val lowerDot: Color @Composable get() = MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
 
 private fun formatStageTime(seconds: Long): String =
-    if (seconds < 60L) "1분 미만" else "${(seconds + 30L) / 60L}분"
+    "%02d:%02d".format(Locale.KOREA, seconds.coerceAtLeast(0) / 60, seconds.coerceAtLeast(0) % 60)
 
 /** Selected-day record (Figma "summary_card"): date, body-part chip, totals, then one row per workout stage. */
 @Composable
@@ -433,7 +433,7 @@ private fun DayDetailCard(detail: DayDetail) {
                             fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
                     }
                 }
-                if (detail.stages.isNotEmpty()) Text("운동 ${detail.stages.size}개 완료", color = secondary,
+                if (detail.stages.isNotEmpty()) Text("수행 내역 · ${detail.stages.size}개 항목", color = secondary,
                     style = MaterialTheme.typography.bodySmall)
             }
             Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -470,20 +470,19 @@ private fun DayDetailCard(detail: DayDetail) {
     }
 }
 
-/** Monday-first month grid; a dot marks days with recorded active time (real records only). */
+/** Six-week Monday-first grid. Every row shares seven equal cells, even in 6-week months. */
 @Composable
 private fun MonthGrid(
     viewModel: HistoryViewModel, month: java.time.YearMonth, selected: java.time.LocalDate,
     onDayClick: (java.time.LocalDate) -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Move60Card(Modifier.testTag("calendar_month_grid")) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("${month.year}년 ${month.monthValue}월", modifier = Modifier.weight(1f),
+                style = cardTitle, color = MaterialTheme.colorScheme.onSurface)
             IconButton(onClick = viewModel::previousMonth, modifier = Modifier.size(48.dp).testTag("calendar_prev")) {
                 Icon(Icons.Outlined.ChevronLeft, contentDescription = "이전 달", modifier = Modifier.size(24.dp))
             }
-            Text("${month.year}년 ${month.monthValue}월", modifier = Modifier.weight(1f),
-                textAlign = TextAlign.Center, style = cardTitle,
-                color = MaterialTheme.colorScheme.primary)
             IconButton(onClick = viewModel::nextMonth, modifier = Modifier.size(48.dp).testTag("calendar_next")) {
                 Icon(Icons.Outlined.ChevronRight, contentDescription = "다음 달", modifier = Modifier.size(24.dp))
             }
@@ -494,14 +493,15 @@ private fun MonthGrid(
                     color = secondary, style = MaterialTheme.typography.bodySmall)
             }
         }
-        val lead = month.atDay(1).dayOfWeek.value - 1
-        val cells: List<java.time.LocalDate?> =
-            List(lead) { null } + (1..month.lengthOfMonth()).map { month.atDay(it) }
-        // Figma: rows are 48dp cells with no gap between weeks.
-        cells.chunked(7).forEach { week ->
+        val first = month.atDay(1)
+        val firstCell = first.minusDays((first.dayOfWeek.value - 1).toLong())
+        val dates = List(42) { i -> firstCell.plusDays(i.toLong()) }
+        dates.chunked(7).forEach { week ->
             Row(Modifier.fillMaxWidth()) {
-                week.forEach { date -> DayCell(viewModel, date, selected, onDayClick, Modifier.weight(1f)) }
-                repeat(7 - week.size) { Spacer(Modifier.weight(1f)) }
+                week.forEach { date ->
+                    DayCell(viewModel, date, selected, date.month != month.month,
+                        onDayClick, Modifier.weight(1f))
+                }
             }
         }
     }
@@ -510,38 +510,40 @@ private fun MonthGrid(
 @Composable
 private fun DayCell(
     viewModel: HistoryViewModel,
-    date: java.time.LocalDate?,
+    date: java.time.LocalDate,
     selected: java.time.LocalDate,
+    outsideMonth: Boolean,
     onDayClick: (java.time.LocalDate) -> Unit,
     modifier: Modifier
 ) {
-    if (date == null) { Spacer(modifier.heightIn(min = 48.dp)); return }
     val trained = viewModel.trained(date)
     val focus = if (trained) viewModel.focus(date) else null
     val focusLabel = when (focus) { "upper" -> " · 상체"; "lower" -> " · 하체"; else -> "" }
     val isSelected = date == selected
-    // Future days are muted (Figma); today and the past use the high-emphasis text color.
     val future = date.isAfter(java.time.LocalDate.now())
+    // One 48dp touch region owns date, selection circle and record dot; no pixel offsets.
     Column(
-        modifier.heightIn(min = 48.dp)
-            .background(if (isSelected) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent,
-                RoundedCornerShape(12.dp))
+        modifier.height(48.dp)
             .clickable(onClickLabel = "날짜 선택") { onDayClick(date) }
             .semantics { contentDescription = "$date · ${if (trained) "운동 기록 있음" else "운동 기록 없음"}$focusLabel" },
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically)
+        verticalArrangement = Arrangement.Center
     ) {
-        Text("${date.dayOfMonth}", fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-            color = if (future) muted else MaterialTheme.colorScheme.onSurface)
-        if (trained) {
-            val tag = Modifier.size(6.dp).testTag("calendar-dot-$date")
-            when (focus) {
-                "upper" -> Box(tag.background(upperDot, CircleShape))
-                "lower" -> Box(tag.background(lowerDot, CircleShape))
-                // Body part not recorded: hollow dot.
-                else -> Box(tag.border(1.dp, MaterialTheme.colorScheme.secondary, CircleShape))
-            }
+        Box(Modifier.size(30.dp)
+            .background(if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("${date.dayOfMonth}",
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                color = when {
+                    isSelected -> MaterialTheme.colorScheme.onPrimary
+                    outsideMonth || future -> muted
+                    else -> MaterialTheme.colorScheme.onSurface
+                })
         }
+        if (trained) Box(Modifier.size(5.dp).testTag("calendar-dot-$date")
+            .background(MaterialTheme.colorScheme.primary, CircleShape))
+        else Spacer(Modifier.height(5.dp))
     }
 }
 
