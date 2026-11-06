@@ -18,7 +18,7 @@ def bounds(node):
 def find(root, description=None, text=None):
     matches = [n for n in root.iter("node") if
                (description is None or n.get("content-desc") == description) and
-               (text is None or n.get("text") == text)]
+               (text is None or (n.get("text") or "").replace("\ufffc", "").strip() == text)]  # dock labels carry an inline icon span
     assert len(matches) == 1, (description, text, len(matches))
     return matches[0]
 
