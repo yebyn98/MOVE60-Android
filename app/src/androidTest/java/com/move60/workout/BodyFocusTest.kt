@@ -100,12 +100,8 @@ class BodyFocusTest {
                 assertNull(root.findViewWithTag<View>("body_focus_lower"))
                 assertTrue(root.findViewWithTag<TextView>("phone_day_info").text.toString().endsWith("하체"))
                 val store = SessionStore(context,data)
-                val rows = descendants(root).filterIsInstance<TextView>()
-                    .filter { it.tag?.toString()?.startsWith("strength_detail_") == true }
-                assertEquals(store.routine.stages[2].tasks.size,rows.size)
-                assertTrue(rows.all { it.text.toString().endsWith("상세 ›") })
-                val minTouchHeight = (48 * activity.resources.displayMetrics.density).toInt()
-                assertTrue(rows.all { it.minHeight >= minTouchHeight })
+                // The stage list lives on the overview; the detail screen no longer repeats it.
+                assertNull(root.findViewWithTag<View>("phone_stage_stack"))
                 repeat(2) { root.findViewWithTag<TextView>("phone_next").performClick() }
                 assertTrue(root.findViewWithTag<View>("phone_current_exercise").isShown)
                 assertNotNull(root.findViewWithTag<View>("set-"+store.routine.stages[2].tasks.first().id+"-1-kg"))
@@ -115,9 +111,7 @@ class BodyFocusTest {
             File(context.getExternalFilesDir(null),"phone-v28-body-focus.png").outputStream().use { image.compress(Bitmap.CompressFormat.PNG,100,it) }
             // Open the per-exercise popup (set entry + guide + alternatives) and capture it.
             scenario.onActivity { activity ->
-                val first = activity.window.decorView.findViewWithTag<TextView>(
-                    "strength_detail_"+SessionStore(context,data).routine.stages[2].tasks.first().id)
-                (first.parent as View).performClick()
+                activity.window.decorView.findViewWithTag<View>("phone_current_guide").performClick()
             }
             instrumentation.waitForIdleSync()
             Thread.sleep(800)

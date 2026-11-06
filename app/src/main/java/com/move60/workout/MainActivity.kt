@@ -35,10 +35,8 @@ class MainActivity : Activity() {
     private lateinit var exercisePrefs: ExercisePreferences
     private lateinit var session: SessionStore
     private lateinit var content: LinearLayout
-    private lateinit var stageStack: LinearLayout
     private lateinit var dayInfo: TextView
     private lateinit var currentSetPanel: LinearLayout
-    private lateinit var summary: LinearLayout
     private lateinit var timerValue: TextView
     private lateinit var timerLabel: TextView
     private lateinit var timeMeta: TextView
@@ -57,8 +55,6 @@ class MainActivity : Activity() {
     private lateinit var play: TextView
     private lateinit var previous: TextView
     private lateinit var next: TextView
-    private lateinit var trackingSummary: TextView
-    private lateinit var sectionCount: TextView
     private val publishDraft = Runnable { if (::session.isInitialized) syncService() }
     private val handler = Handler(Looper.getMainLooper())
     private var lastPhaseKey = ""
@@ -66,7 +62,6 @@ class MainActivity : Activity() {
     private var lastStage = -1
     private var lastChecked = -1
     private var soundEnabled = true
-    private var calorieWeightKg = 63.0
     private var recoveryMode = false
     private val ticker = object : Runnable {
         override fun run() {
@@ -77,8 +72,7 @@ class MainActivity : Activity() {
             val external = session.reloadIfChanged()
             if (previousDate != session.recordDate) { constructInterface(); syncService() }
             if (external && (previousChecks != session.checked || previousStage != session.stage || previousDay != session.day)) {
-                renderStages()
-                renderSummary()
+                renderCurrent()
             }
             if (external && (previousStage != session.stage || previousDay != session.day)) syncService()
             val changed = session.reconcile()
@@ -92,8 +86,7 @@ class MainActivity : Activity() {
                 val previousPhase = lastPhaseKey
                 lastPhaseKey = phaseKey
                 if (previousPhase.isNotEmpty() && previousPhase != phaseKey && session.running && soundEnabled) playTone()
-                renderStages()
-                renderSummary()
+                renderCurrent()
             }
             refreshTimer()
             handler.postDelayed(this, 500L)
@@ -117,7 +110,6 @@ class MainActivity : Activity() {
             return
         }
         soundEnabled = getSharedPreferences("preferences", MODE_PRIVATE).getBoolean("sound", true)
-        calorieWeightKg = getSharedPreferences("preferences", MODE_PRIVATE).getFloat("calorie_weight_kg", 63f).toDouble()
         val root = column().apply {
             setBackgroundColor(this@MainActivity.background)
             setOnApplyWindowInsetsListener { view, insets ->
@@ -213,7 +205,7 @@ class MainActivity : Activity() {
         nowHeading.addView(dayInfo, LinearLayout.LayoutParams(-2, -2))
         content.addView(nowHeading)
         addGap(content, Theme.Space.two)
-        content.addView(makeTimerCard())
+        // Figma order: the set-rest card sits above the current-exercise card; its gap is a margin so a hidden card leaves no hole.
         restPanel = card().apply { tag = "phone_rest"; visibility = View.GONE }
         restValue = label("", 28, true, mint).apply { tag = "phone_rest_time" }
         restPanel.addView(label("세트 휴식", 16, true, textSecondary))
@@ -222,45 +214,10 @@ class MainActivity : Activity() {
         restActions.addView(actionButton("+15초", false) { session.adjustRest(15); syncService(); refreshTimer() }.apply { tag="phone_rest_add" },LinearLayout.LayoutParams(0,dp(48),1f))
         restActions.addView(actionButton("건너뛰기", false) { session.skipRest(); syncService(); refreshTimer() }.apply { tag="phone_rest_skip" },LinearLayout.LayoutParams(0,dp(48),1f).apply { leftMargin = dp(8) })
         restPanel.addView(restActions)
-        content.addView(restPanel)
-        addGap(content, Theme.Space.two)
-        summary = card().apply { tag = "phone_dashboard_summary" }
-        content.addView(summary)
-        addGap(content, 20)
-        val heading = row().apply { gravity = Gravity.CENTER_VERTICAL }
-        heading.addView(label("오늘의 운동 구성",18,true).apply { tag = "phone_training_heading" },LinearLayout.LayoutParams(0,dp(52),1f))
-        sectionCount = label("",11,false,textSecondary)
-        heading.addView(sectionCount, LinearLayout.LayoutParams(-2, -2).apply {
-            leftMargin = dp(Theme.Space.two)
-        })
-        content.addView(heading)
-        addGap(content, Theme.Space.two)
-        stageStack = column().apply { tag = "phone_stage_stack" }
-        content.addView(stageStack)
-        trackingSummary = label("",12,false,textSecondary)
-        renderSummary()
-        renderStages()
+        content.addView(restPanel, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(Theme.Space.two) })
+        content.addView(makeTimerCard())
+        renderCurrent()
         refreshTimer()
-    }
-
-    private fun renderSummary() {
-        if (!::summary.isInitialized) return
-        summary.removeAllViews()
-        val routine = session.routine
-        summary.addView(label("운동 진행 요약", 16, true))
-        addGap(summary, Theme.Space.one)
-        summary.addView(label("준비 "+routine.stages[0].minutes+"분 · 유산소 "+routine.stages[1].minutes+"분 · 근력 "+routine.stages[2].minutes+"분 · 유산소·정리 "+routine.stages[3].minutes+"분",12,false,textSecondary))
-        addGap(summary, Theme.Space.one)
-        val kcal = CalorieEstimator.totalKcal(routine,calorieWeightKg)
-        summary.addView(label("예상 소모량  약 "+kcal+" kcal",16,true,mint))
-        addGap(summary, Theme.Space.one)
-        summary.addView(ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
-            tag = "phone_dashboard_progress"
-            max = 4
-            progress = session.completed.size.coerceIn(0, 4)
-            progressTintList = Theme.progressTint()
-            progressBackgroundTintList = android.content.res.ColorStateList.valueOf(Theme.Colors.outline)
-        }, LinearLayout.LayoutParams(-1, dp(8)))
     }
 
     /** A sibling of the weighted ScrollView, so controls never scroll or cover content. */
@@ -323,8 +280,7 @@ class MainActivity : Activity() {
                 SetRecordStore(this).beginSession(session.day, session.sessionStartedAt)
             }
             syncService()
-            renderSummary()
-            renderStages()
+            renderCurrent()
             refreshTimer()
         }.apply { contentDescription = "운동 시작 또는 일시정지"; tag = "phone_play" }
         // Baseline alignment shifts buttons with different text sizes out of the row and clips their outline.
@@ -343,7 +299,7 @@ class MainActivity : Activity() {
     }
 
     private fun makeTimerCard(): LinearLayout {
-        val box = card()
+        val box = card().apply { tag = "phone_timer_card" }
         val top = row().apply { gravity = Gravity.CENTER_VERTICAL }
         // Figma: stage badge on the left, current cue (exercise / phase name) on the right.
         timerBadge = label("준비운동",12,true,mint).apply {
@@ -546,7 +502,7 @@ class MainActivity : Activity() {
                     syncService()
                     refreshTimer()
                     // The last set moves the "지금 할 운동" card on to the next exercise.
-                    if (checked && done == count) handler.post { renderStages(); renderSummary() }
+                    if (checked && done == count) handler.post { renderCurrent() }
                 }
             }
             block.addView(check, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(8) })
@@ -555,92 +511,15 @@ class MainActivity : Activity() {
         return table
     }
 
-    private fun renderStages() {
-        if (!::stageStack.isInitialized) return
-        stageStack.removeAllViews()
+    private fun renderCurrent() {
         lastDay = session.day
         lastStage = session.stage
         val dayNames = listOf("월", "화", "수", "목", "금")
         dayInfo.text = "${dayNames.getOrElse(session.day - 1) { "" }}요일 루틴 · " +
             if (session.bodyFocus == "lower") "하체" else if (session.bodyFocus == "upper") "상체" else "부위 미선택"
-        val selectedPhase = session.phase()?.first ?: -1
-        val strengthTasks = session.routine.stages[2].tasks
-        val totalStrengthSets = strengthTasks.sumOf { strengthSetCount(it) }
-        val completedStrengthSets = strengthTasks.sumOf { doneSets(it) }
-        sectionCount.text = "근력 세트 ${completedStrengthSets} / ${totalStrengthSets} · 단계 ${session.completed.size}/4"
+        // Figma detail = rest card + the current-exercise card only. The stage list and the totals live on the
+        // overview and in the fixed dock, so they are not repeated here.
         renderCurrentExercise()
-        // Figma accordion: stages in routine order; the strength stage is expanded by default.
-        for ((si, stage) in session.routine.stages.withIndex()) {
-            val isCurrent = session.stage == si && !session.finished
-            val done = si in session.completed || (session.finished && si <= session.stage)
-            val block = card()
-            val top = row().apply { gravity = Gravity.CENTER_VERTICAL }
-            top.addView(label("${si + 1} ${stage.name}", 15, true, if (isCurrent) mint else textPrimary),
-                LinearLayout.LayoutParams(0, -2, 1f))
-            top.addView(label(if (done) "완료" else if (isCurrent) "진행 중" else "대기", 12, false,
-                if (done) mint else textSecondary))
-            val detailBlock = column()
-            val expanded = si == 2
-            detailBlock.visibility = if (expanded) View.VISIBLE else View.GONE
-            val chevron = label(if (expanded) "⌃" else "⌄",16,true,textSecondary).apply { setPadding(dp(16),0,0,0) }
-            top.addView(chevron)
-            top.minimumHeight = dp(48)
-            top.contentDescription = stage.name + " 상세 펼치기 또는 접기"
-            top.setOnClickListener {
-                detailBlock.visibility = if (detailBlock.visibility == View.VISIBLE) View.GONE else View.VISIBLE
-                chevron.text = if (detailBlock.visibility == View.VISIBLE) "⌃" else "⌄"
-            }
-            block.addView(top)
-            block.addView(detailBlock)
-            val currentStrength = if (si == 2) currentStrengthTask() else null
-            for ((ti, task) in stage.tasks.withIndex()) {
-                val isPhase = (si == 1 || si == 3) && session.stage == si && selectedPhase == ti && session.running
-                val item = row().apply {
-                    gravity = Gravity.CENTER_VERTICAL
-                    minimumHeight = dp(48)
-                    setPadding(dp(Theme.Space.one), dp(Theme.Space.one), dp(Theme.Space.one), dp(Theme.Space.one))
-                    if (isPhase) background = rounded(Theme.Colors.surfaceElevated, 10, mint)
-                }
-                val isNow = isPhase || (isCurrent && currentStrength?.id == task.id)
-                val textBox = column()
-                textBox.addView(label(task.name, 13, true, if (isNow) mint else textPrimary))
-                if (si != 2) {
-                    addGap(textBox, Theme.Space.one)
-                    textBox.addView(label(displayDetail(task.detail), 11, false, textSecondary))
-                }
-                item.addView(textBox, LinearLayout.LayoutParams(0, -2, 1f))
-                if (si == 2) {
-                    // Strength rows open the exercise popup (set entry, guidance, alternatives).
-                    val count = strengthSetCount(task)
-                    val doneCount = doneSets(task)
-                    val text = "${doneCount}/${count} 세트   상세 ›"
-                    val more = TextView(this).apply {
-                        tag = "strength_detail_"+task.id
-                        gravity = Gravity.CENTER_VERTICAL
-                        minHeight = dp(48)
-                        textSize = 11f
-                        setPadding(dp(8), dp(8), dp(8), dp(8))
-                        setTextColor(textSecondary)
-                        this.text = android.text.SpannableString(text).apply {
-                            val from = text.indexOf("상세")
-                            setSpan(android.text.style.ForegroundColorSpan(mint), from, text.length, 0)
-                            setSpan(android.text.style.StyleSpan(Typeface.BOLD), from, text.length, 0)
-                        }
-                    }
-                    item.addView(more)
-                    item.contentDescription = "${task.name} ${doneCount}/${count} 세트 상세 열기"
-                    item.setOnClickListener { showDetails(si, task) }
-                }
-                detailBlock.addView(item)
-            }
-            if (si != 2) {
-                addGap(detailBlock, Theme.Space.one)
-                detailBlock.addView(actionButton("이 단계로 타이머 이동 ↗", false) { session.jumpTo(si); afterAction() })
-            }
-            stageStack.addView(block)
-            addGap(stageStack, Theme.Space.one + 4)
-        }
-        if (::trackingSummary.isInitialized) trackingSummary.text = "근력 세트 ${completedStrengthSets}/${totalStrengthSets} 완료 · 체크와 타이머는 별도로 작동"
     }
 
     private fun displayDetail(raw: String): String =
@@ -726,7 +605,7 @@ class MainActivity : Activity() {
             .setTitle(task.name)
             .setView(panel)
             .setPositiveButton("닫기", null)
-            .setOnDismissListener { renderStages(); renderSummary(); refreshTimer() }
+            .setOnDismissListener { renderCurrent(); refreshTimer() }
             .show()
     }
 
@@ -737,8 +616,7 @@ class MainActivity : Activity() {
             .setItems(options.map { it.second }.toTypedArray()) { _, index ->
                 if (data.replaceExercise(session.day, slot, options[index].first, session.bodyFocus)) {
                     session.refreshRoutine()
-                    renderStages()
-                    renderSummary()
+                    renderCurrent()
                 }
             }
             .setNegativeButton("취소", null)
@@ -819,15 +697,13 @@ class MainActivity : Activity() {
             val count = Regex("(\\d+)\\s*세트").find(task.detail)?.groupValues?.get(1)?.toIntOrNull() ?: 3
             (1..count).count { n -> "strength-${session.day}-${task.id}-$n" in session.checked }
         }
-        sectionCount.text = "근력 세트 $doneSets / $totalSets · 단계 ${session.completed.size}/4"
         val volume = SetRecordStore(this).completed(data.localToday()).sumOf { it.volume }.toInt()
-        trackingSummary.text = "근력 세트 $doneSets/$totalSets 완료"
         // Daily, not per-session: includes multiple workouts on the same Korean calendar day.
         // Previous dates are never combined with today's displayed total.
         dockCalories.text = "오늘 누적 ${"%.1f".format(EnergyLedger(this).estimate(data.localToday(), org.json.JSONObject(session.snapshot())))} kcal · 추정"
     }
 
-    private fun afterAction() { syncService(); renderStages(); renderSummary(); refreshTimer() }
+    private fun afterAction() { syncService(); renderCurrent(); refreshTimer() }
 
     private fun syncService() {
         session.reloadIfChanged()
@@ -957,15 +833,13 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         if (::session.isInitialized) session.reloadIfChanged()
-        if (::session.isInitialized && ::summary.isInitialized && ::stageStack.isInitialized && ::timerValue.isInitialized && ::sectionCount.isInitialized) {
+        if (::session.isInitialized && ::timerValue.isInitialized) {
             soundEnabled = getSharedPreferences("preferences", MODE_PRIVATE).getBoolean("sound", true)
-            calorieWeightKg = getSharedPreferences("preferences", MODE_PRIVATE).getFloat("calorie_weight_kg", 63f).toDouble()
             if (!session.running && session.elapsed() == 0 && data.routine(session.day, focus = session.bodyFocus) != session.routine) {
                 session.refreshRoutine()
                 session.resetAll()
             }
-            renderSummary()
-            renderStages()
+            renderCurrent()
             refreshTimer()
         }
         if (::updateManager.isInitialized && !recoveryMode) {

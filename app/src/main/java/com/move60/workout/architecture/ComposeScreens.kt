@@ -616,9 +616,9 @@ fun WorkoutSettings(
                         Text("오늘 컨디션 루틴")
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             listOf(
-                                "피곤" to "스텝밀 최대 10분 · 편안한 강도",
-                                "보통" to "스텝밀 최대 15분 · 계획대로 진행",
-                                "좋음" to "스텝밀 최대 15분 · 자세 유지"
+                                "피곤" to "오늘 컨디션을 '피곤'으로 기록했어요",
+                                "보통" to "오늘 컨디션을 '보통'으로 기록했어요",
+                                "좋음" to "오늘 컨디션을 '좋음'으로 기록했어요"
                             ).forEach { (name, summary) ->
                                 Move60Button(
                                     modifier = Modifier.weight(1f),

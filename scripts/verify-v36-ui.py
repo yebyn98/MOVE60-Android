@@ -25,7 +25,8 @@ assert 'phone_settings' not in main and 'SettingsActivity' not in main, "Setting
 assert not (root/"app/src/main/java/com/move60/workout/SettingsActivity.kt").exists()
 assert "body_focus_" not in main and "renderDayStrip" not in main, "Day/body selection lives in the Compose overview only"
 assert "WorkoutDock(" in compose and "workout_dock" in compose, "Figma: overview has the fixed bottom dock"
-assert "오늘의 운동 구성" in main and "상세 ›" in main and "phone_current_guide" in main, "Figma: detail accordion + set-entry card"
+assert "오늘의 운동 구성" not in main and "운동 진행 요약" not in main and "phone_stage_stack" not in main, "Figma: the detail screen does not repeat the overview composition or the dock totals"
+assert "phone_current_guide" in main and "phone_rest" in main, "Figma: detail = rest card + current-exercise card with set entry"
 assert "fun buildSetTable" in main and "phone_current_exercise" in main and "buildSetTable(task)" in main.split("fun showDetails")[1], "Set entry: current-exercise card + exercise popup"
 for feature in ("운동 알림 진단", "notificationDiagnostics(", "updateManager.check(true)", "peekAvailability", "settings_ratio", "오늘 컨디션 루틴", "칼로리 계산 체중"):
     assert feature in compose, f"Compose settings lost: {feature}"
@@ -58,7 +59,7 @@ assert "건강 대시보드" in old
 assert 'horologist-compose-layout:0.6.23' in read("wear/build.gradle")
 targets=read("scripts/release-targets.json")
 assert '"phone": true' in targets and '"watch":' in targets  # watch is released only when its code changes
-assert "versionCode 46" in read("app/build.gradle") and "versionCode 43" in read("wear/build.gradle")
+assert "versionCode 47" in read("app/build.gradle") and "versionCode 44" in read("wear/build.gradle")
 for manifest_path, activity in (
     ("app/src/main/AndroidManifest.xml", ".health.HealthConsentActivity"),
     ("wear/src/main/AndroidManifest.xml", ".health.WearHealthActivity"),

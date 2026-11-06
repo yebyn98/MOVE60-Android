@@ -123,6 +123,40 @@ class WatchDisplayTest {
             capture("watch-restored.png")
         }
     }
+    @Test fun ambientRingIsNotCutByThePanelAtTheSafeAreaCorners() {
+        ActivityScenario.launch(WatchActivity::class.java).use { scenario ->
+            scenario.onActivity { activity ->
+                activity.applyWorkoutState(WatchWorkoutState(
+                    running = true, hasSession = true, stageIndex = 3, stageName = "유산소 ②",
+                    detail = "일립티컬", deadline = System.currentTimeMillis() + 780_000L))
+                activity.setAmbientMode(true)
+            }
+            instrumentation.waitForIdleSync()
+            scenario.onActivity { activity ->
+                val root = activity.window.decorView
+                val bitmap = Bitmap.createBitmap(root.width, root.height, Bitmap.Config.ARGB_8888)
+                root.draw(android.graphics.Canvas(bitmap))
+                val short = minOf(root.width, root.height).toDouble()
+                // The ring centerline is inset by half its 4dp track plus 2dp (see WorkoutProgressRing).
+                val ringRadius = short / 2 - Move60Theme.dp(activity, 4)
+                val cx = root.width / 2.0
+                val cy = root.height / 2.0
+                // The safe-area box is 64% x 80% of the screen; its corners are where the ring used to be covered.
+                for (sx in listOf(-1, 1)) for (sy in listOf(-1, 1)) {
+                    val angle = Math.atan2(sy * short * 0.40, sx * short * 0.32)
+                    val px = (cx + ringRadius * Math.cos(angle)).toInt()
+                    val py = (cy + ringRadius * Math.sin(angle)).toInt()
+                    var brightest = 0
+                    for (x in px - 4..px + 4) for (y in py - 4..py + 4) {
+                        if (x in 0 until bitmap.width && y in 0 until bitmap.height)
+                            brightest = maxOf(brightest, android.graphics.Color.green(bitmap.getPixel(x, y)))
+                    }
+                    assertTrue("Ambient ring is cut at corner ($sx,$sy): brightest green=$brightest at $px,$py", brightest >= 40)
+                }
+            }
+            capture("watch-ambient-ring.png")
+        }
+    }
     @Test fun countdownUsesAbsoluteDeadlineAndPausePreservesRemaining() {
         val running = WatchWorkoutState(running=true, hasSession=true, deadline=100_000L)
         assertEquals(10, running.secondsRemaining(90_000L))

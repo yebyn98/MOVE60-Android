@@ -33,3 +33,19 @@ Figma file `KA37z3LKnJi0tFkzwsCt4z` was edited after v43, so every screen was co
   are now 60; launcher vectors, the `ic_logo_mark` header icon and the in-app mark were regenerated.
 - Ring, tick and dumbbell geometry already matched Figma (checked by ratio against the 110px watch icon).
 - The watch launcher icon changed, so `release-targets.json` is `watch: true` again.
+
+## v47 detail parity, cardio machines, ambient ring (phone 47.0 / watch 44.0)
+- **Detail screen = Figma.** The native detail now shows only the set-rest card (above) and the current-exercise card.
+  The "운동 진행 요약" card and the "오늘의 운동 구성" accordion were removed: the stage list lives on the Compose
+  overview and the totals (stage, time, kcal) in the fixed dock, so the same information is no longer shown twice.
+  The text chevrons "⌃/⌄" and "›/↗" of that accordion went with it. Strength sets stay inline; the exercise popup is
+  opened from "자세 안내 · 대체 운동".
+- **Cardio = bike + elliptical only.** Block ① is always 실내 사이클, block ② always 일립티컬 (stair climber, rowing and
+  the per-day rotation are gone; `cardioOptions` was removed from `workouts.json`). Round labels restart in each block
+  ("1/2회차…2/2회차", then "1/3…3/3"), so a block no longer stops at "2/5". The elliptical text is re-worded (no pedals).
+  The total cardio time and the 60-minute sum are unchanged. The "오늘 컨디션 루틴" setting used to cap the stair
+  climber, so it no longer changes the routine (it only records the choice).
+- **Watch ambient ring.** The ambient panel had an opaque black background; the 64% x 80% safe-area box crosses the
+  full-bleed ring at its four corners, which cut the ring into pieces. The background was removed and
+  `ambientRingIsNotCutByThePanelAtTheSafeAreaCorners` samples the ring at those four points.
+- Widget: `WorkoutWidget` is a normal home-screen widget; it is not placed automatically.

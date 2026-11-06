@@ -31,7 +31,9 @@ object CalorieEstimator {
                 if (elapsed < phase.optInt("seconds", 60) || i == phases.length() - 1) {
                     val name = phase.optString("name")
                     if (phase.optString("kind") == "마무리 스트레칭") { result = 2.3; break }
-                    val machine = listOf("스텝밀", "실내 사이클", "일립티컬", "로잉머신", "평지 걷기").firstOrNull { name.contains(it) }
+                    val machines = listOf("스텝밀", "실내 사이클", "일립티컬", "로잉머신", "평지 걷기")
+                    val machine = machines.firstOrNull { name.contains(it) }
+                        ?: phase.optString("kind").takeIf { it in machines }
                         ?: state.optString("cardioMachine", "실내 사이클")
                     result = cardioMet(machine, phase.optString("rpe", "5"))
                     break
