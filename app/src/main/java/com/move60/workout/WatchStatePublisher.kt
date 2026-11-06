@@ -62,6 +62,7 @@ object WatchStatePublisher {
         val request = PutDataMapRequest.create("/move60/workout")
         request.dataMap.apply {
             putInt("day",current.day)
+            putString("bodyFocus",current.bodyFocus ?: "") // additive field: older watch apps ignore it
             putInt("protocol", 26)
             putLong("sequence", sequence)
             putLong("session",state.optLong("sessionStartedAt"))

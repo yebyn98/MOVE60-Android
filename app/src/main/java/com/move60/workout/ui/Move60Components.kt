@@ -19,12 +19,17 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.move60.workout.Move60Theme
 
-/** Shared Material 3 card: token radius/outline/surface, 16dp padding, 8dp spacing. */
+/** Shared Material 3 card: token radius/outline/surface, 16dp padding, 12dp spacing (Figma card gap). */
 @Composable
 fun Move60Card(
     modifier: Modifier = Modifier,
+    spacing: Dp = 12.dp,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Card(
@@ -33,7 +38,7 @@ fun Move60Card(
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(spacing), content = content)
     }
 }
 
@@ -82,8 +87,9 @@ fun Move60Group(
     content: @Composable ColumnScope.() -> Unit
 ) {
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(title, style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.secondary, modifier = Modifier.padding(start = 4.dp))
+        // Figma section_header: 12sp bold, muted text token, aligned with the card edge.
+        Text(title, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold,
+            color = Color(Move60Theme.Colors.textMuted))
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.medium,

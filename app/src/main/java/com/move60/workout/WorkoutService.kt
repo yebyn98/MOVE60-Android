@@ -225,14 +225,13 @@ class WorkoutService : Service() {
 
     private fun remoteView(layout: Int, c: Cue, now: Long): RemoteViews {
         val result = RemoteViews(packageName, layout)
-        result.setTextViewText(R.id.n_brand, "MOVE60")
         result.setTextViewText(R.id.n_day, c.dayName)
         result.setTextViewText(R.id.n_stage_chip, c.stageName)
         result.setTextViewText(R.id.n_title, c.title)
         result.setTextViewText(R.id.n_detail, c.detail)
         result.setTextViewText(R.id.n_badge, c.round)
         result.setTextViewText(R.id.n_accent, c.effort)
-        result.setTextViewText(R.id.n_total, "총 운동 ${c.progress / 60}분 · 목표 60분")
+        result.setTextViewText(R.id.n_total, "전체 ${c.progress / 60}/60분")
         result.setTextViewText(R.id.n_remaining_label, "남은 시간")
         result.setProgressBar(R.id.n_progress, max(3600, c.progress), c.progress, false)
         val secondsLeft = max(0L, ceil((c.ends - now) / 1000.0).toLong())

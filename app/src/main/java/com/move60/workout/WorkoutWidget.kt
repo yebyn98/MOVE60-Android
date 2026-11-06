@@ -32,8 +32,7 @@ class WorkoutWidget : AppWidgetProvider() {
             val open = PendingIntent.getActivity(context, 601, Intent(context, MainActivity::class.java),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
             val views = RemoteViews(context.packageName, R.layout.widget_workout).apply {
-                setTextViewText(R.id.widget_title, if (running) "MOVE60 · ${stages[stage]}" else "MOVE60 · 운동 대기")
-                setTextViewText(R.id.widget_status, if (running) "${stage + 1}/4 단계 진행 중" else "앱에서 운동을 시작하세요")
+                setTextViewText(R.id.widget_status, if (running) "${stage + 1}/4 · ${stages[stage]}" else "운동 대기")
                 setChronometer(R.id.widget_timer, SystemClock.elapsedRealtime() + remaining * 1000L, null, running)
                 if (android.os.Build.VERSION.SDK_INT >= 24) setChronometerCountDown(R.id.widget_timer, true)
                 setOnClickPendingIntent(R.id.widget_root, open)

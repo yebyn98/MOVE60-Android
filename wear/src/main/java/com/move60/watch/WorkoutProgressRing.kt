@@ -17,7 +17,16 @@ class WorkoutProgressRing(context: Context) : View(context) {
     private val valuePaint = Paint(track).apply {
         color = Move60Theme.Colors.primary
     }
+    private val ambientPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Move60Theme.Colors.primary
+        alpha = 128
+        style = Paint.Style.STROKE
+        strokeWidth = Move60Theme.dp(context, 1).toFloat() // Figma ambient ring: thin dimmed outline (burn-in safe)
+    }
     private val bounds = RectF()
+    /** Ambient mode draws only a thin dimmed outline, with no track or progress arc. */
+    var ambientStyle: Boolean = false
+        set(value) { field = value; invalidate() }
     var progress: Int = 0
         set(value) {
             field = value.coerceIn(0, 1000)
@@ -28,6 +37,7 @@ class WorkoutProgressRing(context: Context) : View(context) {
         val inset = track.strokeWidth / 2f + Move60Theme.dp(context, 2)
         bounds.set(inset, inset, width - inset, height - inset)
         if (bounds.width() <= 0f || bounds.height() <= 0f) return
+        if (ambientStyle) { canvas.drawArc(bounds, -90f, 360f, false, ambientPaint); return }
         canvas.drawArc(bounds, -90f, 360f, false, track)
         if (progress > 0) canvas.drawArc(bounds, -90f, progress / 1000f * 360f, false, valuePaint)
     }

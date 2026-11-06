@@ -40,7 +40,8 @@ class ComposeArchitectureTest {
     }
 
     @Test fun composeNavigationShowsDashboardCalendarAndSettings() {
-        rule.onNodeWithText("MOVE60").assertIsDisplayed()
+        // Figma header: the logo mark (52dp) replaces the text wordmark.
+        rule.onNodeWithContentDescription("MOVE60").assertIsDisplayed()
         capture("compose-dashboard.png")
         rule.onNodeWithContentDescription("운동 달력").performClick()
         rule.onNodeWithText("운동 달력").assertIsDisplayed()
@@ -127,17 +128,16 @@ class ComposeArchitectureTest {
         file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 
-    @Test fun weeklyPlanCanBeCollapsedAndReopened() {
+    @Test fun weeklyPlanComesFirstAndIsAlwaysOpen() {
+        // Figma: the weekly plan card is the first card and has no collapse control.
         val hint = "요일과 운동 부위를 선택하면 상세 운동 화면에 적용돼요."
-        rule.onNodeWithTag("dashboard_list").performScrollToNode(hasTestTag("dashboard_plan_header"))
-        // Collapse/expand is a toggle whatever the initial state was: after two clicks we are back where we started.
-        val startedOpen = rule.onAllNodesWithText(hint).fetchSemanticsNodes().isNotEmpty()
-        rule.onNodeWithTag("dashboard_plan_header").performClick()
-        rule.waitForIdle()
-        assertEquals(!startedOpen, rule.onAllNodesWithText(hint).fetchSemanticsNodes().isNotEmpty())
-        rule.onNodeWithTag("dashboard_plan_header").performClick()
-        rule.waitForIdle()
-        assertEquals(startedOpen, rule.onAllNodesWithText(hint).fetchSemanticsNodes().isNotEmpty())
+        rule.onNodeWithTag("dashboard_plan_card").assertIsDisplayed()
+        rule.onNodeWithText(hint).assertIsDisplayed()
+        rule.onNodeWithText("오늘 운동 부위").assertIsDisplayed()
+        rule.onNodeWithTag("dashboard_plan_header").assertDoesNotExist()
+        val planTop = rule.onNodeWithTag("dashboard_plan_card").fetchSemanticsNode().boundsInRoot.top
+        val routineTop = rule.onNodeWithTag("dashboard_routine_card").fetchSemanticsNode().boundsInRoot.top
+        assertTrue("plan card must sit above the routine card", planTop < routineTop)
     }
 
     @Test fun roomDaoCanUpsertAndObserveAWorkoutDay() = runBlocking {
