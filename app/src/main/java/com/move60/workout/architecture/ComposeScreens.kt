@@ -22,6 +22,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
+import com.move60.workout.WorkoutWidget
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -598,6 +601,7 @@ fun WorkoutSettings(
         mutableStateOf(settings.weightKg.toInt().toString())
     }
     var diagnostics by remember { mutableStateOf<String?>(null) }
+    val widgetScope = rememberCoroutineScope()
     val notificationPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { diagnostics = notificationDiagnostics(context, viewModel.sessionRunning()) }
@@ -713,6 +717,31 @@ fun WorkoutSettings(
                                 checkedTrackColor = MaterialTheme.colorScheme.primary,
                                 checkedBorderColor = MaterialTheme.colorScheme.primary),
                             modifier = Modifier.testTag("settings_sound_toggle"))
+                    }
+                    Move60Divider()
+                    Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(horizontal = 16.dp)
+                        .testTag("settings_widget_row"), verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Column(Modifier.weight(1f)) {
+                            Text("홈 화면 위젯")
+                            Text("앱 업데이트 후에도 홈에서 사용하려면 추가가 필요해요.",
+                                color = secondary, style = MaterialTheme.typography.bodySmall)
+                        }
+                        Move60Button(onClick = {
+                            val manager = AppWidgetManager.getInstance(context)
+                            if (Build.VERSION.SDK_INT >= 26 && manager.isRequestPinAppWidgetSupported) {
+                                val provider = ComponentName(context, WorkoutWidget::class.java)
+                                val requested = manager.requestPinAppWidget(provider, null, null)
+                                widgetScope.launch { message.showSnackbar(
+                                    if (requested) "런처의 위젯 추가 요청을 확인해 주세요."
+                                    else "홈 화면을 길게 눌러 위젯에서 MOVE60을 추가해 주세요."
+                                ) }
+                            } else widgetScope.launch {
+                                message.showSnackbar("홈 화면을 길게 눌러 위젯에서 MOVE60을 추가해 주세요.")
+                            }
+                        }, primary = false, modifier = Modifier.testTag("settings_widget_pin")) {
+                            Text("위젯 추가", maxLines = 1)
+                        }
                     }
                     Move60Divider()
                     // Fixed row height: the update button replaces the version text without moving anything.
