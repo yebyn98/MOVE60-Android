@@ -57,8 +57,8 @@ assert "consented" in wear and "startForegroundService" in wear
 assert "건강 대시보드" in old
 assert 'horologist-compose-layout:0.6.23' in read("wear/build.gradle")
 targets=read("scripts/release-targets.json")
-assert '"phone": true' in targets and '"watch": true' in targets
-assert "versionCode 44" in read("app/build.gradle") and "versionCode 42" in read("wear/build.gradle")
+assert '"phone": true' in targets and '"watch":' in targets  # watch is released only when its code changes
+assert "versionCode 45" in read("app/build.gradle") and "versionCode 42" in read("wear/build.gradle")
 for manifest_path, activity in (
     ("app/src/main/AndroidManifest.xml", ".health.HealthConsentActivity"),
     ("wear/src/main/AndroidManifest.xml", ".health.WearHealthActivity"),

@@ -18,7 +18,7 @@ def bounds(node):
 def find(root, description=None, text=None):
     matches = [n for n in root.iter("node") if
                (description is None or n.get("content-desc") == description) and
-               (text is None or n.get("text") == text)]
+               (text is None or (n.get("text") or "").replace("\ufffc", "").strip() == text)]  # dock labels carry an inline icon span
     assert len(matches) == 1, (description, text, len(matches))
     return matches[0]
 
@@ -52,8 +52,8 @@ scroll = find(before, description="운동 내용 스크롤")
 dock_bounds, play_bounds = bounds(dock), bounds(play)
 sx1, sy1, sx2, sy2 = bounds(scroll)
 assert sy2 <= dock_bounds[1], "Scroll content overlaps the dock"
-assert bounds(find(before, text="← 이전"))[3] <= dock_bounds[3]
-assert bounds(find(before, text="다음 →"))[3] <= dock_bounds[3]
+assert bounds(find(before, text="이전"))[3] <= dock_bounds[3]
+assert bounds(find(before, text="다음"))[3] <= dock_bounds[3]
 for _ in range(3):
     adb("shell", "input", "swipe", str((sx1+sx2)//2), str(sy2-30),
         str((sx1+sx2)//2), str(sy1+30), "400")
@@ -68,10 +68,10 @@ assert visible_text(before) != visible_text(after), "Test did not actually scrol
 def stage(root):
     return next(n.get("text") for n in find(root, description="고정 운동 컨트롤").iter("node") if n.get("text"))
 original_stage = stage(after)
-tap(find(after, text="다음 →"))
+tap(find(after, text="다음"))
 advanced = snapshot("fixed-controls-next")
 assert stage(advanced) != original_stage, "Next stage did not work from dock"
-tap(find(advanced, text="← 이전"))
+tap(find(advanced, text="이전"))
 restored = snapshot("fixed-controls-previous")
 assert stage(restored) == original_stage, "Previous stage did not work from dock"
 adb("shell", "screencap", "-p", "/sdcard/fixed-controls.png")

@@ -51,7 +51,7 @@ assert "@HiltWorker" in worker and "CoroutineWorker" in worker
 assert "EnergyLedger" in worker and "WorkoutHistory" in worker
 assert "WorkManagerInitializer" in read("app/src/main/AndroidManifest.xml")
 targets=read("scripts/release-targets.json")
-assert '"phone": true' in targets and '"watch": true' in targets
+assert '"phone": true' in targets and '"watch":' in targets  # watch is released only when its code changes
 
 # Launcher icon + first-screen intro (approved logo: 60-tick plate + dumbbell).
 import subprocess,sys

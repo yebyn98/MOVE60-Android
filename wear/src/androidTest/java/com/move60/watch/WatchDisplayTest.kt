@@ -229,5 +229,19 @@ class WatchDisplayTest {
         }
     }
 
+    @Test fun idleScreenShowsDateBodyFocusAndSingleStartButton() {
+        ActivityScenario.launch(WatchActivity::class.java).use { scenario ->
+            scenario.onActivity { it.applyWorkoutState(WatchWorkoutState(protocol = 26, bodyFocus = "upper")) }
+            instrumentation.waitForIdleSync()
+            scenario.onActivity { activity ->
+                val v = activity.window.decorView
+                assertEquals("상체 · 60분", v.findViewWithTag<TextView>("watch_detail").text.toString())
+                assertEquals("60:00", v.findViewWithTag<TextView>("watch_timer").text.toString())
+                assertEquals("시작", v.findViewWithTag<Button>("watch_play").text.toString())
+                assertEquals(View.GONE, v.findViewWithTag<Button>("watch_next").visibility)
+                assertEquals(0, v.findViewWithTag<WorkoutProgressRing>("watch_progress_ring").progress)
+            }
+            capture("watch-idle.png")
+        }
+    }
 }
-
