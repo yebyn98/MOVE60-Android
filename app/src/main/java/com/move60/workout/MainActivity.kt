@@ -35,6 +35,10 @@ class MainActivity : Activity() {
     private lateinit var exercisePrefs: ExercisePreferences
     private lateinit var session: SessionStore
     private lateinit var content: LinearLayout
+    private lateinit var stageAccordion: LinearLayout
+    private lateinit var activeStageContent: LinearLayout
+    private var expandedStage = -1
+    private var lastAccordionStage = -1
     private lateinit var dayInfo: TextView
     private lateinit var currentSetPanel: LinearLayout
     private lateinit var timerValue: TextView
@@ -201,7 +205,7 @@ class MainActivity : Activity() {
         // Day and body-part selection live on the Compose overview; this screen only shows the result.
         dayInfo = label("", 12, true, mint).apply { tag = "phone_day_info"; gravity = Gravity.END }
         val nowHeading = row().apply { gravity = Gravity.CENTER_VERTICAL }
-        nowHeading.addView(label("지금 할 운동", 24, true), LinearLayout.LayoutParams(0, -2, 1f))
+        nowHeading.addView(label("오늘의 운동", 20, true), LinearLayout.LayoutParams(0, -2, 1f))
         nowHeading.addView(dayInfo, LinearLayout.LayoutParams(-2, -2))
         content.addView(nowHeading)
         addGap(content, Theme.Space.two)
@@ -215,7 +219,11 @@ class MainActivity : Activity() {
         restActions.addView(actionButton("건너뛰기", false) { session.skipRest(); syncService(); refreshTimer() }.apply { tag="phone_rest_skip" },LinearLayout.LayoutParams(0,dp(48),1f).apply { leftMargin = dp(8) })
         restPanel.addView(restActions)
         content.addView(restPanel, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(Theme.Space.two) })
-        content.addView(makeTimerCard())
+        // Every step stays on this screen. The active step expands automatically, while
+        // tapping another header reveals a read-only preview without jumping the timer.
+        stageAccordion = column().apply { tag = "phone_stage_stack" }
+        activeStageContent = makeTimerCard()
+        content.addView(stageAccordion)
         renderCurrent()
         refreshTimer()
     }
@@ -286,7 +294,22 @@ class MainActivity : Activity() {
         // Baseline alignment shifts buttons with different text sizes out of the row and clips their outline.
         val buttons = row().apply { isBaselineAligned = false; gravity = Gravity.CENTER_VERTICAL }
         previous = actionButton("이전", false) { session.jumpTo(session.stage - 1); afterAction() }.apply { tag = "phone_prev" }
-        next = actionButton("다음", false) { session.nextStage(); afterAction() }.apply { tag = "phone_next" }
+        next = actionButton("다음", false) {
+            if (session.stage == 3 && !session.finished) {
+                MaterialAlertDialogBuilder(this)
+                    .setTitle("운동을 종료할까요?")
+                    .setMessage("현재까지 수행한 시간을 기록하고 운동 결과를 보여드려요.")
+                    .setNegativeButton("돌아가기", null)
+                    .setPositiveButton("기록하고 종료") { _, _ ->
+                        session.nextStage()
+                        afterAction()
+                        showWorkoutResult()
+                    }.show()
+            } else {
+                session.nextStage()
+                afterAction()
+            }
+        }.apply { tag = "phone_next" }
         listOf(previous, next, play).forEach { it.minHeight = dp(48); it.minimumHeight = dp(48); it.maxLines = 1 }
         previous.textSize = Theme.Type.caption
         next.textSize = Theme.Type.caption
@@ -298,50 +321,102 @@ class MainActivity : Activity() {
         return dock
     }
 
+    /** Content for the expanded active step, not a separate "current stage" card. */
     private fun makeTimerCard(): LinearLayout {
-        val box = card().apply { tag = "phone_timer_card" }
-        val top = row().apply { gravity = Gravity.CENTER_VERTICAL }
-        // Figma: stage badge on the left, current cue (exercise / phase name) on the right.
-        timerBadge = label("준비운동",12,true,mint).apply {
-            setPadding(dp(10), dp(4), dp(10), dp(4))
-            background = rounded(panelLight, 16, subtle)
+        val box = column().apply {
+            tag = "phone_timer_card"
+            setPadding(0, dp(8), 0, dp(8))
         }
-        timerLabel = label("",12,true,textSecondary)
-        // One line that shrinks (20sp -> 14sp) instead of wrapping: a long phase name next to the stage badge used to
-        // push a single orphan syllable onto a second line.
-        timerCueTitle = label("",20,true).apply {
-            gravity = Gravity.END or Gravity.CENTER_VERTICAL
-            maxLines = 1
-            androidx.core.widget.TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
-                this, 14, 20, 1, android.util.TypedValue.COMPLEX_UNIT_SP)
+        timerBadge = label("", 12, true, mint)
+        timerLabel = label("", 12, false, textSecondary)
+        timerCueTitle = label("", 18, true)
+        timerCueDetail = label("", 12, false, textSecondary)
+        timerValue = label("", 26, true)
+        heartRateValue = label("연결대기", 12, true)
+        timeMeta = label("", 12, false, textSecondary)
+        progress = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+            progressTintList = android.content.res.ColorStateList.valueOf(mint)
+            visibility = View.GONE // Stage time now lives in the fixed bottom dock.
         }
-        top.addView(timerBadge)
-        top.addView(timerCueTitle, LinearLayout.LayoutParams(0,dp(52),1f).apply { leftMargin = dp(8) })
-        box.addView(top)
-        timerCueDetail = label("",12,false,textSecondary)
-        addGap(box,Theme.Space.one)
+        box.addView(timerCueTitle)
+        addGap(box, Theme.Space.one)
         box.addView(timerCueDetail)
-        timerValue = label("",32,true)
-        addGap(box,Theme.Space.one)
-        box.addView(timerValue)
-        heartRateValue = label("연결대기",12,true).apply { contentDescription = "실시간 심박수" }
-        timeMeta = label("",12,false,textSecondary)
-        progress = ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal).apply {
-            progressTintList=android.content.res.ColorStateList.valueOf(mint)
-        }
-        addGap(box,10)
-        box.addView(progress,LinearLayout.LayoutParams(-1,dp(6)))
         currentSetPanel = column().apply { tag = "phone_current_exercise"; visibility = View.GONE }
         box.addView(currentSetPanel)
         box.setOnLongClickListener {
             MaterialAlertDialogBuilder(this).setTitle("운동 초기화")
-                .setItems(arrayOf("현재 단계 초기화","오늘 진행 초기화")) { _, which ->
+                .setItems(arrayOf("현재 단계 초기화", "오늘 진행 초기화")) { _, which ->
                     if (which == 0) session.resetStage() else session.resetAll()
                     afterAction()
-                }.setNegativeButton("취소",null).show()
+                }.setNegativeButton("취소", null).show()
             true
         }
         return box
+    }
+
+    /** Single scrolling accordion: opening a different step never changes the real workout. */
+    private fun renderStageAccordion() {
+        if (!::stageAccordion.isInitialized) return
+        if (lastAccordionStage != session.stage) {
+            expandedStage = session.stage
+            lastAccordionStage = session.stage
+        }
+        stageAccordion.removeAllViews()
+        session.routine.stages.forEachIndexed { index, step ->
+            val active = index == session.stage && !session.finished
+            val opened = index == expandedStage
+            val done = session.finished || index in session.completed || index < session.stage
+            val cell = card().apply {
+                tag = "phone_step_$index"
+                contentDescription = "${index + 1}단계 ${step.name}"
+            }
+            val header = row().apply {
+                tag = "phone_step_header_$index"
+                gravity = Gravity.CENTER_VERTICAL
+                minimumHeight = dp(48)
+                isClickable = true
+                isFocusable = true
+                setOnClickListener {
+                    expandedStage = if (opened) -1 else index
+                    renderStageAccordion()
+                    renderCurrentExercise()
+                }
+            }
+            header.addView(label("${index + 1}. ${step.name}", 14, true, if (active) mint else textPrimary),
+                LinearLayout.LayoutParams(0, -2, 1f))
+            val state = when {
+                active -> "진행 중"
+                done -> "완료"
+                else -> "예정"
+            }
+            header.addView(label(state, 11, true, if (active || done) mint else textSecondary))
+            header.addView(label(if (opened) "⌃" else "⌄", 17, true, textSecondary).apply {
+                gravity = Gravity.CENTER; contentDescription = if (opened) "접기" else "펼치기"
+            }, LinearLayout.LayoutParams(dp(34), dp(48)))
+            cell.addView(header)
+            if (opened) {
+                addGap(cell, dp(2).let { Theme.Space.one })
+                if (active) {
+                    (activeStageContent.parent as? android.view.ViewGroup)?.removeView(activeStageContent)
+                    cell.addView(activeStageContent)
+                } else {
+                    val preview = column().apply { tag = "phone_step_preview_$index" }
+                    preview.addView(label(
+                        if (done) "완료한 운동 · ${step.minutes}분 계획"
+                        else "${step.minutes}분 예정 · 내용을 확인할 수 있어요.", 12, false, textSecondary))
+                    val tasks = step.tasks.take(4)
+                    tasks.forEach { task ->
+                        preview.addView(label("· ${task.name}", 13, false, textPrimary))
+                    }
+                    preview.addView(label("운동 기록은 현재 진행 단계에서만 입력할 수 있어요.",
+                        11, false, textSecondary))
+                    cell.addView(preview)
+                }
+            }
+            stageAccordion.addView(cell, LinearLayout.LayoutParams(-1, -2).apply {
+                bottomMargin = dp(Theme.Space.two)
+            })
+        }
     }
 
     private fun strengthSetCount(task: WorkoutTask): Int =
@@ -524,8 +599,7 @@ class MainActivity : Activity() {
         val dayNames = listOf("월", "화", "수", "목", "금")
         dayInfo.text = "${dayNames.getOrElse(session.day - 1) { "" }}요일 루틴 · " +
             if (session.bodyFocus == "lower") "하체" else if (session.bodyFocus == "upper") "상체" else "부위 미선택"
-        // Figma detail = rest card + the current-exercise card only. The stage list and the totals live on the
-        // overview and in the fixed dock, so they are not repeated here.
+        renderStageAccordion()
         renderCurrentExercise()
     }
 
@@ -665,7 +739,7 @@ class MainActivity : Activity() {
             }
             phase != null -> {
                 timerCueTitle.text = phase.second.name
-                timerCueDetail.text = "${displayDetail(phase.second.description)} · ${formatTime(session.phaseSecondsRemaining())} 남음 · ${phase.first + 1}/${session.routine.stages[session.stage].tasks.size} 구간"
+                timerCueDetail.text = "${displayDetail(phase.second.description)} · 강도 전환까지 ${formatTime(session.phaseSecondsRemaining())}"
             }
             else -> {
                 val strengthTask = if (session.stage == 2) currentStrengthTask() else null
@@ -688,7 +762,7 @@ class MainActivity : Activity() {
         }
         dockStage.text = if (session.finished) finishLabel
             else "$stageName · ${session.stage + 1}/${session.routine.stages.size} 단계"
-        dockTime.text = "${formatTime(elapsed)} / 60:00"
+        dockTime.text = "${if (session.finished) "운동 완료" else "남음 ${formatTime(session.remaining)}"} · 전체 ${formatTime(elapsed)} / 60:00"
         // Figma dock: pause/play 20dp and arrows 18dp icons instead of text glyphs.
         dockButton(play, if (session.finished) "새 운동 시작" else if (session.running) "일시정지" else "운동 시작",
             if (session.finished) R.drawable.ic_replay else if (session.running) R.drawable.ic_pause else R.drawable.ic_play, 20, true)
@@ -698,6 +772,10 @@ class MainActivity : Activity() {
         else dockButton(next, "다음", R.drawable.ic_arrow_forward, 18, false)
         next.isEnabled = !session.finished
         next.alpha = if (session.finished) .4f else 1f
+        // Before starting, the primary start button is the only exposed action.
+        val starting = !session.finished && !session.running && session.elapsed() == 0
+        previous.visibility = if (starting || session.finished) View.GONE else View.VISIBLE
+        next.visibility = if (starting || session.finished) View.GONE else View.VISIBLE
         val strengthTasks = session.routine.stages[2].tasks
         val totalSets = strengthTasks.sumOf { task -> Regex("(\\d+)\\s*세트").find(task.detail)?.groupValues?.get(1)?.toIntOrNull() ?: 3 }
         val doneSets = strengthTasks.sumOf { task ->
@@ -708,6 +786,43 @@ class MainActivity : Activity() {
         // Daily, not per-session: includes multiple workouts on the same Korean calendar day.
         // Previous dates are never combined with today's displayed total.
         dockCalories.text = "오늘 누적 ${"%.1f".format(EnergyLedger(this).estimate(data.localToday(), org.json.JSONObject(session.snapshot())))} kcal · 추정"
+    }
+
+    private fun showWorkoutResult() {
+        val date = data.localToday()
+        val entries = StageLog(this).entries(date)
+        val totalKcal = EnergyLedger(this)
+            .estimate(date, org.json.JSONObject(session.snapshot())).coerceAtLeast(0.0)
+        val sumMet = entries.sumOf { it.metSeconds }
+        val names = listOf("준비운동", "유산소 ① · 사이클", "근력운동", "유산소 ② · 마무리")
+        val result = column().apply {
+            setPadding(dp(Theme.Space.two), dp(Theme.Space.one),
+                dp(Theme.Space.two), dp(Theme.Space.one))
+        }
+        result.addView(label("실제 운동 ${formatTime(session.elapsed())} · 약 ${totalKcal.toInt()} kcal",
+            17, true, mint))
+        if (entries.isEmpty()) {
+            result.addView(label("단계별 기록이 없는 이전 운동은 합계만 표시돼요.", 12, false, textSecondary))
+        } else {
+            entries.forEach { entry ->
+                val kcal = if (sumMet > 0) (totalKcal * entry.metSeconds / sumMet).toInt() else 0
+                val line = row().apply { gravity = Gravity.CENTER_VERTICAL }
+                line.addView(label(names[entry.stage], 13, false), LinearLayout.LayoutParams(0, -2, 1f))
+                line.addView(label("${formatTime(entry.seconds.toInt())} · 약 ${kcal} kcal",
+                    12, true, mint))
+                result.addView(line)
+                addGap(result, 8)
+            }
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle("운동 결과")
+            .setView(result)
+            .setNegativeButton("닫기", null)
+            .setPositiveButton("달력에서 기록 보기") { _, _ ->
+                startActivity(Intent(this, com.move60.workout.architecture.ComposeActivity::class.java)
+                    .putExtra("move60_open_calendar", true))
+                finish()
+            }.show()
     }
 
     private fun afterAction() { syncService(); renderCurrent(); refreshTimer() }
