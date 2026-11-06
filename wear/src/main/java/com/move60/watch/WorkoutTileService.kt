@@ -65,7 +65,7 @@ class WorkoutTileService : TileService() {
             state.finished -> "${state.completedSets}/${state.totalSets}세트 · 약 ${state.estimatedKcal.toInt()}kcal"
             rest -> "남은 약 ${(state.restSeconds()+59)/60}분"
             state.stageIndex == 2 -> state.exerciseName.ifBlank { state.setLabel }.take(15)
-            (state.stageIndex == 1 || state.stageIndex == 3) && state.intervalTotal > 0 -> "${state.intervalIndex}/${state.intervalTotal}구간 · ${state.detail}"
+            (state.stageIndex == 1 || state.stageIndex == 3) -> state.detail.ifBlank { "운동 진행" }
             state.running -> state.detail
             else -> "휴대폰에서 운동을 시작"
         }
