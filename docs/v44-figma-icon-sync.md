@@ -20,3 +20,9 @@ Figma file `KA37z3LKnJi0tFkzwsCt4z` was edited after v43, so every screen was co
   the watch follows the Figma 36dp height.
 - Notification chip sizes 11sp/18sp stay as in the Figma "code reference" notes.
 - Not verified on a physical Galaxy Watch4 or phone; CI emulator screenshots are the only visual evidence.
+
+## v45 follow-up (phone 45.0 only)
+- Native detail dock uses Figma icons (play/pause/replay 20dp, arrows 18dp) instead of the "▶ Ⅱ ↻ ← →" glyphs.
+- New CI evidence: `watch-idle.png` (wear test), `widget-workout.png` and `notification-expanded.png` (`LayoutEvidenceTest`).
+- Watch code is unchanged, so `scripts/release-targets.json` is `watch: false` and only the phone is published.
+  Set it back to `true` (and bump `wear/build.gradle`) in the next change that touches the watch app.

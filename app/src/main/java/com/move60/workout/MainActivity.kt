@@ -316,7 +316,7 @@ class MainActivity : Activity() {
         addGap(dock, 8)
         dock.addView(dockCalories)
         addGap(dock, 8)
-        play = actionButton("▶ 운동 시작", true) {
+        play = actionButton("운동 시작", true) {
             if (session.running) session.pause() else {
                 if (session.finished || session.elapsed() == 0) session.refreshRoutine()
                 session.start()
@@ -329,8 +329,8 @@ class MainActivity : Activity() {
         }.apply { contentDescription = "운동 시작 또는 일시정지"; tag = "phone_play" }
         // Baseline alignment shifts buttons with different text sizes out of the row and clips their outline.
         val buttons = row().apply { isBaselineAligned = false; gravity = Gravity.CENTER_VERTICAL }
-        previous = actionButton("← 이전", false) { session.jumpTo(session.stage - 1); afterAction() }.apply { tag = "phone_prev" }
-        next = actionButton("다음 →", false) { session.nextStage(); afterAction() }.apply { tag = "phone_next" }
+        previous = actionButton("이전", false) { session.jumpTo(session.stage - 1); afterAction() }.apply { tag = "phone_prev" }
+        next = actionButton("다음", false) { session.nextStage(); afterAction() }.apply { tag = "phone_next" }
         listOf(previous, next, play).forEach { it.minHeight = dp(48); it.minimumHeight = dp(48); it.maxLines = 1 }
         previous.textSize = Theme.Type.caption
         next.textSize = Theme.Type.caption
@@ -804,9 +804,13 @@ class MainActivity : Activity() {
         dockStage.text = if (session.finished) finishLabel
             else "$stageName · ${session.stage + 1}/${session.routine.stages.size} 단계"
         dockTime.text = "${formatTime(elapsed)} / 60:00"
-        play.text = if (session.finished) "↻ 새 운동 시작" else if (session.running) "Ⅱ 일시정지" else "▶ 운동 시작"
+        play.text = if (session.finished) "새 운동 시작" else if (session.running) "일시정지" else "운동 시작"
+        // Figma dock: pause/play 20dp and arrows 18dp icons instead of text glyphs.
+        dockIcon(play, if (session.finished) R.drawable.ic_replay else if (session.running) R.drawable.ic_pause else R.drawable.ic_play, 20, true)
+        dockIcon(previous, R.drawable.ic_arrow_back, 18, true)
         previous.alpha = if (session.stage == 0) .4f else 1f
-        next.text = if (session.stage == 3) "운동 종료" else "다음 →"
+        next.text = if (session.stage == 3) "운동 종료" else "다음"
+        dockIcon(next, R.drawable.ic_arrow_forward, 18, false)
         next.isEnabled = !session.finished
         next.alpha = if (session.finished) .4f else 1f
         val strengthTasks = session.routine.stages[2].tasks
@@ -921,6 +925,15 @@ class MainActivity : Activity() {
     private fun card() = DashboardUi.card(this)
     private fun actionButton(title: String, main: Boolean, onClick: () -> Unit) =
         DashboardUi.actionButton(this, title, main, compact = true, onClick = onClick)
+    /** Draws a tinted dock icon next to the label; the tint follows the button's current text colour. */
+    private fun dockIcon(button: TextView, res: Int, sizeDp: Int, start: Boolean) {
+        val icon = androidx.core.content.ContextCompat.getDrawable(this, res)?.mutate() ?: return
+        icon.setBounds(0, 0, dp(sizeDp), dp(sizeDp))
+        icon.setTint(button.currentTextColor)
+        button.compoundDrawablePadding = dp(8)
+        if (start) button.setCompoundDrawablesRelative(icon, null, null, null)
+        else button.setCompoundDrawablesRelative(null, null, icon, null)
+    }
     private fun rounded(color: Int, radiusDp: Int, stroke: Int? = null) =
         DashboardUi.rounded(this, color, radiusDp, stroke)
     private fun dp(number: Int) = Theme.dp(this, number)
