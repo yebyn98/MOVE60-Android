@@ -3,6 +3,8 @@ package com.move60.workout.architecture
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.move60.workout.EnergyLedger
+import com.move60.workout.SetRecordStore
+import com.move60.workout.StageLog
 import com.move60.workout.WorkoutData
 import com.move60.workout.WorkoutHistory
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -21,11 +23,28 @@ data class MonthSummary(val trainedDays: Int, val activeMinutes: Long, val kcal:
 /** Selected-day detail shown under the calendar grid. */
 data class DaySummary(val date: LocalDate, val activeMinutes: Long, val kcal: Int)
 
+/** One workout stage of a recorded day: measured time and its share of the day's estimated kcal. */
+data class StageDetail(val name: String, val seconds: Long, val kcal: Int, val note: String?)
+
+/**
+ * Selected-day record. [stages] is empty for days recorded before v43 (only the day total exists then),
+ * so the UI never invents a per-exercise breakdown.
+ */
+data class DayDetail(
+    val date: LocalDate,
+    val focus: String?,
+    val activeMinutes: Long,
+    val kcal: Int,
+    val stages: List<StageDetail>
+)
+
 @HiltViewModel
 class HistoryViewModel @Inject constructor(
     repository: WorkoutRepository,
     private val history: WorkoutHistory,
     private val ledger: EnergyLedger,
+    private val stageLog: StageLog,
+    private val sets: SetRecordStore,
     data: WorkoutData
 ) : ViewModel() {
     val days = repository.recentDays().stateIn(
@@ -68,4 +87,25 @@ class HistoryViewModel @Inject constructor(
         activeMinutes = history.record(date).activeMinutes,
         kcal = ledger.estimate(date).toInt()
     )
+
+    /** Day record with the per-stage split. Stage kcal share the ledger's day estimate by MET-weighted seconds. */
+    fun dayDetail(date: LocalDate): DayDetail {
+        val total = ledger.estimate(date)
+        val entries = stageLog.entries(date)
+        val weights = entries.sumOf { it.metSeconds }
+        val completedSets = sets.completed(date).size
+        val stages = entries.map { entry ->
+            StageDetail(
+                name = STAGE_NAMES[entry.stage],
+                seconds = entry.seconds,
+                kcal = if (weights > 0.0) (total * entry.metSeconds / weights).toInt() else 0,
+                note = if (entry.stage == 2 && completedSets > 0) "완료 세트 ${completedSets}개" else null
+            )
+        }
+        return DayDetail(date, history.focus(date), history.record(date).activeMinutes, total.toInt(), stages)
+    }
+
+    private companion object {
+        val STAGE_NAMES = listOf("준비운동", "유산소 ①", "근력운동", "유산소 ② · 마무리")
+    }
 }

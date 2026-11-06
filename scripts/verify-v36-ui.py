@@ -27,7 +27,7 @@ assert "body_focus_" not in main and "renderDayStrip" not in main, "Day/body sel
 assert "WorkoutDock(" in compose and "workout_dock" in compose, "Figma: overview has the fixed bottom dock"
 assert "오늘의 운동 구성" in main and "상세 ›" in main and "phone_current_guide" in main, "Figma: detail accordion + set-entry card"
 assert "fun buildSetTable" in main and "phone_current_exercise" in main and "buildSetTable(task)" in main.split("fun showDetails")[1], "Set entry: current-exercise card + exercise popup"
-for feature in ("알림 설정 · 진단", "updateManager.check(true)", "유산소 · 근력 시간 비율 변경", "오늘 컨디션 루틴", "칼로리 계산 체중"):
+for feature in ("운동 알림 진단", "notificationDiagnostics(", "updateManager.check(true)", "peekAvailability", "settings_ratio", "오늘 컨디션 루틴", "칼로리 계산 체중"):
     assert feature in compose, f"Compose settings lost: {feature}"
 assert 'Icon(Icons.Outlined.Today' in compose and 'Icon(Icons.Outlined.Settings' in compose
 assert "동작 영상" not in compose
@@ -58,7 +58,7 @@ assert "건강 대시보드" in old
 assert 'horologist-compose-layout:0.6.23' in read("wear/build.gradle")
 targets=read("scripts/release-targets.json")
 assert '"phone": true' in targets and '"watch": true' in targets
-assert "versionCode 42" in read("app/build.gradle") and "versionCode 40" in read("wear/build.gradle")
+assert "versionCode 43" in read("app/build.gradle") and "versionCode 41" in read("wear/build.gradle")
 for manifest_path, activity in (
     ("app/src/main/AndroidManifest.xml", ".health.HealthConsentActivity"),
     ("wear/src/main/AndroidManifest.xml", ".health.WearHealthActivity"),

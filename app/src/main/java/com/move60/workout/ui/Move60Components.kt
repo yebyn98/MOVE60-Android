@@ -14,7 +14,9 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -67,4 +69,31 @@ fun Move60Button(
             content = content
         )
     }
+}
+
+/**
+ * Settings group: small section title above one rounded surface whose rows are separated by [Move60Divider].
+ * Replaces one-card-per-setting so a screen reads as a few groups instead of many equal cards.
+ */
+@Composable
+fun Move60Group(
+    title: String,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(title, style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.secondary, modifier = Modifier.padding(start = 4.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.medium,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) { Column(Modifier.fillMaxWidth(), content = content) }
+    }
+}
+
+@Composable
+fun Move60Divider() {
+    HorizontalDivider(color = MaterialTheme.colorScheme.outline)
 }

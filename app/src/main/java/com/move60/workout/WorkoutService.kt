@@ -143,6 +143,8 @@ class WorkoutService : Service() {
                     EnergyLedger(this).add(date, cursor, cursor + seconds * 1000L, old)
                     history.addActiveSeconds(date, seconds)
                     history.recordFocus(date, old.optString("bodyFocus"))
+                    StageLog(this).add(date, stage, seconds,
+                        CalorieEstimator.snapshotMet(old, cursor + seconds * 500L))
                     prefs.edit().putLong("history_checkpoint_ms", cursor + seconds * 1000L).commit()
                 }
                 if (seconds == 0L) break
