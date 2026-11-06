@@ -42,8 +42,12 @@ data class WatchWorkoutState(
             .put("targetReps",targetReps).put("setWeight",setWeight).put("bodyFocus",bodyFocus).put("intervalIndex",intervalIndex)
             .put("intervalTotal",intervalTotal).put("upcomingInterval",upcomingInterval)
         prefs.edit().putString("state",json.toString()).apply()
+        // Changes within a stage (new exercise/cue or session) must also invalidate the tile.
         if (old.optInt("stageIndex") != stageIndex || old.optString("setLabel") != setLabel ||
-            old.optBoolean("running") != running || old.optBoolean("finished") != finished || old.optLong("restId") != restId)
+            old.optString("exerciseName") != exerciseName || old.optString("detail") != detail ||
+            old.optLong("session") != session || old.optBoolean("hasSession") != hasSession ||
+            old.optBoolean("running") != running || old.optBoolean("finished") != finished ||
+            old.optLong("restId") != restId)
             androidx.wear.tiles.TileService.getUpdater(context).requestUpdate(WorkoutTileService::class.java)
         return true
     }
