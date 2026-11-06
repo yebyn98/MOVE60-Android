@@ -8,6 +8,11 @@ adb shell settings put system screen_off_timeout 300000
 adb shell pm disable-user --user 0 com.google.android.wearable.setupwizard || true
 adb shell am force-stop com.google.android.wearable.setupwizard || true
 adb shell input keyevent KEYCODE_WAKEUP
+# The emulator boots "charging". Wear SysUI then shows its own charging screen on top of the app once it
+# finishes initialising, which stops WatchActivity mid-test (isShown=false / launch timeouts).
+# Reporting an unplugged battery removes that system overlay without touching any assertion.
+adb shell dumpsys battery unplug || true
+adb shell dumpsys battery set level 80 || true
 # Give first-boot Wear services and the startup surface time to settle.
 sleep 20
 adb shell wm size 396x396
@@ -15,6 +20,12 @@ adb shell wm density 330
 adb install -r -g wear/build/outputs/apk/debug/wear-debug.apk
 adb install -r -g wear/build/outputs/apk/androidTest/debug/wear-debug-androidTest.apk
 adb logcat -c
+# Fail early and clearly if a system overlay (e.g. the charging screen) still covers the app before the tests start.
+for i in $(seq 1 15); do
+  if adb shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity' | grep -q 'ChargingActivity'; then
+    echo "System charging screen is on top; waiting ($i/15)"; adb shell input keyevent KEYCODE_WAKEUP; sleep 2
+  else break; fi
+done
 set +e
 timeout 240s adb shell am instrument -w -r -e timeout_msec 45000 com.move60.workout.test/androidx.test.runner.AndroidJUnitRunner | tee smoke-debug/watch/instrumentation.txt
 result=${PIPESTATUS[0]}
