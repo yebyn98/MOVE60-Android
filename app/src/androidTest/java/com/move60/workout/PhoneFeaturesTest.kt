@@ -46,7 +46,7 @@ class PhoneFeaturesTest {
                 // New Figma: all four stages remain accessible in one accordion; the active
                 // step embeds its controls, with time and progress in the fixed dock.
                 val timerCard = root.findViewWithTag<LinearLayout>("phone_timer_card")
-                assertNotNull(timerCard)
+                assertNull("All stages should be collapsed before workout starts", timerCard)
                 assertNotNull(root.findViewWithTag<View>("phone_dock_progress"))
                 assertNull(root.findViewWithTag<View>("phone_dashboard_summary"))
                 assertNotNull(root.findViewWithTag<View>("phone_stage_stack"))
@@ -54,7 +54,7 @@ class PhoneFeaturesTest {
                     assertNotNull("Missing workout stage $index", root.findViewWithTag<View>("phone_step_$index"))
                 }
                 assertNull(root.findViewWithTag<View>("phone_training_heading"))
-                assertNotNull("Active stage detail must be embedded", timerCard)
+                assertNotNull("Single workout stack must be visible", root.findViewWithTag<View>("phone_stage_stack"))
                 assertEquals(View.GONE, root.findViewWithTag<View>("phone_prev").visibility)
                 assertEquals(View.GONE, root.findViewWithTag<View>("phone_next").visibility)
                 assertEquals(20, Move60Theme.Radius.card)
