@@ -209,6 +209,13 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
     }
 
     /** 700 ms logo reveal from the Figma Wear intro storyboard; no additional activity. */
+    private fun dismissLaunchIntro() {
+        if (!::root.isInitialized) return
+        root.findViewWithTag<View>("watch_intro")?.let { overlay ->
+            (overlay.parent as? FrameLayout)?.removeView(overlay)
+        }
+    }
+
     private fun showLaunchIntro() {
         val overlay = FrameLayout(this).apply {
             tag = "watch_intro"
@@ -283,6 +290,8 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
 
     fun applyWorkoutState(state: WatchWorkoutState) {
         workout = state
+        // Never allow the launch intro to cover an already active workout.
+        if (state.ongoing || state.finished) dismissLaunchIntro()
         if (ambient) renderAmbient() else renderInteractive()
         if (visible && packageManager.hasSystemFeature(PackageManager.FEATURE_WATCH)) {
             if (state.ongoing && !displayServiceStarted) {
@@ -386,6 +395,8 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
         nextButton.contentDescription = (if (nextButton.text.toString() == "건너뛰기") "휴식 건너뛰기" else nextButton.text.toString()) + " · 길게 눌러 추가 조작"
     }
     fun setAmbientMode(enabled: Boolean) {
+        // Wrist-down/ambient transitions must not be obscured by the startup overlay.
+        if (enabled) dismissLaunchIntro()
         ambient = enabled
         progressRing.ambientStyle = enabled
         scroll.visibility = if (enabled) View.GONE else View.VISIBLE
