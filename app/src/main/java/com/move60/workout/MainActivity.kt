@@ -804,13 +804,13 @@ class MainActivity : Activity() {
         dockStage.text = if (session.finished) finishLabel
             else "$stageName · ${session.stage + 1}/${session.routine.stages.size} 단계"
         dockTime.text = "${formatTime(elapsed)} / 60:00"
-        play.text = if (session.finished) "새 운동 시작" else if (session.running) "일시정지" else "운동 시작"
         // Figma dock: pause/play 20dp and arrows 18dp icons instead of text glyphs.
-        dockIcon(play, if (session.finished) R.drawable.ic_replay else if (session.running) R.drawable.ic_pause else R.drawable.ic_play, 20, true)
-        dockIcon(previous, R.drawable.ic_arrow_back, 18, true)
+        dockButton(play, if (session.finished) "새 운동 시작" else if (session.running) "일시정지" else "운동 시작",
+            if (session.finished) R.drawable.ic_replay else if (session.running) R.drawable.ic_pause else R.drawable.ic_play, 20, true)
+        dockButton(previous, "이전", R.drawable.ic_arrow_back, 18, true)
         previous.alpha = if (session.stage == 0) .4f else 1f
-        next.text = if (session.stage == 3) "운동 종료" else "다음"
-        if (session.stage != 3) dockIcon(next, R.drawable.ic_arrow_forward, 18, false)
+        if (session.stage == 3) dockButton(next, "운동 종료", 0, 18, false)
+        else dockButton(next, "다음", R.drawable.ic_arrow_forward, 18, false)
         next.isEnabled = !session.finished
         next.alpha = if (session.finished) .4f else 1f
         val strengthTasks = session.routine.stages[2].tasks
@@ -925,17 +925,24 @@ class MainActivity : Activity() {
     private fun card() = DashboardUi.card(this)
     private fun actionButton(title: String, main: Boolean, onClick: () -> Unit) =
         DashboardUi.actionButton(this, title, main, compact = true, onClick = onClick)
-    /** Puts a tinted dock icon right next to the label (Figma: icon + label centred), following the text colour. */
-    private fun dockIcon(button: TextView, res: Int, sizeDp: Int, start: Boolean) {
-        val icon = androidx.core.content.ContextCompat.getDrawable(this, res)?.mutate() ?: return
+    private val dockKeys = HashMap<TextView, String>()
+    /**
+     * Sets a dock label with its tinted icon right next to it (Figma: icon + label centred). The view is only
+     * rewritten when the label or icon changes: the dock refreshes every tick, and re-setting identical text
+     * would keep emitting accessibility events and stop UI automation from ever seeing an idle screen.
+     */
+    private fun dockButton(button: TextView, label: String, res: Int, sizeDp: Int, start: Boolean) {
+        val key = "$label|$res|${button.currentTextColor}"
+        if (dockKeys[button] == key) return
+        dockKeys[button] = key
+        val icon = if (res == 0) null else androidx.core.content.ContextCompat.getDrawable(this, res)?.mutate()
+        if (icon == null) { button.text = label; return }
         icon.setBounds(0, 0, dp(sizeDp), dp(sizeDp))
         icon.setTint(button.currentTextColor)
-        val label = button.text.toString()
         val span = android.text.SpannableStringBuilder(if (start) "  $label" else "$label  ")
         val at = if (start) 0 else label.length + 1
         span.setSpan(android.text.style.ImageSpan(icon, android.text.style.ImageSpan.ALIGN_CENTER), at, at + 1,
             android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-        button.setCompoundDrawables(null, null, null, null)
         button.text = span
     }
     private fun rounded(color: Int, radiusDp: Int, stroke: Int? = null) =
