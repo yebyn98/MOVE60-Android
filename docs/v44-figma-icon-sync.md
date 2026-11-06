@@ -26,3 +26,10 @@ Figma file `KA37z3LKnJi0tFkzwsCt4z` was edited after v43, so every screen was co
 - New CI evidence: `watch-idle.png` (wear test), `widget-workout.png` and `notification-expanded.png` (`LayoutEvidenceTest`).
 - Watch code is unchanged, so `scripts/release-targets.json` is `watch: false` and only the phone is published.
   Set it back to `true` (and bump `wear/build.gradle`) in the next change that touches the watch app.
+
+## v46 logo fix (phone 46.0 / watch 43.0)
+- The Figma logo (home top bar, launcher icon, watch launcher icon) lights all 60 ticks in primary. The code lit only 45
+  and drew 15 in the outline colour. `LIT` in `scripts/generate-logo-assets.py` and `LOGO_LIT_TICKS` in `Move60Logo.kt`
+  are now 60; launcher vectors, the `ic_logo_mark` header icon and the in-app mark were regenerated.
+- Ring, tick and dumbbell geometry already matched Figma (checked by ratio against the 110px watch icon).
+- The watch launcher icon changed, so `release-targets.json` is `watch: true` again.

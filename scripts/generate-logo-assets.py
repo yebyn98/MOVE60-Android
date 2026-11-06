@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate the MOVE60 launcher-icon resources (adaptive icon vectors) for phone and watch.
 
-Logo: "60-tick plate + dumbbell" -- an outer ring, 60 minute ticks (45 lit = progress) and a
+Logo: "60-tick plate + dumbbell" -- an outer ring, 60 minute ticks (all lit, as in the current Figma logo) and a
 dumbbell in the heart color. Geometry comes from the approved Figma board (200px grid, origin at
 the ring center); colors come from design/tokens.json so the icon stays on the design system.
 
@@ -19,7 +19,7 @@ tokens = json.loads((root / "design/tokens.json").read_text(encoding="utf-8"))["
 # --- geometry (Figma px, relative to ring center) -------------------------------------------
 RING_R, RING_W = 63.84, 7.6            # outer ring centerline radius / stroke
 TICK_IN, TICK_OUT, TICK_W = 40.30, 50.92, 2.43
-TICKS, LIT = 60, 45                    # 60 minutes, 45 lit (progress state shown in the logo)
+TICKS, LIT = 60, 60                    # 60 minutes, all 60 lit (Figma launcher icon and app logo)
 # dumbbell parts: (x, y, w, h, corner) with x/y relative to the ring center
 DUMBBELL = [
     (-12.4, -2.9, 24.8, 6.8, 2.0),     # bar
@@ -83,7 +83,8 @@ def fill_path(data, color):
 def foreground():
     out = HEAD + VECTOR_OPEN
     out += stroke_path(circle(RING_R * S), "@color/move60_accent", RING_W * S)
-    out += stroke_path(tick_path(range(LIT, TICKS)), "@color/move60_outline", TICK_W * S)
+    if LIT < TICKS:  # an empty pathData would be an invalid vector path
+        out += stroke_path(tick_path(range(LIT, TICKS)), "@color/move60_outline", TICK_W * S)
     out += stroke_path(tick_path(range(LIT)), "@color/move60_accent", TICK_W * S)
     out += fill_path(dumbbell(), "@color/move60_heart")
     return out + "</vector>\n"
