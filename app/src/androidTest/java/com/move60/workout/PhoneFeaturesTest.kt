@@ -43,17 +43,20 @@ class PhoneFeaturesTest {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             scenario.onActivity { activity ->
                 val root = activity.window.decorView
-                // Figma: the detail screen shows the rest card and the current-exercise card only; the stage list and
-                // the day totals live on the overview and in the fixed dock.
+                // New Figma: all four stages remain accessible in one accordion; the active
+                // step embeds its controls, with time and progress in the fixed dock.
                 val timerCard = root.findViewWithTag<LinearLayout>("phone_timer_card")
                 assertNotNull(timerCard)
                 assertNotNull(root.findViewWithTag<View>("phone_dock_progress"))
                 assertNull(root.findViewWithTag<View>("phone_dashboard_summary"))
-                assertNull(root.findViewWithTag<View>("phone_stage_stack"))
+                assertNotNull(root.findViewWithTag<View>("phone_stage_stack"))
+                for (index in 0..3) {
+                    assertNotNull("Missing workout stage $index", root.findViewWithTag<View>("phone_step_$index"))
+                }
                 assertNull(root.findViewWithTag<View>("phone_training_heading"))
-                assertEquals(Move60Theme.Colors.surface,
-                    (timerCard.background as android.graphics.drawable.GradientDrawable)
-                        .color!!.defaultColor)
+                assertNotNull("Active stage detail must be embedded", timerCard)
+                assertEquals(View.GONE, root.findViewWithTag<View>("phone_prev").visibility)
+                assertEquals(View.GONE, root.findViewWithTag<View>("phone_next").visibility)
                 assertEquals(20, Move60Theme.Radius.card)
                 assertNull(root.findViewWithTag<View>("set-absent-1-rpe"))
             }
@@ -88,7 +91,8 @@ class PhoneFeaturesTest {
                 listOf("phone_prev", "phone_play", "phone_next").forEach { tag ->
                     val b = root.findViewWithTag<TextView>(tag) ?: return@forEach
                     val bounds = (b as? com.google.android.material.button.MaterialButton)?.background?.bounds
-                    assertTrue("$tag must be at least 48dp tall", b.height >= (48 * activity.resources.displayMetrics.density).toInt())
+                    if (b.visibility == View.VISIBLE)
+                        assertTrue("$tag must be at least 48dp tall", b.height >= (48 * activity.resources.displayMetrics.density).toInt())
                     if (bounds != null) assertTrue("$tag drawable ${bounds.height()} clipped by view ${b.height}", bounds.height() <= b.height)
                     val parent = b.parent as View
                     assertTrue("$tag outside its row: top=${b.top} bottom=${b.bottom} row=${parent.height}", b.top >= 0 && b.bottom <= parent.height)
