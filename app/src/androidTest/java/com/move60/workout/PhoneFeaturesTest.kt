@@ -120,6 +120,8 @@ class PhoneFeaturesTest {
     }
     @Test fun lastStageHasEnabledFinishAction() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            // The only pre-start action is Start; the final action now needs confirmation.
+            scenario.onActivity { it.window.decorView.findViewWithTag<TextView>("phone_play").performClick() }
             repeat(3) { scenario.onActivity { activity -> activity.window.decorView.findViewWithTag<TextView>("phone_next").performClick() } }
             scenario.onActivity { activity ->
                 val next = activity.window.decorView.findViewWithTag<TextView>("phone_next")
@@ -127,12 +129,15 @@ class PhoneFeaturesTest {
                 assertTrue(next.isEnabled)
                 next.performClick()
             }
+            onView(withText("기록하고 종료")).perform(click())
+            onView(withText("운동 결과")).check(matches(isDisplayed()))
             scenario.onActivity { activity -> assertFalse(activity.window.decorView.findViewWithTag<TextView>("phone_next").isEnabled) }
         }
     }
     @Test fun setStepperAdjustsKgAndRepsAndCompleteButtonIsLarge() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             scenario.onActivity { activity ->
+                activity.window.decorView.findViewWithTag<TextView>("phone_play").performClick()
                 repeat(2) { activity.window.decorView.findViewWithTag<TextView>("phone_next").performClick() }
             }
             val id = WorkoutData(context).routine(WorkoutData(context).todayDay()).stages[2].tasks.first().id
