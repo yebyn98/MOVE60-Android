@@ -76,7 +76,7 @@ jobs:
               "foreground notification ID": "private const val ONGOING_ID = 601" in service,
               "background workout history": "accountActiveTime(" in service and "history_checkpoint_ms" in service,
               "checkpoint survives unexpected service death": 'if (!snapshot.optBoolean("running", false) || snapshot.optBoolean("finished", false)) {\n            prefs.edit().putLong("history_checkpoint_ms", 0L).apply()' in service,
-              "timer card is built before the current-exercise card": "phone_timer_card" in ui and ui.index("content.addView(makeTimerCard())") < ui.index("        renderCurrent()\n        refreshTimer()"),
+              "single-screen workout accordion mounted before first render": "phone_stage_stack" in ui and "renderStageAccordion()" in ui and ui.index("content.addView(stageAccordion)") < ui.index("        renderCurrent()\n        refreshTimer()"),
               "smoke test starts workout": "Tapped " in smoke and "Could not locate and tap workout start button" in smoke,
               "smoke test checks notification": "id=601" in smoke and "notifications.txt" in smoke,
               "smoke test checks process relaunch": "Testing app relaunch with persisted active timer" in smoke,
