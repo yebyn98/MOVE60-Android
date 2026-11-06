@@ -307,7 +307,14 @@ class MainActivity : Activity() {
             background = rounded(panelLight, 16, subtle)
         }
         timerLabel = label("",12,true,textSecondary)
-        timerCueTitle = label("",20,true).apply { gravity = Gravity.END }
+        // One line that shrinks (20sp -> 14sp) instead of wrapping: a long phase name next to the stage badge used to
+        // push a single orphan syllable onto a second line.
+        timerCueTitle = label("",20,true).apply {
+            gravity = Gravity.END or Gravity.CENTER_VERTICAL
+            maxLines = 1
+            androidx.core.widget.TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
+                this, 14, 20, 1, android.util.TypedValue.COMPLEX_UNIT_SP)
+        }
         top.addView(timerBadge)
         top.addView(timerCueTitle, LinearLayout.LayoutParams(0,dp(52),1f).apply { leftMargin = dp(8) })
         box.addView(top)
