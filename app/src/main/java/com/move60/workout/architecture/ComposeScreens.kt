@@ -634,7 +634,8 @@ fun WorkoutSettings(
                             }
                         }
                         Text("유산소 ${cardioMinutes}분 · 근력 ${50 - cardioMinutes}분 · 운동 시작 전에 바꿀 수 있어요",
-                            color = secondary, style = MaterialTheme.typography.bodySmall)
+                            color = secondary, style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.testTag("settings_ratio_summary"))
                     }
                 }
             }

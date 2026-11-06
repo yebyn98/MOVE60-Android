@@ -1,6 +1,7 @@
 package com.move60.workout.architecture
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.graphics.asAndroidBitmap
@@ -80,10 +81,12 @@ class ComposeArchitectureTest {
         list.performScrollToNode(hasTestTag("settings_ratio"))
         rule.onNodeWithTag("settings_ratio_25").performClick()
         rule.waitForIdle()
-        rule.onNodeWithText("유산소 25분 · 근력 25분", substring = true).assertIsDisplayed()
+        rule.onNodeWithTag("settings_ratio_summary", useUnmergedTree = true)
+            .assertTextContains("유산소 25분 · 근력 25분", substring = true)
         rule.onNodeWithTag("settings_ratio_30").performClick()
         rule.waitForIdle()
-        rule.onNodeWithText("유산소 30분 · 근력 20분", substring = true).assertIsDisplayed()
+        rule.onNodeWithTag("settings_ratio_summary", useUnmergedTree = true)
+            .assertTextContains("유산소 30분 · 근력 20분", substring = true)
     }
 
     @Test fun turningNotificationsOnOpensTheDiagnostics() {
@@ -112,7 +115,9 @@ class ComposeArchitectureTest {
         // The former "운동 현황" card now lives in the dock (progress bar) and the routine card header.
         rule.onNodeWithText("운동 현황").assertDoesNotExist()
         rule.onNodeWithTag("dock_progress").assertIsDisplayed()
-        rule.onNodeWithTag("dashboard_session_caption").assertIsDisplayed()
+        // The caption sits inside the clickable routine card, whose semantics merge their children.
+        rule.onNodeWithTag("dashboard_session_caption", useUnmergedTree = true).assertIsDisplayed()
+            .assertTextContains("단계 1/", substring = true)
         rule.onNodeWithText("상세 운동 화면").assertDoesNotExist()
         rule.onNodeWithText("중량 kg").assertDoesNotExist()
         // Actual emulator screenshot: the PR artifact includes this captured screen.
