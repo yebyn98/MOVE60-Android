@@ -44,9 +44,14 @@ def snapshot(name):
 initial = ET.parse(OUT / "window.xml").getroot()
 toggle = find(initial, description="운동 시작 또는 일시정지")
 tap(toggle)
+paused = snapshot("fixed-controls-paused")
+assert "운동 시작" in find(paused, description="운동 시작 또는 일시정지").get("text", ""), "Pause did not reach the session"
+# The detail screen is short on purpose (Figma: rest card + current-exercise card), so only the strength stage has
+# content that runs past the dock (the inline set rows). Step there with the dock's own "다음" button first.
+for step in range(2):
+    tap(find(snapshot(f"fixed-controls-step{step}"), text="다음"))
 before = snapshot("fixed-controls-before")
 play = find(before, description="운동 시작 또는 일시정지")
-assert "운동 시작" in play.get("text", ""), "Pause did not reach the session"
 dock = find(before, description="고정 운동 컨트롤")
 scroll = find(before, description="운동 내용 스크롤")
 dock_bounds, play_bounds = bounds(dock), bounds(play)
@@ -68,6 +73,7 @@ assert visible_text(before) != visible_text(after), "Test did not actually scrol
 def stage(root):
     return next(n.get("text") for n in find(root, description="고정 운동 컨트롤").iter("node") if n.get("text"))
 original_stage = stage(after)
+assert "근력운동" in original_stage, "Scroll check must run on the strength stage, where the content overflows"
 tap(find(after, text="다음"))
 advanced = snapshot("fixed-controls-next")
 assert stage(advanced) != original_stage, "Next stage did not work from dock"
