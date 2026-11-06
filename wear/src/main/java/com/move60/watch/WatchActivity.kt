@@ -40,6 +40,7 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
     private var ambient = false
     private var visible = false
     private var displayServiceStarted = false
+    private var styledIdle: Boolean? = null
     private val lime = Theme.Colors.primary
     private lateinit var root: FrameLayout
     private lateinit var safeArea: FrameLayout
@@ -53,7 +54,10 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
     private lateinit var progressRing: WorkoutProgressRing
     private lateinit var playButton: Button
     private lateinit var nextButton: Button
-    private lateinit var ambientClock: TextView
+    private lateinit var ambientBattery: TextView
+    private lateinit var ambientHour: TextView
+    private lateinit var ambientMinute: TextView
+    private lateinit var ambientDate: TextView
     private lateinit var ambientStage: TextView
     private lateinit var ambientTime: TextView
 
@@ -113,16 +117,17 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
             gravity = Gravity.CENTER
             setPadding(0, 0, 0, 0)
         }
-        stage = text(16, lime, "watch_stage").apply {
+        stage = text(12, lime, "watch_stage").apply {
             setTypeface(null, Typeface.BOLD)
             contentDescription = "현재 운동 단계 · 길게 눌러 설정"
             setOnLongClickListener { showWatchSettings(); true }
         }
-        detail = text(12, Theme.Colors.textMedium, "watch_detail")
-        timer = text(30, Theme.Colors.textHigh, "watch_timer").apply {
+        detail = text(10, Theme.Colors.textMedium, "watch_detail")
+        timer = text(26, Theme.Colors.textHigh, "watch_timer").apply {
+            setTypeface(null, Typeface.BOLD)
             setOnClickListener { if (workout.restSeconds() > 0 && workout.stageIndex == 2) showRestAdjustments() }
         }
-        heartRate = text(12, Theme.Colors.heart, "watch_heart").apply {
+        heartRate = text(10, Theme.Colors.heart, "watch_heart").apply {
             setOnLongClickListener { showHeartZoneSettings(); true }
         }
         progressBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
@@ -133,9 +138,9 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
             visibility = View.GONE // Progress is rendered by circular WorkoutProgressRing.
         }
         body.addView(stage, LinearLayout.LayoutParams(-1, dp(16)))
-        body.addView(detail, LinearLayout.LayoutParams(-1, dp(16)))
-        body.addView(timer, LinearLayout.LayoutParams(-1, dp(36)))
-        body.addView(heartRate, LinearLayout.LayoutParams(-1, dp(16)))
+        body.addView(detail, LinearLayout.LayoutParams(-1, dp(14)))
+        body.addView(timer, LinearLayout.LayoutParams(-1, dp(34)))
+        body.addView(heartRate, LinearLayout.LayoutParams(-1, dp(14)))
         body.addView(progressBar, LinearLayout.LayoutParams(-1, dp(1)))
         val buttons = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         playButton = button("시작", "watch_play") {
@@ -153,9 +158,9 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
                 }.setNegativeButton("닫기",null).show()
             true
         }
-        buttons.addView(playButton, LinearLayout.LayoutParams(0, dp(44), 1f))
-        buttons.addView(nextButton, LinearLayout.LayoutParams(0, dp(44), 1f).apply { leftMargin = dp(8) })
-        body.addView(buttons, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = 0 })
+        buttons.addView(playButton, LinearLayout.LayoutParams(0, dp(36), 1f))
+        buttons.addView(nextButton, LinearLayout.LayoutParams(0, dp(36), 1f).apply { leftMargin = dp(4) })
+        body.addView(buttons, LinearLayout.LayoutParams(-1, dp(36)).apply { topMargin = dp(8) })
         scroll = ScrollView(this).apply {
             tag = "watch_scroll"
             isFillViewport = true
@@ -171,14 +176,20 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
             setBackgroundColor(Theme.Colors.background)
             visibility = View.GONE
         }
-        ambientClock = text(12, Theme.Colors.textMedium, "ambient_clock")
-        ambientStage = text(12, Theme.Colors.textMedium, "ambient_stage")
-        ambientTime = text(26, Theme.Colors.textHigh, "ambient_time")
-        ambientPanel.addView(ambientClock, LinearLayout.LayoutParams(-1, dp(20)))
-        ambientPanel.addView(ambientStage, LinearLayout.LayoutParams(-1, dp(22)))
-        ambientPanel.addView(ambientTime, LinearLayout.LayoutParams(-1, dp(28)))
-        ambientPanel.addView(text(10, Theme.Colors.textMuted, "ambient_hint").apply { text = "손목을 들어 조작" },
-            LinearLayout.LayoutParams(-1, dp(18)))
+        // Figma ambient: battery, hour, minute and date stacked in the primary colour. The stage and
+        // remaining minutes stay as one small line so the workout is still readable at a glance.
+        ambientBattery = text(10, lime, "ambient_battery")
+        ambientHour = text(26, lime, "ambient_hour").apply { setTypeface(null, Typeface.BOLD) }
+        ambientMinute = text(26, lime, "ambient_minute").apply { setTypeface(null, Typeface.BOLD) }
+        ambientDate = text(10, lime, "ambient_date")
+        ambientStage = text(10, lime, "ambient_stage")
+        ambientTime = text(10, lime, "ambient_time")
+        ambientPanel.addView(ambientBattery, LinearLayout.LayoutParams(-1, dp(14)))
+        ambientPanel.addView(ambientHour, LinearLayout.LayoutParams(-1, dp(32)))
+        ambientPanel.addView(ambientMinute, LinearLayout.LayoutParams(-1, dp(32)))
+        ambientPanel.addView(ambientDate, LinearLayout.LayoutParams(-1, dp(14)))
+        ambientPanel.addView(ambientStage, LinearLayout.LayoutParams(-1, dp(14)).apply { topMargin = dp(4) })
+        ambientPanel.addView(ambientTime, LinearLayout.LayoutParams(-1, dp(14)))
         safeArea.addView(ambientPanel, FrameLayout.LayoutParams(-1, -1))
         setContentView(root)
         window.insetsController?.apply {
@@ -212,6 +223,7 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
         text = title
         isAllCaps = false
         textSize = Theme.Type.wearBody
+        setTypeface(null, Typeface.BOLD)
         minHeight = 0
         minimumHeight = 0
         minWidth = 0
@@ -226,6 +238,13 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
         setOnClickListener { action() }
     }
     private fun dp(value: Int) = Theme.dp(this, value)
+    /** Figma: a lone primary action is filled with onPrimary text; paired actions sit on the elevated surface. */
+    private fun styleButton(button: Button, primary: Boolean) {
+        button.background = Theme.shape(this, if (primary) lime else Theme.Colors.surfaceElevated,
+            Theme.Radius.control, if (primary) null else Theme.Colors.outline)
+        button.setTextColor(if (primary) Theme.Colors.onPrimary else Theme.Colors.textHigh)
+        button.setAutoSizeTextTypeUniformWithConfiguration(9, if (primary) 16 else 12, 1, TypedValue.COMPLEX_UNIT_SP)
+    }
 
     fun applyWorkoutState(state: WatchWorkoutState) {
         workout = state
@@ -242,7 +261,13 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
         }
     }
     private fun renderInteractive() {
-        stage.text = if (workout.finished) "운동 완료" else workout.stageLabel
+        val idle = !workout.hasSession && !workout.finished
+        stage.text = when {
+            idle -> java.text.SimpleDateFormat("MM.dd", java.util.Locale.getDefault()).format(java.util.Date())
+            workout.finished -> "운동 완료"
+            else -> workout.stageLabel
+        }
+        stage.setTextColor(if (idle) Theme.Colors.textHigh else lime)
         stage.contentDescription = "현재 단계 ${stage.text} · 길게 눌러 설정"
         val resting = workout.stageIndex == 2 && workout.restSeconds() > 0 && !workout.finished
         detail.text = when {
@@ -256,11 +281,16 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
                 "${workout.intervalIndex}/${workout.intervalTotal}구간 · ${workout.detail}"
             workout.running -> workout.detail.ifBlank { "운동 중" }
             workout.hasSession -> "일시정지"
-            else -> "휴대폰 운동과 연결 대기"
+            else -> when (workout.bodyFocus) {
+                "upper" -> "상체 · 60분"
+                "lower" -> "하체 · 60분"
+                else -> "60분 루틴"
+            }
         }
         val remaining = when {
             workout.finished -> workout.activeSeconds
             resting -> workout.restSeconds()
+            idle -> 60 * 60 // the routine is a fixed 60 minutes
             else -> workout.secondsRemaining()
         }.coerceAtLeast(0)
         val strengthTarget = !resting && workout.stageIndex == 2 && !workout.finished && workout.targetReps > 0
@@ -301,6 +331,11 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
         heartRate.contentDescription = if (bpm in 30..240 && age in 0L..10_000L)
             "심박수 $bpm, ${age / 1000}초 전 측정" else "심박수 연결대기"
         playButton.text = if (workout.finished) "종료" else if (workout.running) "일시정지" else "시작"
+        if (styledIdle != idle) {
+            styledIdle = idle
+            styleButton(playButton, idle)
+            styleButton(nextButton, false)
+        }
         detail.contentDescription = detail.text.toString() + (if ((workout.stageIndex == 1 || workout.stageIndex == 3) && workout.upcomingInterval.isNotBlank()) " · 다음 구간 ${workout.upcomingInterval}" else "")
         nextButton.text = when {
             workout.stageIndex == 3 -> "운동 완료"
@@ -310,17 +345,20 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
         }
         val enabled = connected && ready && pending.isBlank() && workout.protocol >= 26
         playButton.isEnabled = workout.finished || enabled
-        nextButton.visibility = if (workout.finished) View.GONE else View.VISIBLE
-        nextButton.isEnabled = !workout.finished && enabled
+        // Idle shows only the primary "시작"; the second action needs a running or paused session.
+        nextButton.visibility = if (workout.finished || idle) View.GONE else View.VISIBLE
+        nextButton.isEnabled = !workout.finished && !idle && enabled
         nextButton.contentDescription = (if (nextButton.text.toString() == "건너뛰기") "휴식 건너뛰기" else nextButton.text.toString()) + " · 길게 눌러 추가 조작"
     }
     fun setAmbientMode(enabled: Boolean) {
         ambient = enabled
+        progressRing.ambientStyle = enabled
         scroll.visibility = if (enabled) View.GONE else View.VISIBLE
         ambientPanel.visibility = if (enabled) View.VISIBLE else View.GONE
         handler.removeCallbacks(ticker)
         if (enabled) {
-            listOf(ambientClock, ambientStage, ambientTime).forEach { it.paint.isAntiAlias = false }
+            listOf(ambientBattery, ambientHour, ambientMinute, ambientDate, ambientStage, ambientTime)
+                .forEach { it.paint.isAntiAlias = false }
             renderAmbient()
         } else {
             renderInteractive()
@@ -328,7 +366,14 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
         }
     }
     private fun renderAmbient() {
-        ambientClock.text = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
+        val now = java.util.Date()
+        val locale = java.util.Locale.getDefault()
+        val battery = (getSystemService(BATTERY_SERVICE) as? android.os.BatteryManager)
+            ?.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: -1
+        ambientBattery.text = if (battery in 0..100) "⚡$battery%" else ""
+        ambientHour.text = java.text.SimpleDateFormat("HH", locale).format(now)
+        ambientMinute.text = java.text.SimpleDateFormat("mm", locale).format(now)
+        ambientDate.text = java.text.SimpleDateFormat("EEE dd", locale).format(now)
         ambientStage.text = if (workout.finished) "운동 완료" else workout.stageLabel
         // Ambient refresh is infrequent. Do not show stale seconds or live BPM.
         val rest = workout.restSeconds()

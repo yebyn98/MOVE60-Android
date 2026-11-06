@@ -190,33 +190,37 @@ class MainActivity : Activity() {
         content.removeAllViews()
         // Detail screen: back button + title replace the old app bar so home <-> detail reads as one flow.
         val header = row().apply { gravity = Gravity.CENTER_VERTICAL; tag = "detail_header" }
-        header.addView(actionButton("←", false) { leaveToOverview() }.apply {
+        // Figma icon/arrow_back: bare 24dp arrow inside a 48dp touch target.
+        header.addView(android.widget.ImageButton(this).apply {
+            setImageResource(R.drawable.ic_arrow_back)
+            background = null
+            scaleType = android.widget.ImageView.ScaleType.CENTER
             tag = "detail_back"
             contentDescription = "홈으로 돌아가기"
-            minWidth = dp(48); minimumWidth = dp(48)
-        }, LinearLayout.LayoutParams(dp(48), -2))
-        header.addView(label("오늘의 운동", 22, true).apply {
+            setOnClickListener { leaveToOverview() }
+        }, LinearLayout.LayoutParams(dp(48), dp(48)))
+        header.addView(label("오늘의 운동", 24, true).apply {
             tag = "detail_title"
             isSingleLine = true
             contentDescription = "운동 상세 화면 제목"
-        }, LinearLayout.LayoutParams(0, -2, 1f).apply { leftMargin = dp(12) })
+        }, LinearLayout.LayoutParams(0, -2, 1f).apply { leftMargin = dp(4) })
         content.addView(header)
         addGap(content, 16)
         // Day and body-part selection live on the Compose overview; this screen only shows the result.
         dayInfo = label("", 12, true, mint).apply { tag = "phone_day_info"; gravity = Gravity.END }
         val nowHeading = row().apply { gravity = Gravity.CENTER_VERTICAL }
-        nowHeading.addView(label("지금 할 운동", 19, true), LinearLayout.LayoutParams(0, -2, 1f))
+        nowHeading.addView(label("지금 할 운동", 24, true), LinearLayout.LayoutParams(0, -2, 1f))
         nowHeading.addView(dayInfo, LinearLayout.LayoutParams(-2, -2))
         content.addView(nowHeading)
         addGap(content, Theme.Space.two)
         content.addView(makeTimerCard())
         restPanel = card().apply { tag = "phone_rest"; visibility = View.GONE }
-        restValue = label("", 23, true, mint).apply { tag = "phone_rest_time" }
-        restPanel.addView(label("세트 휴식", 12, true, textSecondary))
+        restValue = label("", 28, true, mint).apply { tag = "phone_rest_time" }
+        restPanel.addView(label("세트 휴식", 16, true, textSecondary))
         restPanel.addView(restValue)
         val restActions = row().apply { isBaselineAligned = false }
-        restActions.addView(actionButton("+15초", false) { session.adjustRest(15); syncService(); refreshTimer() }.apply { tag="phone_rest_add" },LinearLayout.LayoutParams(0,dp(52),1f))
-        restActions.addView(actionButton("건너뛰기", false) { session.skipRest(); syncService(); refreshTimer() }.apply { tag="phone_rest_skip" },LinearLayout.LayoutParams(0,dp(52),1f).apply { leftMargin = dp(8) })
+        restActions.addView(actionButton("+15초", false) { session.adjustRest(15); syncService(); refreshTimer() }.apply { tag="phone_rest_add" },LinearLayout.LayoutParams(0,dp(48),1f))
+        restActions.addView(actionButton("건너뛰기", false) { session.skipRest(); syncService(); refreshTimer() }.apply { tag="phone_rest_skip" },LinearLayout.LayoutParams(0,dp(48),1f).apply { leftMargin = dp(8) })
         restPanel.addView(restActions)
         content.addView(restPanel)
         addGap(content, Theme.Space.two)
@@ -280,10 +284,10 @@ class MainActivity : Activity() {
         dock.addView(progressBar,
             LinearLayout.LayoutParams(-1, dp(4)).apply { leftMargin = -dp(Theme.Space.two); rightMargin = -dp(Theme.Space.two) })
         addGap(dock, Theme.Space.one + 4)
-        // Figma "FixedBottomDock": stage / elapsed / kcal on the left, heart pill on the right.
+        // Figma "FixedBottomDock": stage + elapsed on the left, 24dp heart pill on the right, kcal on its own line.
         val state = row().apply { gravity = Gravity.CENTER_VERTICAL }
         val info = column()
-        dockStage = label("준비운동", 15, true)
+        dockStage = label("준비운동", 16, true)
         dockStage.setSingleLine(true)
         dockStage.ellipsize = android.text.TextUtils.TruncateAt.END
         dockTime = label("", 12, false, textSecondary)
@@ -293,18 +297,24 @@ class MainActivity : Activity() {
         }
         info.addView(dockStage)
         info.addView(dockTime)
-        info.addView(dockCalories)
         state.addView(info, LinearLayout.LayoutParams(0, -2, 1f))
         dockHeartRate = label("♥ 연결대기", 12, true, Theme.Colors.heart).apply {
             contentDescription = "하단 실시간 심박수"
             gravity = Gravity.CENTER
-            minHeight = dp(40)
-            minWidth = dp(76)
-            setPadding(dp(8), dp(8), dp(8), dp(8))
-            background = rounded(panelLight, Theme.Radius.control, subtle)
+            includeFontPadding = false
+            setLineSpacing(0f, 1f)
+            setPadding(dp(10), dp(4), dp(10), dp(4))
+            // Fully rounded 24dp pill (not a card-radius rectangle).
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(panelLight)
+                cornerRadius = dp(24).toFloat()
+                setStroke(dp(1), subtle)
+            }
         }
-        state.addView(dockHeartRate, LinearLayout.LayoutParams(-2, -2).apply { leftMargin = dp(8) })
+        state.addView(dockHeartRate, LinearLayout.LayoutParams(-2, dp(24)).apply { leftMargin = dp(8) })
         dock.addView(state)
+        addGap(dock, 8)
+        dock.addView(dockCalories)
         addGap(dock, 8)
         play = actionButton("▶ 운동 시작", true) {
             if (session.running) session.pause() else {
@@ -336,9 +346,9 @@ class MainActivity : Activity() {
         val box = card()
         val top = row().apply { gravity = Gravity.CENTER_VERTICAL }
         // Figma: stage badge on the left, current cue (exercise / phase name) on the right.
-        timerBadge = label("준비운동",11,true,mint).apply {
+        timerBadge = label("준비운동",12,true,mint).apply {
             setPadding(dp(10), dp(4), dp(10), dp(4))
-            background = rounded(panelLight, 12, subtle)
+            background = rounded(panelLight, 16, subtle)
         }
         timerLabel = label("",12,true,textSecondary)
         timerCueTitle = label("",20,true).apply { gravity = Gravity.END }
@@ -348,7 +358,7 @@ class MainActivity : Activity() {
         timerCueDetail = label("",12,false,textSecondary)
         addGap(box,Theme.Space.one)
         box.addView(timerCueDetail)
-        timerValue = label("",36,true)
+        timerValue = label("",32,true)
         addGap(box,Theme.Space.one)
         box.addView(timerValue)
         heartRateValue = label("연결대기",12,true).apply { contentDescription = "실시간 심박수" }
@@ -357,7 +367,7 @@ class MainActivity : Activity() {
             progressTintList=android.content.res.ColorStateList.valueOf(mint)
         }
         addGap(box,10)
-        box.addView(progress,LinearLayout.LayoutParams(-1,dp(5)))
+        box.addView(progress,LinearLayout.LayoutParams(-1,dp(6)))
         currentSetPanel = column().apply { tag = "phone_current_exercise"; visibility = View.GONE }
         box.addView(currentSetPanel)
         box.setOnLongClickListener {
@@ -402,8 +412,11 @@ class MainActivity : Activity() {
             contentDescription = "${task.name} 자세 안내 및 대체 운동"
             setOnClickListener { showDetails(2, task) }
         }
-        guide.addView(label("자세 안내 · 대체 운동", 12, true, mint), LinearLayout.LayoutParams(0, -2, 1f))
-        guide.addView(label("›", 16, true, mint))
+        guide.addView(label("자세 안내 · 대체 운동", 16, true, mint), LinearLayout.LayoutParams(0, -2, 1f))
+        guide.addView(android.widget.ImageView(this).apply {
+            setImageResource(R.drawable.ic_chevron_right)
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        }, LinearLayout.LayoutParams(dp(20), dp(20)))
         currentSetPanel.addView(guide)
     }
 
@@ -412,10 +425,13 @@ class MainActivity : Activity() {
         val count = strengthSetCount(task)
         val table = column()
         val setRecords = SetRecordStore(this)
-        val progress = label("세트 완료  ${doneSets(task)} / ${count}", 11, true,
+        val progress = label("세트 완료  ${doneSets(task)} / ${count}", 16, true,
             if (doneSets(task) == count) mint else textSecondary)
-        progress.setPadding(dp(16), dp(8), 0, dp(8))
+        progress.setPadding(0, dp(8), 0, dp(4))
         table.addView(progress)
+        // Figma: the hint sits right under the heading, before the set blocks.
+        table.addView(label(if (showHint) "맨몸은 0kg · 체크하면 휴식이 자동으로 시작돼요"
+            else "맨몸은 0kg · 중량과 횟수 자동 저장", 12, false, textSecondary).apply { setPadding(0, 0, 0, dp(8)) })
         for (set in 1..count) {
             val key = "strength-${session.day}-${task.id}-${set}"
             val saved = setRecords.read(session.day, task.id, set, token = session.sessionStartedAt)
@@ -536,8 +552,6 @@ class MainActivity : Activity() {
             block.addView(check, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(8) })
             table.addView(block, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
         }
-        table.addView(label(if (showHint) "맨몸은 0kg · 체크하면 휴식이 자동으로 시작돼요"
-            else "맨몸은 0kg · 중량과 횟수 자동 저장", 10, false, textSecondary))
         return table
     }
 
