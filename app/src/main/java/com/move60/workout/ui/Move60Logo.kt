@@ -37,7 +37,7 @@ fun Move60LogoMark(
 }
 
 const val LOGO_TICKS = 60
-const val LOGO_LIT_TICKS = 45
+const val LOGO_LIT_TICKS = 60
 
 private const val RING_R = 63.84f
 private const val RING_W = 7.6f
