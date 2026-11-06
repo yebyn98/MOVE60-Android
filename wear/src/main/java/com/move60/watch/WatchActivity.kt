@@ -180,17 +180,16 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
         // Figma ambient: battery, hour, minute and date stacked in the primary colour. The stage and
         // remaining minutes stay as one small line so the workout is still readable at a glance.
         ambientBattery = text(10, lime, "ambient_battery")
-        ambientHour = text(26, lime, "ambient_hour").apply { setTypeface(null, Typeface.BOLD) }
+        ambientHour = text(26, Theme.Colors.textHigh, "ambient_hour").apply { setTypeface(null, Typeface.BOLD) }
         ambientMinute = text(26, lime, "ambient_minute").apply { setTypeface(null, Typeface.BOLD) }
         ambientDate = text(10, lime, "ambient_date")
-        ambientStage = text(10, lime, "ambient_stage")
-        ambientTime = text(10, lime, "ambient_time")
-        ambientPanel.addView(ambientBattery, LinearLayout.LayoutParams(-1, dp(14)))
-        ambientPanel.addView(ambientHour, LinearLayout.LayoutParams(-1, dp(32)))
-        ambientPanel.addView(ambientMinute, LinearLayout.LayoutParams(-1, dp(32)))
-        ambientPanel.addView(ambientDate, LinearLayout.LayoutParams(-1, dp(14)))
-        ambientPanel.addView(ambientStage, LinearLayout.LayoutParams(-1, dp(14)).apply { topMargin = dp(4) })
-        ambientPanel.addView(ambientTime, LinearLayout.LayoutParams(-1, dp(14)))
+        ambientStage = text(12, lime, "ambient_stage")
+        ambientTime = text(10, Theme.Colors.textMedium, "ambient_time")
+        // In low-power ambient mode keep just the time, session status and minute-granularity
+        // context. Omitting live BPM/seconds prevents stale readings and limits burn-in risk.
+        ambientPanel.addView(ambientHour, LinearLayout.LayoutParams(-1, dp(38)))
+        ambientPanel.addView(ambientStage, LinearLayout.LayoutParams(-1, dp(20)))
+        ambientPanel.addView(ambientTime, LinearLayout.LayoutParams(-1, dp(18)))
         safeArea.addView(ambientPanel, FrameLayout.LayoutParams(-1, -1))
         setContentView(root)
         window.insetsController?.apply {
@@ -200,8 +199,43 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
         if (packageManager.hasSystemFeature(PackageManager.FEATURE_WATCH))
             lifecycle.addObserver(AmbientLifecycleObserver(this, callbacks))
         applyWorkoutState(WatchWorkoutState.load(this))
+        // Animate only on a fresh explicit launch, not after configuration changes or
+        // ambient resume. Instrumentation runs bypass the animation for deterministic UI tests.
+        if (savedInstanceState == null && !android.app.ActivityManager.isRunningInTestHarness()
+            && packageManager.hasSystemFeature(PackageManager.FEATURE_WATCH)
+            && !workout.ongoing) showLaunchIntro()
         if (checkSelfPermission(Manifest.permission.BODY_SENSORS) != PackageManager.PERMISSION_GRANTED)
             requestPermissions(arrayOf(Manifest.permission.BODY_SENSORS), 60)
+    }
+
+    /** 700 ms logo reveal from the Figma Wear intro storyboard; no additional activity. */
+    private fun showLaunchIntro() {
+        val overlay = FrameLayout(this).apply {
+            tag = "watch_intro"
+            setBackgroundColor(Theme.Colors.background)
+            isClickable = true
+        }
+        val stack = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+        }
+        val logo = ImageView(this).apply {
+            setImageResource(R.drawable.ic_launcher_foreground)
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            alpha = 0f
+            contentDescription = "MOVE60"
+        }
+        val title = text(12, Theme.Colors.textHigh, "watch_intro_title").apply {
+            text = "MOVE60"
+            alpha = 0f
+        }
+        stack.addView(logo, LinearLayout.LayoutParams(dp(82), dp(82)))
+        stack.addView(title, LinearLayout.LayoutParams(-1, dp(24)))
+        overlay.addView(stack, FrameLayout.LayoutParams(dp(140), dp(140), Gravity.CENTER))
+        root.addView(overlay, FrameLayout.LayoutParams(-1, -1))
+        logo.animate().alpha(1f).setStartDelay(90).setDuration(290).start()
+        title.animate().alpha(1f).setStartDelay(270).setDuration(170).start()
+        overlay.postDelayed({ if (overlay.parent === root) root.removeView(overlay) }, 700L)
     }
 
     private fun text(size: Int, color: Int, name: String) = TextView(this).apply {
@@ -372,14 +406,25 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
         val battery = (getSystemService(BATTERY_SERVICE) as? android.os.BatteryManager)
             ?.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: -1
         ambientBattery.text = if (battery in 0..100) "⚡$battery%" else ""
-        ambientHour.text = java.text.SimpleDateFormat("HH", locale).format(now)
-        ambientMinute.text = java.text.SimpleDateFormat("mm", locale).format(now)
-        ambientDate.text = java.text.SimpleDateFormat("EEE dd", locale).format(now)
-        ambientStage.text = if (workout.finished) "운동 완료" else workout.stageLabel
-        // Ambient refresh is infrequent. Do not show stale seconds or live BPM.
+        ambientHour.text = java.text.SimpleDateFormat("HH:mm", locale).format(now)
+        // Keep the existing stage tag for accessibility and watch screen tests.
+        ambientStage.text = when {
+            workout.finished -> "운동 완료"
+            workout.running && workout.restSeconds() > 0 -> "세트 간 휴식"
+            workout.running -> workout.stageLabel
+            workout.hasSession -> "일시정지"
+            else -> "운동 대기"
+        }
+        // Low-power ambient updates are infrequent; never imply real-time seconds or BPM.
         val rest = workout.restSeconds()
         val minutes = ((if (rest > 0) rest else workout.secondsRemaining()) + 59) / 60
-        ambientTime.text = if (workout.running && rest > 0) "휴식 약 "+minutes+"분" else if (workout.running) "남은 약 ${minutes}분" else if (workout.hasSession) "일시정지" else "운동 대기"
+        ambientTime.text = when {
+            workout.finished -> "총 ${(workout.activeSeconds + 30) / 60}분 수행"
+            workout.running && rest > 0 -> "남은 약 ${minutes}분"
+            workout.running -> "남은 약 ${minutes}분"
+            workout.hasSession -> workout.stageLabel
+            else -> "휴대폰에서 시작"
+        }
     }
     private fun showRestAdjustments() {
         if (workout.stageIndex != 2 || workout.restSeconds() <= 0 || workout.finished) return
