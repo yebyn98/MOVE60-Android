@@ -39,6 +39,7 @@ class MainActivity : Activity() {
     private lateinit var activeStageContent: LinearLayout
     private var expandedStage = -1
     private var lastAccordionStage = -1
+    private var lastAccordionWasStarted = false
     private lateinit var dayInfo: TextView
     private lateinit var currentSetPanel: LinearLayout
     private lateinit var timerValue: TextView
@@ -357,13 +358,16 @@ class MainActivity : Activity() {
     /** Single scrolling accordion: opening a different step never changes the real workout. */
     private fun renderStageAccordion() {
         if (!::stageAccordion.isInitialized) return
-        if (lastAccordionStage != session.stage) {
-            expandedStage = session.stage
+        val started = session.running || session.elapsed() > 0
+        if (lastAccordionStage != session.stage || started != lastAccordionWasStarted) {
+            // Before workout every step is collapsed; when started, focus the actual stage.
+            expandedStage = if (started && !session.finished) session.stage else -1
             lastAccordionStage = session.stage
         }
+        lastAccordionWasStarted = started
         stageAccordion.removeAllViews()
         session.routine.stages.forEachIndexed { index, step ->
-            val active = index == session.stage && !session.finished
+            val active = index == session.stage && !session.finished && started
             val opened = index == expandedStage
             val done = session.finished || index in session.completed || index < session.stage
             val cell = card().apply {
@@ -385,6 +389,7 @@ class MainActivity : Activity() {
             header.addView(label("${index + 1}. ${step.name}", 14, true, if (active) mint else textPrimary),
                 LinearLayout.LayoutParams(0, -2, 1f))
             val state = when {
+                active && !session.running -> "일시정지"
                 active -> "진행 중"
                 done -> "완료"
                 else -> "예정"
@@ -395,7 +400,7 @@ class MainActivity : Activity() {
             }, LinearLayout.LayoutParams(dp(34), dp(48)))
             cell.addView(header)
             if (opened) {
-                addGap(cell, dp(2).let { Theme.Space.one })
+                addGap(cell, Theme.Space.one)
                 if (active) {
                     (activeStageContent.parent as? android.view.ViewGroup)?.removeView(activeStageContent)
                     cell.addView(activeStageContent)
