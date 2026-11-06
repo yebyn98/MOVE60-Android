@@ -810,7 +810,7 @@ class MainActivity : Activity() {
         dockIcon(previous, R.drawable.ic_arrow_back, 18, true)
         previous.alpha = if (session.stage == 0) .4f else 1f
         next.text = if (session.stage == 3) "운동 종료" else "다음"
-        dockIcon(next, R.drawable.ic_arrow_forward, 18, false)
+        if (session.stage != 3) dockIcon(next, R.drawable.ic_arrow_forward, 18, false)
         next.isEnabled = !session.finished
         next.alpha = if (session.finished) .4f else 1f
         val strengthTasks = session.routine.stages[2].tasks
@@ -925,14 +925,18 @@ class MainActivity : Activity() {
     private fun card() = DashboardUi.card(this)
     private fun actionButton(title: String, main: Boolean, onClick: () -> Unit) =
         DashboardUi.actionButton(this, title, main, compact = true, onClick = onClick)
-    /** Draws a tinted dock icon next to the label; the tint follows the button's current text colour. */
+    /** Puts a tinted dock icon right next to the label (Figma: icon + label centred), following the text colour. */
     private fun dockIcon(button: TextView, res: Int, sizeDp: Int, start: Boolean) {
         val icon = androidx.core.content.ContextCompat.getDrawable(this, res)?.mutate() ?: return
         icon.setBounds(0, 0, dp(sizeDp), dp(sizeDp))
         icon.setTint(button.currentTextColor)
-        button.compoundDrawablePadding = dp(8)
-        if (start) button.setCompoundDrawablesRelative(icon, null, null, null)
-        else button.setCompoundDrawablesRelative(null, null, icon, null)
+        val label = button.text.toString()
+        val span = android.text.SpannableStringBuilder(if (start) "  $label" else "$label  ")
+        val at = if (start) 0 else label.length + 1
+        span.setSpan(android.text.style.ImageSpan(icon, android.text.style.ImageSpan.ALIGN_CENTER), at, at + 1,
+            android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+        button.setCompoundDrawables(null, null, null, null)
+        button.text = span
     }
     private fun rounded(color: Int, radiusDp: Int, stroke: Int? = null) =
         DashboardUi.rounded(this, color, radiusDp, stroke)
