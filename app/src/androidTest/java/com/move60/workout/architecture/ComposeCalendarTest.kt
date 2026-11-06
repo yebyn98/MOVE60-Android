@@ -7,6 +7,7 @@ import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -55,6 +56,12 @@ class ComposeCalendarTest {
             rule.onNodeWithContentDescription("운동 달력").performClick()
             // The day cell is a clickable that merges its children, so the dot only exists in the
             // unmerged tree; the merged cell exposes the same fact to accessibility services.
+            // Six-week month grids can put the selected date below the initial viewport
+            // on short phone screens. Scroll the real list to that day before asserting
+            // its accessibility label and recorded-day marker.
+            rule.onNodeWithTag("calendar_list").performScrollToNode(
+                hasContentDescription("$today · 운동 기록 있음")
+            )
             rule.onNodeWithContentDescription("$today · 운동 기록 있음").assertIsDisplayed()
             rule.onNodeWithTag("calendar-dot-$today", useUnmergedTree = true).assertIsDisplayed()
             capture("compose-calendar.png")
