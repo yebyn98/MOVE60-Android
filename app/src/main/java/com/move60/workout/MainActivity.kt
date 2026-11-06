@@ -50,6 +50,7 @@ class MainActivity : Activity() {
     private lateinit var restPanel: LinearLayout
     private lateinit var restValue: TextView
     private lateinit var dockStage: TextView
+    private lateinit var dockProgressFill: View
     private lateinit var dockTime: TextView
     private lateinit var dockCalories: TextView
     private lateinit var dockHeartRate: TextView
@@ -267,8 +268,17 @@ class MainActivity : Activity() {
             elevation = dp(8).toFloat()
         }
         // Figma dock has a hairline on top; the fixed dock never overlaps scrolling content.
-        dock.addView(View(this).apply { setBackgroundColor(Theme.Colors.outline) },
-            LinearLayout.LayoutParams(-1, dp(1)).apply { leftMargin = -dp(Theme.Space.two); rightMargin = -dp(Theme.Space.two) })
+        // The 4dp top edge doubles as today's 60-minute progress bar (replaces the old hairline).
+        dockProgressFill = View(this).apply { setBackgroundColor(Theme.Colors.primary) }
+        val progressBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setBackgroundColor(Theme.Colors.outline)
+            tag = "phone_dock_progress"
+            addView(dockProgressFill, LinearLayout.LayoutParams(0, -1, 0f))
+            addView(View(this@MainActivity), LinearLayout.LayoutParams(0, -1, 1f))
+        }
+        dock.addView(progressBar,
+            LinearLayout.LayoutParams(-1, dp(4)).apply { leftMargin = -dp(Theme.Space.two); rightMargin = -dp(Theme.Space.two) })
         addGap(dock, Theme.Space.one + 4)
         // Figma "FixedBottomDock": stage / elapsed / kcal on the left, heart pill on the right.
         val state = row().apply { gravity = Gravity.CENTER_VERTICAL }
@@ -311,13 +321,13 @@ class MainActivity : Activity() {
         val buttons = row().apply { isBaselineAligned = false; gravity = Gravity.CENTER_VERTICAL }
         previous = actionButton("← 이전", false) { session.jumpTo(session.stage - 1); afterAction() }.apply { tag = "phone_prev" }
         next = actionButton("다음 →", false) { session.nextStage(); afterAction() }.apply { tag = "phone_next" }
-        listOf(previous, next, play).forEach { it.minHeight = dp(56); it.minimumHeight = dp(56); it.maxLines = 1 }
+        listOf(previous, next, play).forEach { it.minHeight = dp(48); it.minimumHeight = dp(48); it.maxLines = 1 }
         previous.textSize = Theme.Type.caption
         next.textSize = Theme.Type.caption
         play.textSize = Theme.Type.body
-        buttons.addView(previous, LinearLayout.LayoutParams(0, dp(56), 1f))
-        buttons.addView(play, LinearLayout.LayoutParams(0, dp(56), 1.35f).apply { leftMargin = dp(8) })
-        buttons.addView(next, LinearLayout.LayoutParams(0, dp(56), 1f).apply { leftMargin = dp(8) })
+        buttons.addView(previous, LinearLayout.LayoutParams(0, dp(48), 1f))
+        buttons.addView(play, LinearLayout.LayoutParams(0, dp(48), 1.35f).apply { leftMargin = dp(8) })
+        buttons.addView(next, LinearLayout.LayoutParams(0, dp(48), 1f).apply { leftMargin = dp(8) })
         dock.addView(buttons)
         return dock
     }
@@ -451,6 +461,8 @@ class MainActivity : Activity() {
                     setPadding(0, 0, 0, 0)
                     contentDescription = "${task.name} ${set}세트 $unit $action"
                     tag = "set-${task.id}-$set-" + (if (unit == "중량") "kg" else "reps") + (if (delta < 0) "-minus" else "-plus")
+                    // Looks 32dp but keeps the full 48dp touch target: the inset only shrinks the drawn background.
+                    background = android.graphics.drawable.InsetDrawable(background, dp(8))
                 }
                 // Stacked rows keep the value field wide enough for "122.5" even in the narrow popup.
                 return row().apply {
@@ -521,7 +533,7 @@ class MainActivity : Activity() {
                     if (checked && done == count) handler.post { renderStages(); renderSummary() }
                 }
             }
-            block.addView(check, LinearLayout.LayoutParams(-1, dp(56)).apply { topMargin = dp(8) })
+            block.addView(check, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(8) })
             table.addView(block, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
         }
         table.addView(label(if (showHint) "맨몸은 0kg · 체크하면 휴식이 자동으로 시작돼요"
@@ -730,6 +742,16 @@ class MainActivity : Activity() {
         val elapsed = session.elapsed()
         progress.max = max(3600, elapsed)
         progress.progress = elapsed
+        if (::dockProgressFill.isInitialized) {
+            val fraction = (elapsed / 3600f).coerceIn(0f, 1f)
+            val fillParams = dockProgressFill.layoutParams as LinearLayout.LayoutParams
+            val restView = (dockProgressFill.parent as LinearLayout).getChildAt(1)
+            if (fillParams.weight != fraction) {
+                fillParams.weight = fraction
+                (restView.layoutParams as LinearLayout.LayoutParams).weight = 1f - fraction
+                dockProgressFill.requestLayout()
+            }
+        }
         timeMeta.text = "총 운동 ${formatTime(elapsed)} · 기본 목표 60분${if (elapsed > 3600) " · ${formatTime(elapsed - 3600)} 초과" else ""}"
         val heart = getSharedPreferences("preferences", MODE_PRIVATE).getInt("watch_heart_rate", 0)
         val heartAt = getSharedPreferences("preferences", MODE_PRIVATE).getLong("watch_heart_rate_at", 0L)

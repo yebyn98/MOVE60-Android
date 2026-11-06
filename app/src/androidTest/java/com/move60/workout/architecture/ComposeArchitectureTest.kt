@@ -47,31 +47,58 @@ class ComposeArchitectureTest {
         rule.onNodeWithContentDescription("앱 설정").performClick()
         capture("compose-settings.png")
         // Settings is a long LazyColumn: scroll to each section before asserting it is visible.
-        rule.onNodeWithTag("settings_list").performScrollToNode(hasText("칼로리 계산 기준"))
-        rule.onNodeWithText("칼로리 계산 기준").assertIsDisplayed()
-        rule.onNodeWithTag("settings_list").performScrollToNode(hasText("앱 정보"))
-        rule.onNodeWithText("앱 정보").assertIsDisplayed()
+        rule.onNodeWithTag("settings_list").performScrollToNode(hasTestTag("settings_version_row"))
+        rule.onNodeWithText("앱 버전").assertIsDisplayed()
     }
 
-    @Test fun composeSettingsHasEveryLegacySettingsFeature() {
+    @Test fun composeSettingsHasEverySettingInThreeGroups() {
         rule.onNodeWithContentDescription("앱 설정").performClick()
         rule.onNodeWithTag("settings_back").assertIsDisplayed()
-        rule.onNodeWithTag("settings_sound_toggle").assertIsDisplayed()
-        rule.onNodeWithText("알림 설정 · 진단").assertIsDisplayed()
-        rule.onNodeWithText("업데이트").assertIsDisplayed()
         val list = rule.onNodeWithTag("settings_list")
         list.performScrollToNode(hasText("오늘 컨디션 루틴"))
         rule.onNodeWithText("피곤").assertIsDisplayed()
         rule.onNodeWithText("보통").assertIsDisplayed()
         rule.onNodeWithText("좋음").assertIsDisplayed()
+        list.performScrollToNode(hasTestTag("settings_ratio"))
+        for (minutes in listOf(20, 25, 30, 35, 40)) rule.onNodeWithTag("settings_ratio_$minutes").assertIsDisplayed()
         list.performScrollToNode(hasText("칼로리 계산 체중"))
         rule.onNodeWithText("칼로리 계산 체중").assertIsDisplayed()
-        list.performScrollToNode(hasTestTag("settings_version"))
-        rule.onNodeWithTag("settings_version").assertIsDisplayed()
-        list.performScrollToNode(hasText("유산소 · 근력 시간 비율 변경", substring = true))
-        rule.onNodeWithText("유산소 · 근력 시간 비율 변경", substring = true).performClick()
-        rule.onNodeWithText("60분 운동 시간 배분").assertIsDisplayed()
-        rule.onNodeWithText("취소").performClick()
+        rule.onNodeWithTag("settings_weight_field").assertIsDisplayed()
+        list.performScrollToNode(hasTestTag("settings_sound_toggle"))
+        rule.onNodeWithTag("settings_sound_toggle").assertIsDisplayed()
+        list.performScrollToNode(hasTestTag("settings_version_row"))
+        rule.onNodeWithTag("settings_version_row").assertIsDisplayed()
+        // The removed one-card-per-setting rows must not come back.
+        rule.onNodeWithText("건강 데이터 연동").assertDoesNotExist()
+        rule.onNodeWithText("알림 설정 · 진단").assertDoesNotExist()
+        capture("compose-settings-list.png")
+    }
+
+    @Test fun ratioChipsChangeTheSplitInline() {
+        rule.onNodeWithContentDescription("앱 설정").performClick()
+        val list = rule.onNodeWithTag("settings_list")
+        list.performScrollToNode(hasTestTag("settings_ratio"))
+        rule.onNodeWithTag("settings_ratio_25").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithText("유산소 25분 · 근력 25분", substring = true).assertIsDisplayed()
+        rule.onNodeWithTag("settings_ratio_30").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithText("유산소 30분 · 근력 20분", substring = true).assertIsDisplayed()
+    }
+
+    @Test fun turningNotificationsOnOpensTheDiagnostics() {
+        rule.onNodeWithContentDescription("앱 설정").performClick()
+        rule.onNodeWithTag("settings_list").performScrollToNode(hasTestTag("settings_sound_toggle"))
+        // Off then On: only the Off -> On change leads to the diagnostics dialog.
+        if (rule.onAllNodesWithText("운동 알림 진단").fetchSemanticsNodes().isEmpty()) {
+            rule.onNodeWithTag("settings_sound_toggle").performClick()
+            rule.waitForIdle()
+            rule.onNodeWithText("운동 알림 진단").assertDoesNotExist()
+        }
+        rule.onNodeWithTag("settings_sound_toggle").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithText("운동 알림 진단").assertIsDisplayed()
+        rule.onNodeWithText("닫기").performClick()
     }
 
     @Test fun dashboardIsOverviewNotDuplicatedWorkoutEditor() {
@@ -82,7 +109,10 @@ class ComposeArchitectureTest {
         rule.onNodeWithTag("dashboard_list").performScrollToIndex(0)
         rule.onNodeWithTag("workout_dock").assertIsDisplayed()
         rule.onNodeWithText("운동 시작").assertIsDisplayed()
-        rule.onNodeWithText("운동 현황").assertIsDisplayed()
+        // The former "운동 현황" card now lives in the dock (progress bar) and the routine card header.
+        rule.onNodeWithText("운동 현황").assertDoesNotExist()
+        rule.onNodeWithTag("dock_progress").assertIsDisplayed()
+        rule.onNodeWithTag("dashboard_session_caption").assertIsDisplayed()
         rule.onNodeWithText("상세 운동 화면").assertDoesNotExist()
         rule.onNodeWithText("중량 kg").assertDoesNotExist()
         // Actual emulator screenshot: the PR artifact includes this captured screen.

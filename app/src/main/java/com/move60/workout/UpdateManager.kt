@@ -32,6 +32,33 @@ class UpdateManager(private val activity: Activity) {
 
     private var receiver: BroadcastReceiver? = null
 
+    /**
+     * Silent availability probe for the settings screen. Reports true (newer build published),
+     * false (this build is the latest) or null (offline / manifest unavailable). It never shows
+     * dialogs, downloads, or writes preferences.
+     */
+    fun peekAvailability(onResult: (Boolean?) -> Unit) {
+        thread(name = "move60-update-peek") {
+            val result: Boolean? = try {
+                val connection = URL(MANIFEST_URL).openConnection() as HttpURLConnection
+                connection.connectTimeout = 6000
+                connection.readTimeout = 6000
+                connection.setRequestProperty("Cache-Control", "no-cache")
+                try {
+                    if (connection.responseCode != 200) null else {
+                        val bytes = connection.inputStream.use { it.readBytes() }
+                        require(bytes.size <= MAX_MANIFEST_BYTES) { "Manifest size exceeded" }
+                        val remote = JSONObject(bytes.toString(Charsets.UTF_8)).getLong("versionCode")
+                        val info = activity.packageManager.getPackageInfo(activity.packageName, 0)
+                        val current = if (Build.VERSION.SDK_INT >= 28) info.longVersionCode else info.versionCode.toLong()
+                        remote > current
+                    }
+                } finally { connection.disconnect() }
+            } catch (_: Exception) { null }
+            activity.runOnUiThread { if (!activity.isFinishing && !activity.isDestroyed) onResult(result) }
+        }
+    }
+
     fun check(manual: Boolean) {
         val prefs = activity.getSharedPreferences("move60_update", Context.MODE_PRIVATE)
         val now = System.currentTimeMillis()

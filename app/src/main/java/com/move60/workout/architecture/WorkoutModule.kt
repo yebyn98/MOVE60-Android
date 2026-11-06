@@ -6,6 +6,7 @@ import androidx.work.WorkManager
 import com.move60.workout.EnergyLedger
 import com.move60.workout.SessionStore
 import com.move60.workout.SetRecordStore
+import com.move60.workout.StageLog
 import com.move60.workout.WorkoutData
 import com.move60.workout.WorkoutHistory
 import dagger.Binds
@@ -33,6 +34,7 @@ object WorkoutProvides {
     @Provides fun history(@ApplicationContext context: Context): WorkoutHistory = WorkoutHistory(context)
     @Provides fun energy(@ApplicationContext context: Context): EnergyLedger = EnergyLedger(context)
     @Provides fun sets(@ApplicationContext context: Context): SetRecordStore = SetRecordStore(context)
+    @Provides fun stages(@ApplicationContext context: Context): StageLog = StageLog(context)
 }
 
 @Module
