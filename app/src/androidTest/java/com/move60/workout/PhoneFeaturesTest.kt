@@ -43,12 +43,16 @@ class PhoneFeaturesTest {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             scenario.onActivity { activity ->
                 val root = activity.window.decorView
-                val summary = root.findViewWithTag<LinearLayout>("phone_dashboard_summary")
-                val progress = root.findViewWithTag<ProgressBar>("phone_dashboard_progress")
-                assertNotNull(summary)
-                assertNotNull(progress)
+                // Figma: the detail screen shows the rest card and the current-exercise card only; the stage list and
+                // the day totals live on the overview and in the fixed dock.
+                val timerCard = root.findViewWithTag<LinearLayout>("phone_timer_card")
+                assertNotNull(timerCard)
+                assertNotNull(root.findViewWithTag<View>("phone_dock_progress"))
+                assertNull(root.findViewWithTag<View>("phone_dashboard_summary"))
+                assertNull(root.findViewWithTag<View>("phone_stage_stack"))
+                assertNull(root.findViewWithTag<View>("phone_training_heading"))
                 assertEquals(Move60Theme.Colors.surface,
-                    (summary.background as android.graphics.drawable.GradientDrawable)
+                    (timerCard.background as android.graphics.drawable.GradientDrawable)
                         .color!!.defaultColor)
                 assertEquals(20, Move60Theme.Radius.card)
                 assertNull(root.findViewWithTag<View>("set-absent-1-rpe"))
@@ -192,31 +196,33 @@ class PhoneFeaturesTest {
             onView(withTagValue(`is`("phone_calendar"))).check(doesNotExist())
         }
     }
-    @Test fun stairClimbingIsCappedAndEveryCombinationRemainsSixtyMinutes() {
-        var found = false
-        for (condition in listOf("보통", "피곤")) {
-            context.getSharedPreferences("preferences", 0).edit().putString("condition", condition).commit()
-            val data = WorkoutData(context)
-            for (minutes in listOf(20,25,30,35,40)) {
-                data.setCardioMinutes(minutes)
-                for (week in 0L..10L) for (day in 1..5) {
-                    val routine = data.routine(day, week)
-                    assertEquals(60, routine.stages.sumOf { it.minutes })
-                    val cardio = (routine.stages[1].tasks + routine.stages[3].tasks).filter { it.kind != "마무리 스트레칭" }
-                    assertEquals(minutes*60, cardio.sumOf { it.seconds })
-                    assertEquals(routine.stages[1].minutes * 60, routine.stages[1].tasks.sumOf { it.seconds })
-                    assertEquals(routine.stages[3].minutes * 60, routine.stages[3].tasks.sumOf { it.seconds })
-                    assertTrue("cardio-strength-cardio", routine.stages[1].minutes in 5..routine.stages[3].minutes)
-                    val stairs = cardio.filter { it.kind == "스텝밀" }.sumOf { it.seconds }
-                    if (stairs > 0) {
-                        found = true
-                        assertTrue(stairs <= (if (condition == "피곤") 10 else 15)*60)
-                        assertTrue(cardio.any { it.kind == "실내 사이클" })
+    @Test fun cardioUsesBikeThenEllipticalAndEveryCombinationRemainsSixtyMinutes() {
+        val data = WorkoutData(context)
+        for (minutes in listOf(20, 25, 30, 35, 40)) {
+            data.setCardioMinutes(minutes)
+            for (week in 0L..10L) for (day in 1..5) {
+                val routine = data.routine(day, week)
+                assertEquals(60, routine.stages.sumOf { it.minutes })
+                val first = routine.stages[1].tasks
+                val second = routine.stages[3].tasks.filter { it.kind != "마무리 스트레칭" }
+                assertEquals(minutes * 60, (first + second).sumOf { it.seconds })
+                assertEquals(routine.stages[1].minutes * 60, first.sumOf { it.seconds })
+                assertEquals(routine.stages[3].minutes * 60, routine.stages[3].tasks.sumOf { it.seconds })
+                assertTrue("cardio-strength-cardio", routine.stages[1].minutes in 5..routine.stages[3].minutes)
+                assertTrue("first block is the bike", first.isNotEmpty() && first.all { it.kind == "실내 사이클" })
+                assertTrue("second block is the elliptical", second.isNotEmpty() && second.all { it.kind == "일립티컬" })
+                assertTrue("no stair climber or rowing", (first + second).none { Regex("스텝밀|로잉").containsMatchIn(it.name + it.detail) })
+                assertTrue("elliptical text has no pedals", second.none { "페달" in it.name + it.detail + it.description })
+                // Round labels restart in each block, so no block ends at "2/5" while the other carries on with "3/5".
+                for (block in listOf(first, second)) {
+                    val labels = block.mapNotNull { Regex("^(\\d+)/(\\d+)회차").find(it.name)?.groupValues }
+                    if (labels.isNotEmpty()) {
+                        assertEquals("1", labels.first()[1])
+                        assertEquals(labels.last()[2], labels.last()[1])
                     }
                 }
             }
         }
-        assertTrue(found)
     }
     @Test fun dailyEnergyIsIdempotentAndRecalculatesCompletedSetInputs() {
         val ledger = EnergyLedger(context)
@@ -276,7 +282,7 @@ class PhoneFeaturesTest {
         assertEquals("First session remains intact",firstKcal,ledger.estimateSession(first),0.000001)
     }
 
-    @Test fun trainingHeadingHasGapAndDockShowsTodayOnly() {
+    @Test fun dockShowsTodayOnly() {
         val ledger = EnergyLedger(context)
         val start = today.atTime(9, 0).atZone(ZoneId.of("Asia/Seoul")).toInstant().toEpochMilli()
         ledger.add(today,start,start+120_000L,JSONObject().put("stage",1).put("running",true))
@@ -284,11 +290,6 @@ class PhoneFeaturesTest {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             scenario.onActivity { activity ->
                 val root = activity.window.decorView
-                val heading = root.findViewWithTag<TextView>("phone_training_heading")
-                val cards = root.findViewWithTag<LinearLayout>("phone_stage_stack")
-                val expected = (14 * activity.resources.displayMetrics.density).toInt()
-                assertTrue("Training heading and first card need adequate gap",
-                    cards.top - heading.bottom >= expected)
                 val kcal = root.findViewWithTag<TextView>("phone_session_calories")
                 assertTrue("Dock must include today's earlier workouts",
                     kcal.text.toString().contains("오늘 누적"))

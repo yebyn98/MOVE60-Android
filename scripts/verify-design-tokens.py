@@ -47,11 +47,11 @@ main=(root/"app/src/main/java/com/move60/workout/MainActivity.kt").read_text()
 settings=(root/"app/src/main/java/com/move60/workout/architecture/ComposeScreens.kt").read_text()
 wear=(root/"wear/src/main/java/com/move60/watch/WatchActivity.kt").read_text()
 tile=(root/"wear/src/main/java/com/move60/watch/WorkoutTileService.kt").read_text()
-assert 'val block = card()' in main and 'phone_dashboard_summary' in main
+assert 'val box = card().apply { tag = "phone_timer_card" }' in main and 'phone_dashboard_summary' not in main
 assert '지난 기록 불러오기' not in main
 assert 'tag = "set-' not in main or '-rpe"' not in main
 assert '"오늘 누적 ' in main
-assert 'phone_dashboard_progress' in main
+assert 'phone_dock_progress' in main
 assert 'testTag("settings_sound_toggle")' in settings and 'settings_group_app' in settings and 'settings_version_row' in settings
 assert 'watch_progress_ring' in wear and 'WorkoutProgressRing' in wear
 assert 'Theme.Colors.surfaceElevated' in wear and 'ring(360f * ratio, Theme.Colors.primary)' in tile

@@ -173,7 +173,8 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
             tag = "watch_ambient"
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            setBackgroundColor(Theme.Colors.background)
+            // No background: the safe-area box crosses the full-bleed ring at its four corners, and an opaque
+            // fill there cut the ring into pieces on the real watch. The black root already provides the backdrop.
             visibility = View.GONE
         }
         // Figma ambient: battery, hour, minute and date stacked in the primary colour. The stage and
