@@ -110,6 +110,24 @@ class PhoneFeaturesTest {
             screenshot("phone-v40-cardio-final.png")
         }
     }
+    @Test fun accordionHeadersUseChevronIconsWithFullTouchHeight() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { activity ->
+                val root = activity.window.decorView
+                (0..3).forEach { index ->
+                    val chevron = root.findViewWithTag<View>("phone_step_chevron_$index")
+                    assertTrue("step $index chevron must be an icon, not a text glyph", chevron is ImageView)
+                    assertTrue("chevron touch area must stay at least 48dp", chevron.layoutParams.height >= (48 * activity.resources.displayMetrics.density).toInt())
+                    assertEquals("펼치기", chevron.contentDescription.toString())
+                }
+            }
+            scenario.onActivity { it.window.decorView.findViewWithTag<View>("phone_step_header_0").performClick() }
+            instrumentation.waitForIdleSync()
+            scenario.onActivity { activity ->
+                assertEquals("접기", activity.window.decorView.findViewWithTag<View>("phone_step_chevron_0").contentDescription.toString())
+            }
+        }
+    }
     @Test fun guideImagesExistForEveryLicensedExercise() {
         val files = context.assets.list("exercise")!!.toSet()
         val ids = files.filter { it.endsWith("_0.jpg") }.map { it.removeSuffix("_0.jpg") }
