@@ -645,7 +645,7 @@ class MainActivity : Activity() {
         // Height follows the content but never exceeds the room left under the dialog title and above
         // its buttons (55% of the screen), so the last block is reachable instead of being cut off.
         val maxScrollHeight = (resources.displayMetrics.heightPixels * 0.55f).toInt()
-        val scroll = object : ScrollView(this) {
+        val scroll = object : androidx.core.widget.NestedScrollView(this) {
             override fun onMeasure(widthSpec: Int, heightSpec: Int) {
                 super.onMeasure(widthSpec, MeasureSpec.makeMeasureSpec(maxScrollHeight, MeasureSpec.AT_MOST))
             }
@@ -708,12 +708,55 @@ class MainActivity : Activity() {
                 12, false, textSecondary))
         }
         panel.addView(scroll, LinearLayout.LayoutParams(-1, -2))
-        MaterialAlertDialogBuilder(this)
-            .setTitle(task.name)
-            .setView(panel)
-            .setPositiveButton("닫기", null)
-            .setOnDismissListener { renderCurrent(); refreshTimer() }
-            .show()
+        showGuideSheet(task.name, panel)
+    }
+
+    /**
+     * Figma 10: the exercise guide is a bottom sheet without a close button. The 48dp handle row closes it
+     * on tap, and dragging the sheet down (BottomSheetBehavior hideable) closes it as well.
+     */
+    private fun showGuideSheet(title: String, content: View) {
+        val sheet = com.google.android.material.bottomsheet.BottomSheetDialog(this)
+        val root = column().apply {
+            background = GradientDrawable().apply {
+                setColor(Theme.Colors.surface)
+                val r = dp(Theme.Radius.card + 8).toFloat()
+                cornerRadii = floatArrayOf(r, r, r, r, 0f, 0f, 0f, 0f)
+            }
+            setPadding(0, 0, 0, dp(Theme.Space.three))
+        }
+        val handle = FrameLayout(this).apply {
+            tag = "guide_sheet_handle"
+            minimumHeight = dp(48)
+            isClickable = true
+            isFocusable = true
+            contentDescription = "동작 가이드 닫기"
+            setOnClickListener { sheet.dismiss() }
+            addView(View(context).apply {
+                background = GradientDrawable().apply {
+                    setColor(Theme.Colors.outline); cornerRadius = dp(2).toFloat()
+                }
+            }, FrameLayout.LayoutParams(dp(36), dp(4), Gravity.CENTER))
+        }
+        root.addView(handle, LinearLayout.LayoutParams(-1, dp(48)))
+        val titleView = label(title, 20, true).apply {
+            setPadding(dp(Theme.Space.two), 0, dp(Theme.Space.two), dp(Theme.Space.one))
+        }
+        root.addView(titleView, LinearLayout.LayoutParams(-1, -2))
+        root.addView(content, LinearLayout.LayoutParams(-1, -2))
+        sheet.setContentView(root)
+        sheet.setOnShowListener {
+            val frame = sheet.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
+            frame?.setBackgroundColor(Color.TRANSPARENT)
+            if (frame != null) {
+                val behavior = com.google.android.material.bottomsheet.BottomSheetBehavior.from(frame)
+                behavior.isHideable = true
+                behavior.skipCollapsed = true
+                behavior.state = com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED
+            }
+        }
+        sheet.setOnDismissListener { renderCurrent(); refreshTimer() }
+        sheet.show()
     }
 
     private fun showExerciseSwap(slot: Int) {

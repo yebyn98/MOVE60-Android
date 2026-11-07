@@ -86,4 +86,13 @@ assert "WatchHaptics.deliver" in read("wear/src/main/java/com/move60/watch/Worko
 # Phone: strength exercise change is announced by a toast and a vibration.
 main=read("app/src/main/java/com/move60/workout/MainActivity.kt")
 assert "Haptics.exerciseChanged(this)" in main and "이동했어요" in main
+# v51: Figma 10 guide bottom sheet (no close button, 48dp handle closes by tap/drag) and default notification card.
+main_kt=read("app/src/main/java/com/move60/workout/MainActivity.kt")
+assert "BottomSheetDialog" in main_kt and "guide_sheet_handle" in main_kt and "setOnClickListener { sheet.dismiss() }" in main_kt
+assert 'setPositiveButton("닫기", null)\n            .setOnDismissListener { renderCurrent(); refreshTimer() }' not in main_kt, "guide sheet must not have a close button"
+service_kt=read("app/src/main/java/com/move60/workout/WorkoutService.kt")
+assert 'getBoolean("enhanced_card_enabled", false)' not in service_kt, "card notification must not default to off"
+assert "cardFailedInThisProcess" in service_kt and "buildFallbackNotification(now)" in service_kt
+
 print("PASS: Compose Navigation, StateFlow/SharedFlow, Hilt, Room, WorkManager and phone-only release")
+
