@@ -847,6 +847,11 @@ class MainActivity : Activity() {
                 Toast.makeText(this, "알림 서비스를 시작하지 못했어요. 알림 진단을 확인하세요.", Toast.LENGTH_LONG).show()
             }
         } else {
+            // Pausing or finishing stops the service; persist the new UI snapshot and
+            // refresh pinned widgets immediately instead of leaving a live countdown.
+            getSharedPreferences("timer", MODE_PRIVATE).edit()
+                .putString("snapshot", session.snapshot()).apply()
+            WorkoutWidget.refresh(this)
             stopService(intent)
         }
     }
