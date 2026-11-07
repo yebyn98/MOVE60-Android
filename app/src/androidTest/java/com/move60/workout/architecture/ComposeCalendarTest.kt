@@ -7,10 +7,12 @@ import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -45,7 +47,7 @@ class ComposeCalendarTest {
     @Before fun isolate() {
         context.stopService(Intent(context, WorkoutService::class.java))
         instrumentation.waitForIdleSync()
-        for (name in listOf("move60_workout_history_v1", "move60_energy_v1", "preferences"))
+        for (name in listOf("move60_workout_history_v1", "move60_workout_focus_v1", "move60_energy_v1", "preferences"))
             context.getSharedPreferences(name, 0).edit().clear().commit()
     }
 
@@ -55,11 +57,19 @@ class ComposeCalendarTest {
             rule.onNodeWithContentDescription("운동 달력").performClick()
             // The day cell is a clickable that merges its children, so the dot only exists in the
             // unmerged tree; the merged cell exposes the same fact to accessibility services.
-            rule.onNodeWithContentDescription("$today · 운동 기록 있음").assertIsDisplayed()
+            // Six-week month grids can put the selected date below the initial viewport
+            // on short phone screens. Scroll the real list to that day before asserting
+            // its accessibility label and recorded-day marker.
+            // LazyColumn scroll-to-node targets list items, not a date nested inside the
+            // six-week MonthGrid. Reveal the grid item first, then scroll its day cell.
+            rule.onNodeWithTag("calendar_list").performScrollToNode(hasTestTag("calendar_month_grid"))
+            rule.onNodeWithContentDescription("$today · 운동 기록 있음", substring = true).performScrollTo()
+            rule.onNodeWithContentDescription("$today · 운동 기록 있음", substring = true).assertIsDisplayed()
             rule.onNodeWithTag("calendar-dot-$today", useUnmergedTree = true).assertIsDisplayed()
             capture("compose-calendar.png")
-            rule.onNodeWithTag("calendar_prev").performClick()
-            rule.onNodeWithTag("calendar_next").performClick()
+            // Scrolling to the recorded day can move the month toolbar offscreen.
+            rule.onNodeWithTag("calendar_prev").performScrollTo().performClick()
+            rule.onNodeWithTag("calendar_next").performScrollTo().performClick()
             // Summary card is the second LazyColumn item and may start below the fold on small screens.
             rule.onNodeWithTag("calendar_list").performScrollToNode(hasTestTag("calendar_summary"))
             rule.onNodeWithTag("calendar_summary").assertIsDisplayed()

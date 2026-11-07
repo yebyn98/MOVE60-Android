@@ -62,7 +62,10 @@ class ComposeActivity : ComponentActivity() {
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 3001)
         }
-        setContent { Move60ComposeApp(showIntro = savedInstanceState == null && !animationsDisabled()) }
+        setContent { Move60ComposeApp(
+            showIntro = savedInstanceState == null && !animationsDisabled() && !intent.getBooleanExtra("move60_open_calendar", false),
+            openCalendar = intent.getBooleanExtra("move60_open_calendar", false)
+        ) }
     }
 
     /** Respect the system "remove animations" setting; the intro is skipped when it is 0. */
@@ -71,12 +74,12 @@ class ComposeActivity : ComponentActivity() {
 }
 
 @Composable
-fun Move60ComposeApp(showIntro: Boolean = false) {
+fun Move60ComposeApp(showIntro: Boolean = false, openCalendar: Boolean = false) {
     val nav = rememberNavController()
     var introVisible by rememberSaveable { mutableStateOf(showIntro) }
     Move60ComposeTheme {
         Box {
-            NavHost(navController = nav, startDestination = "dashboard") {
+            NavHost(navController = nav, startDestination = if (openCalendar) "calendar" else "dashboard") {
                 composable("dashboard") {
                     WorkoutDashboard(
                         onCalendar = { nav.navigate("calendar") },

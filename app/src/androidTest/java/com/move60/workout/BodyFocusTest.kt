@@ -100,8 +100,10 @@ class BodyFocusTest {
                 assertNull(root.findViewWithTag<View>("body_focus_lower"))
                 assertTrue(root.findViewWithTag<TextView>("phone_day_info").text.toString().endsWith("하체"))
                 val store = SessionStore(context,data)
-                // The stage list lives on the overview; the detail screen no longer repeats it.
-                assertNull(root.findViewWithTag<View>("phone_stage_stack"))
+                // The finalized Figma has four collapsed steps before workout starts.
+                assertNotNull(root.findViewWithTag<View>("phone_stage_stack"))
+                for (step in 0..3) assertNotNull(root.findViewWithTag<View>("phone_step_$step"))
+                root.findViewWithTag<TextView>("phone_play").performClick()
                 repeat(2) { root.findViewWithTag<TextView>("phone_next").performClick() }
                 assertTrue(root.findViewWithTag<View>("phone_current_exercise").isShown)
                 assertNotNull(root.findViewWithTag<View>("set-"+store.routine.stages[2].tasks.first().id+"-1-kg"))

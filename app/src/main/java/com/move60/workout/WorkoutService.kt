@@ -388,6 +388,8 @@ class WorkoutService : Service() {
         if (!current.running || current.finished) {
             prefs.edit().putString("snapshot",current.snapshot()).putLong("history_checkpoint_ms",0L).commit()
         }
+        // Also refresh when Android stops the foreground service after a pause.
+        WorkoutWidget.refresh(this)
         handler.removeCallbacksAndMessages(null)
         super.onDestroy()
     }
