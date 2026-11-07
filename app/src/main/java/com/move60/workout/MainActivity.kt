@@ -395,8 +395,13 @@ class MainActivity : Activity() {
                 else -> "예정"
             }
             header.addView(label(state, 11, true, if (active || done) mint else textSecondary))
-            header.addView(label(if (opened) "⌃" else "⌄", 17, true, textSecondary).apply {
-                gravity = Gravity.CENTER; contentDescription = if (opened) "접기" else "펼치기"
+            // Vector chevron (Figma icon), never a text glyph: glyph shape/baseline differs per font.
+            header.addView(android.widget.ImageView(this).apply {
+                setImageResource(if (opened) R.drawable.ic_expand_less else R.drawable.ic_expand_more)
+                imageTintList = android.content.res.ColorStateList.valueOf(textSecondary)
+                scaleType = android.widget.ImageView.ScaleType.CENTER
+                tag = "phone_step_chevron_$index"
+                contentDescription = if (opened) "접기" else "펼치기"
             }, LinearLayout.LayoutParams(dp(34), dp(48)))
             cell.addView(header)
             if (opened) {
