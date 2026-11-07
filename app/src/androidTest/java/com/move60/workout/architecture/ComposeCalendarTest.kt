@@ -46,7 +46,7 @@ class ComposeCalendarTest {
     @Before fun isolate() {
         context.stopService(Intent(context, WorkoutService::class.java))
         instrumentation.waitForIdleSync()
-        for (name in listOf("move60_workout_history_v1", "move60_energy_v1", "preferences"))
+        for (name in listOf("move60_workout_history_v1", "move60_workout_focus_v1", "move60_energy_v1", "preferences"))
             context.getSharedPreferences(name, 0).edit().clear().commit()
     }
 
@@ -60,9 +60,9 @@ class ComposeCalendarTest {
             // on short phone screens. Scroll the real list to that day before asserting
             // its accessibility label and recorded-day marker.
             rule.onNodeWithTag("calendar_list").performScrollToNode(
-                hasContentDescription("$today · 운동 기록 있음")
+                hasContentDescription("$today · 운동 기록 있음", substring = true)
             )
-            rule.onNodeWithContentDescription("$today · 운동 기록 있음").assertIsDisplayed()
+            rule.onNodeWithContentDescription("$today · 운동 기록 있음", substring = true).assertIsDisplayed()
             rule.onNodeWithTag("calendar-dot-$today", useUnmergedTree = true).assertIsDisplayed()
             capture("compose-calendar.png")
             rule.onNodeWithTag("calendar_prev").performClick()
