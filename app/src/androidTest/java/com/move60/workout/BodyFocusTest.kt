@@ -127,8 +127,28 @@ class BodyFocusTest {
             Thread.sleep(500)
             val bottom = requireNotNull(instrumentation.uiAutomation.takeScreenshot())
             File(context.getExternalFilesDir(null),"phone-exercise-popup-bottom.png").outputStream().use { bottom.compress(Bitmap.CompressFormat.PNG,100,it) }
-            instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+            // Figma 10: no close button; the 48dp handle row closes the sheet when tapped.
+            androidx.test.espresso.Espresso.onView(androidx.test.espresso.matcher.ViewMatchers.withText("닫기"))
+                .inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog())
+                .check(androidx.test.espresso.assertion.ViewAssertions.doesNotExist())
+            val handleMatcher = androidx.test.espresso.matcher.ViewMatchers.withTagValue(org.hamcrest.CoreMatchers.`is`("guide_sheet_handle" as Any))
+            var handleHeight = 0
+            androidx.test.espresso.Espresso.onView(handleMatcher)
+                .inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog())
+                .check { view, _ -> handleHeight = view!!.height }
+            assertTrue("handle touch target must be at least 48dp", handleHeight >= (48 * context.resources.displayMetrics.density).toInt())
+            androidx.test.espresso.Espresso.onView(handleMatcher)
+                .inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog())
+                .perform(androidx.test.espresso.action.ViewActions.click())
             instrumentation.waitForIdleSync()
+            Thread.sleep(500)
+            val closed = try {
+                androidx.test.espresso.Espresso.onView(handleMatcher)
+                    .inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog())
+                    .check(androidx.test.espresso.assertion.ViewAssertions.doesNotExist())
+                true
+            } catch (e: androidx.test.espresso.NoMatchingRootException) { true }
+            assertTrue("tapping the handle closes the guide sheet", closed)
             scenario.recreate()
             scenario.onActivity { activity ->
                 assertTrue(activity.window.decorView.findViewWithTag<TextView>("phone_day_info").text.toString().endsWith("하체"))

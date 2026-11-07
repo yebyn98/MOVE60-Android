@@ -33,6 +33,8 @@ class WorkoutService : Service() {
         const val CHANNEL_PROGRESS = "move60_native_timer_v12"
         private const val CHANNEL_PHASE = "move60_native_phase_v12"
         private const val ONGOING_ID = 601
+        /** True after a card posting error; resets with the process so a transient failure is retried later. */
+        @Volatile private var cardFailedInThisProcess = false
         private const val PHASE_ID = 602
     }
     private val stageNames = listOf("준비운동", "유산소 ①", "근력운동", "유산소 ② · 마무리")
@@ -295,20 +297,24 @@ class WorkoutService : Service() {
             WatchStatePublisher.publishSnapshot(this, snapshot.toString())
         } catch (e: Exception) { logFailure("Watch sync failed: " + e.message) }
         val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        val enhancedCardEnabled = prefs.getBoolean("enhanced_card_enabled", false)
+        // v51: the Figma notification card is the default. A posting error falls back to the plain notification for the
+        // rest of this process so the foreground service never loses its notification. The legacy
+        // "enhanced_card_enabled" key defaulted to false and was never set to true, so it is no longer read.
+        val cardEnabled = !cardFailedInThisProcess
         try {
-            if (enhancedCardEnabled) {
+            if (cardEnabled) {
                 nm.notify(ONGOING_ID, buildNotification(now))
-                prefs.edit().putString("card_status", "실험형 카드 알림 게시 요청 완료").apply()
+                val posted = nm.activeNotifications.any { it.id == ONGOING_ID }
+                prefs.edit().putString("card_status",
+                    if (posted) "카드 알림 게시됨" else "카드 알림 게시 확인 실패 · 알림 설정을 확인하세요").apply()
             } else {
                 nm.notify(ONGOING_ID, buildFallbackNotification(now))
                 prefs.edit().putString("card_status", "안정형 기본 알림 사용 중").apply()
             }
         } catch (e: Exception) {
             logFailure("Notification update error: " + e.javaClass.simpleName + ": " + e.message)
-            // A failed enhanced notification is disabled for future process starts.
-            prefs.edit().putBoolean("enhanced_card_enabled", false)
-                .putString("card_status", "카드 오류로 안정형 기본 알림 전환").apply()
+            cardFailedInThisProcess = true
+            prefs.edit().putString("card_status", "카드 오류로 안정형 기본 알림 전환").apply()
             try { nm.notify(ONGOING_ID, buildFallbackNotification(now)) }
             catch (ignored: Exception) { logFailure("Notification fallback error: " + ignored.message) }
         }

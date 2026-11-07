@@ -90,6 +90,14 @@ if ! grep -Eq 'pkg=com\.move60\.workout.*id=601|id=601.*pkg=com\.move60\.workout
   echo "MOVE60 ongoing notification missing from NotificationManager"
   exit 1
 fi
+# v51: the Figma card must be the posted notification (card_status is written by WorkoutService after each post).
+adb shell run-as com.move60.workout cat shared_prefs/timer.xml > smoke-debug/timer-prefs.xml 2>/dev/null || true
+if ! grep -q '카드 알림 게시됨' smoke-debug/timer-prefs.xml; then
+  echo "FAIL: custom card notification was not confirmed as posted (card_status):"
+  grep -o 'name="card_status">[^<]*' smoke-debug/timer-prefs.xml || echo "card_status missing"
+  exit 1
+fi
+echo "PASS: card notification confirmed by WorkoutService (card_status)"
 # Expand notifications through SystemUI, not an emulator-dependent swipe coordinate.
 adb shell cmd statusbar expand-notifications || adb shell input swipe 550 8 550 1400 420 || true
 sleep 4
