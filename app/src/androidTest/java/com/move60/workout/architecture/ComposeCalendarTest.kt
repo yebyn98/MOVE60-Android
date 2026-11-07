@@ -12,6 +12,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -59,9 +60,10 @@ class ComposeCalendarTest {
             // Six-week month grids can put the selected date below the initial viewport
             // on short phone screens. Scroll the real list to that day before asserting
             // its accessibility label and recorded-day marker.
-            rule.onNodeWithTag("calendar_list").performScrollToNode(
-                hasContentDescription("$today · 운동 기록 있음", substring = true)
-            )
+            // LazyColumn scroll-to-node targets list items, not a date nested inside the
+            // six-week MonthGrid. Reveal the grid item first, then scroll its day cell.
+            rule.onNodeWithTag("calendar_list").performScrollToNode(hasTestTag("calendar_month_grid"))
+            rule.onNodeWithContentDescription("$today · 운동 기록 있음", substring = true).performScrollTo()
             rule.onNodeWithContentDescription("$today · 운동 기록 있음", substring = true).assertIsDisplayed()
             rule.onNodeWithTag("calendar-dot-$today", useUnmergedTree = true).assertIsDisplayed()
             capture("compose-calendar.png")
