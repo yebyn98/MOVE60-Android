@@ -22,6 +22,20 @@ class WorkoutWidget : AppWidgetProvider() {
     }
 
     companion object {
+        /** Deterministic widget clock logic, including the frozen paused timer. */
+        internal fun remainingSecondsForWidget(state: JSONObject, nowMillis: Long): Long {
+            val finished = state.optBoolean("finished", false)
+            val running = state.optBoolean("running", false) && !finished
+            val hasSession = state.optLong("sessionStartedAt", 0L) > 0L
+            val deadline = state.optLong("deadlineAt", 0L)
+            return when {
+                finished -> 0L
+                running -> ((deadline - nowMillis + 999L) / 1000L).coerceAtLeast(0L)
+                hasSession -> state.optLong("remaining", 0L).coerceAtLeast(0L)
+                else -> 0L
+            }
+        }
+
         fun refresh(context: Context) {
             val manager = AppWidgetManager.getInstance(context)
             val component = ComponentName(context, WorkoutWidget::class.java)
@@ -34,15 +48,7 @@ class WorkoutWidget : AppWidgetProvider() {
             val hasSession = state.optLong("sessionStartedAt", 0L) > 0L
             val stage = state.optInt("stage", 0).coerceIn(0, 3)
             val stages = arrayOf("준비운동", "유산소 ①", "근력운동", "유산소 ②")
-            val deadline = state.optLong("deadlineAt", 0L)
-            // A paused workout stores remaining seconds, but clears deadlineAt.
-            // Never show 00:00 or keep counting down while the workout is paused.
-            val remaining = when {
-                finished -> 0L
-                running -> ((deadline - System.currentTimeMillis() + 999L) / 1000L).coerceAtLeast(0L)
-                hasSession -> state.optLong("remaining", 0L).coerceAtLeast(0L)
-                else -> 0L
-            }
+            val remaining = remainingSecondsForWidget(state, System.currentTimeMillis())
             val open = PendingIntent.getActivity(context, 601, Intent(context, MainActivity::class.java),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
             val views = RemoteViews(context.packageName, R.layout.widget_workout).apply {
