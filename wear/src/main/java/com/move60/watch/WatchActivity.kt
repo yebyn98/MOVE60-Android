@@ -203,12 +203,12 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
         // ambient resume. Instrumentation runs bypass the animation for deterministic UI tests.
         if (savedInstanceState == null && !android.app.ActivityManager.isRunningInTestHarness()
             && packageManager.hasSystemFeature(PackageManager.FEATURE_WATCH)
-            && !workout.ongoing) showLaunchIntro()
+            && !workout.ongoing && animationsEnabled()) showLaunchIntro()
         if (checkSelfPermission(Manifest.permission.BODY_SENSORS) != PackageManager.PERMISSION_GRANTED)
             requestPermissions(arrayOf(Manifest.permission.BODY_SENSORS), 60)
     }
 
-    /** 700 ms logo reveal from the Figma Wear intro storyboard; no additional activity. */
+    /** Removes the launch intro overlay (idempotent; also called when the user taps to skip). */
     private fun dismissLaunchIntro() {
         if (!::root.isInitialized) return
         root.findViewWithTag<View>("watch_intro")?.let { overlay ->
@@ -222,28 +222,15 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
             setBackgroundColor(Theme.Colors.background)
             isClickable = true
         }
-        val stack = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-        }
-        val logo = ImageView(this).apply {
-            setImageResource(R.drawable.ic_launcher_foreground)
-            scaleType = ImageView.ScaleType.FIT_CENTER
-            alpha = 0f
-            contentDescription = "MOVE60"
-        }
-        val title = text(12, Theme.Colors.textHigh, "watch_intro_title").apply {
-            text = "MOVE60"
-            alpha = 0f
-        }
-        stack.addView(logo, LinearLayout.LayoutParams(dp(82), dp(82)))
-        stack.addView(title, LinearLayout.LayoutParams(-1, dp(24)))
-        overlay.addView(stack, FrameLayout.LayoutParams(dp(140), dp(140), Gravity.CENTER))
+        // Same Compose sequence and timing as the phone's first-screen intro (~1.7 s, tap to skip).
+        overlay.addView(androidx.compose.ui.platform.ComposeView(this).apply {
+            setContent { WatchSplash(onFinished = { post { dismissLaunchIntro() } }) }
+        }, FrameLayout.LayoutParams(-1, -1))
         root.addView(overlay, FrameLayout.LayoutParams(-1, -1))
-        logo.animate().alpha(1f).setStartDelay(90).setDuration(290).start()
-        title.animate().alpha(1f).setStartDelay(270).setDuration(170).start()
-        overlay.postDelayed({ if (overlay.parent === root) root.removeView(overlay) }, 700L)
     }
+
+    private fun animationsEnabled() = android.provider.Settings.Global.getFloat(
+        contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f
 
     private fun text(size: Int, color: Int, name: String) = TextView(this).apply {
         tag = name

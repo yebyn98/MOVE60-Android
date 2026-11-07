@@ -80,6 +80,8 @@ class WorkoutDisplayService : Service(), DataClient.OnDataChangedListener {
         if (item.uri.path != "/move60/workout") return
         val incoming = WatchWorkoutState.fromData(DataMapItem.fromDataItem(item).dataMap)
         if (!incoming.save(this)) return
+        // Stage, cardio interval and strength exercise changes are felt on the wrist as well as the phone.
+        WatchHaptics.deliver(this, WatchHaptics.transition(state, incoming))
         state = incoming
         scheduleRest()
         if (!state.ongoing) { stopSelf(); return }

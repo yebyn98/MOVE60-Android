@@ -1,8 +1,6 @@
 package com.move60.watch
 
 import android.content.Context
-import android.os.VibrationEffect
-import android.os.Vibrator
 
 /** Deduplicate across UI/service and suppress delayed alerts after reconnect. */
 object WatchRestAlert {
@@ -12,8 +10,7 @@ object WatchRestAlert {
         if (prefs.getLong("notified",0L) == state.restId) return false
         prefs.edit().putLong("notified",state.restId).commit()
         if (now-state.restDeadline > 10_000L) return false
-        (context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator).vibrate(
-            VibrationEffect.createWaveform(longArrayOf(0,150,100,150),-1))
+        WatchHaptics.restEnded(context)
         return true
     }
 }

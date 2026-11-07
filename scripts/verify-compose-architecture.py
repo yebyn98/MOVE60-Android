@@ -72,4 +72,18 @@ assert "fun Move60Splash(" in splash and "detectTapGestures" in splash
 activity=read("app/src/main/java/com/move60/workout/architecture/ComposeActivity.kt")
 assert "Move60Splash(" in activity and "ANIMATOR_DURATION_SCALE" in activity
 assert "savedInstanceState == null" in activity, "Intro must not replay on rotation/recreation"
+# Watch intro must be the same Compose sequence as the phone's (ring, ticks, dumbbell, wordmark).
+watch_splash=read("wear/src/main/java/com/move60/watch/WatchSplash.kt")
+for marker in ("tween(550","delay(250); ticks.animateTo(1f, tween(800","delay(700)","Spring.DampingRatioMediumBouncy",
+               "detectTapGestures","LOGO_TICKS = 60"):
+    assert marker in watch_splash,("Watch intro must match the phone intro", marker)
+watch_activity=read("wear/src/main/java/com/move60/watch/WatchActivity.kt")
+assert "WatchSplash(" in watch_activity and "ANIMATOR_DURATION_SCALE" in watch_activity and "savedInstanceState == null" in watch_activity
+# Firm watch vibration (alarm usage, max amplitude) for rest end and stage/exercise changes.
+haptics=read("wear/src/main/java/com/move60/watch/WatchHaptics.kt")
+assert "USAGE_ALARM" in haptics and "255" in haptics and "WatchHaptics.restEnded" in read("wear/src/main/java/com/move60/watch/WatchRestAlert.kt")
+assert "WatchHaptics.deliver" in read("wear/src/main/java/com/move60/watch/WorkoutDisplayService.kt")
+# Phone: strength exercise change is announced by a toast and a vibration.
+main=read("app/src/main/java/com/move60/workout/MainActivity.kt")
+assert "Haptics.exerciseChanged(this)" in main and "이동했어요" in main
 print("PASS: Compose Navigation, StateFlow/SharedFlow, Hilt, Room, WorkManager and phone-only release")

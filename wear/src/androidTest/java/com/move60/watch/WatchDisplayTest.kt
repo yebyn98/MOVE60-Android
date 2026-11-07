@@ -213,6 +213,16 @@ class WatchDisplayTest {
         assertFalse(WatchRestAlert.deliver(context,state.copy(restId=200L),30_000L))
         assertFalse(WatchRestAlert.deliver(context,state.copy(restId=300L,running=false),1_001L))
     }
+    @Test fun hapticsFireForStageIntervalAndExerciseChangesOnly() {
+        val base = WatchWorkoutState(running=true,hasSession=true,session=7L,stageIndex=2,exerciseId="legPress")
+        assertEquals(WatchHaptics.Transition.NONE,WatchHaptics.transition(base,base.copy(sequence=2L,setNumber=2)))
+        assertEquals(WatchHaptics.Transition.EXERCISE,WatchHaptics.transition(base,base.copy(exerciseId="hipThrust")))
+        assertEquals(WatchHaptics.Transition.STAGE,WatchHaptics.transition(base,base.copy(stageIndex=3)))
+        val cardio = base.copy(stageIndex=1,exerciseId="",intervalIndex=1,intervalTotal=6)
+        assertEquals(WatchHaptics.Transition.STAGE,WatchHaptics.transition(cardio,cardio.copy(intervalIndex=2)))
+        assertEquals(WatchHaptics.Transition.NONE,WatchHaptics.transition(base,base.copy(session=8L,exerciseId="hipThrust")))
+        assertEquals(WatchHaptics.Transition.NONE,WatchHaptics.transition(base,base.copy(running=false,exerciseId="hipThrust")))
+    }
     @Test fun strengthSetAndRestActionsFitRoundScreen() {
         ActivityScenario.launch(WatchActivity::class.java).use { scenario ->
             scenario.onActivity { activity ->
