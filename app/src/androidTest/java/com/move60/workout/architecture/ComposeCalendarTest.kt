@@ -67,8 +67,9 @@ class ComposeCalendarTest {
             rule.onNodeWithContentDescription("$today · 운동 기록 있음", substring = true).assertIsDisplayed()
             rule.onNodeWithTag("calendar-dot-$today", useUnmergedTree = true).assertIsDisplayed()
             capture("compose-calendar.png")
-            rule.onNodeWithTag("calendar_prev").performClick()
-            rule.onNodeWithTag("calendar_next").performClick()
+            // Scrolling to the recorded day can move the month toolbar offscreen.
+            rule.onNodeWithTag("calendar_prev").performScrollTo().performClick()
+            rule.onNodeWithTag("calendar_next").performScrollTo().performClick()
             // Summary card is the second LazyColumn item and may start below the fold on small screens.
             rule.onNodeWithTag("calendar_list").performScrollToNode(hasTestTag("calendar_summary"))
             rule.onNodeWithTag("calendar_summary").assertIsDisplayed()
