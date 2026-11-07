@@ -142,12 +142,13 @@ class BodyFocusTest {
                 .perform(androidx.test.espresso.action.ViewActions.click())
             instrumentation.waitForIdleSync()
             Thread.sleep(500)
+            // After dismissal the focused root is the activity again; with the sheet still open it would be the sheet,
+            // so the handle would be found. (Matching on isDialog() here would wait for a dialog root that is gone.)
             val closed = try {
                 androidx.test.espresso.Espresso.onView(handleMatcher)
-                    .inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog())
                     .check(androidx.test.espresso.assertion.ViewAssertions.doesNotExist())
                 true
-            } catch (e: androidx.test.espresso.NoMatchingRootException) { true }
+            } catch (e: AssertionError) { false }
             assertTrue("tapping the handle closes the guide sheet", closed)
             scenario.recreate()
             scenario.onActivity { activity ->
