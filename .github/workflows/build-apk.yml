@@ -86,7 +86,7 @@ jobs:
               "watch heart rate service manifest": 'android:foregroundServiceType="health"' in watch_manifest and "FOREGROUND_SERVICE_HEALTH" in watch_manifest,
               "watch ambient and ongoing workout display": "AmbientLifecycleObserver" in watch and "WorkoutDisplayService" in watch_manifest,
               "watch sensor samples preserve timestamps": "event.timestamp" in watch_sensor and "measuredAt" in watch_sensor,
-              "phone heart rate box": 'contentDescription = "실시간 심박수"' in ui and 'heartRateValue.text' in ui,
+              "phone dock heart rate": 'contentDescription = "하단 실시간 심박수"' in ui and 'dockHeartRate.text = "♥ ${heartRateValue.text}"' in ui,
               "watch tile manifest registration": "WorkoutTileService" in watch_manifest and "BIND_TILE_PROVIDER" in watch_manifest,
           }
           for name, ok in checks.items():
