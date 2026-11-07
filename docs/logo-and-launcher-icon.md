@@ -17,7 +17,8 @@ dumbbell in the heart color. Colors are design tokens (`primary` #00E676, `outli
 About 1.7 s: ring sweep -> ticks light up clockwise -> dumbbell pop + wordmark -> fade out over the
 dashboard. Tap skips it. It plays only on a fresh launch (`savedInstanceState == null`; rotation does
 not replay it) and is skipped when the system animation scale is 0 (also keeps CI emulators, which
-disable animations, deterministic). The watch has no intro.
+disable animations, deterministic). The watch plays the same sequence (`WatchSplash.kt`, same
+timings and geometry) on a fresh launch when no workout is in progress.
 
 ## Not covered / follow-up
 - Notification small icon (`ic_fitness`) and widget are unchanged; a tick-free simplified mark is

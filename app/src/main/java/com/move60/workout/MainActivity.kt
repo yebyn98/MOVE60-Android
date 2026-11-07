@@ -593,14 +593,30 @@ class MainActivity : Activity() {
                     else session.skipRest()
                     syncService()
                     refreshTimer()
-                    // The last set moves the "지금 할 운동" card on to the next exercise.
-                    if (checked && done == count) handler.post { renderCurrent() }
+                    // The last set moves the "지금 할 운동" card on to the next exercise, announced by a toast and a vibration.
+                    if (checked && done == count) {
+                        val next = TrainingProgress.next(session)
+                        if (next != null && next.task.id != task.id) {
+                            Toast.makeText(this, "${task.name} 완료 · ${next.task.name}${movedSuffix(next.task.name)} 이동했어요",
+                                Toast.LENGTH_SHORT).show()
+                            Haptics.exerciseChanged(this)
+                        }
+                        handler.post { renderCurrent() }
+                    }
                 }
             }
             block.addView(check, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(8) })
             table.addView(block, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
         }
         return table
+    }
+
+    /** "로" after a vowel or ㄹ final, "으로" after any other final consonant. */
+    private fun movedSuffix(name: String): String {
+        val last = name.trim().lastOrNull() ?: return "로"
+        if (last !in '가'..'힣') return "로"
+        val final = (last - '가') % 28
+        return if (final == 0 || final == 8) "로" else "으로"
     }
 
     private fun renderCurrent() {
