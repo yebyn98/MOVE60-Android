@@ -27,8 +27,8 @@ class WorkoutSplitTest {
             .edit().putInt("cardio_minutes", 35).commit()
         val data = WorkoutData(context)
         assertEquals(35, data.cardioMinutes())
-        assertEquals(20, data.cardioFirstMinutes()) // old rule: half rounded to 5
-        assertEquals(15, data.cardioSecondMinutes())
+        assertEquals(15, data.cardioFirstMinutes()) // old rule (35/2 + 2) / 5 * 5 with integer math
+        assertEquals(20, data.cardioSecondMinutes())
         assertEquals(15, data.strengthMinutes())
     }
 
