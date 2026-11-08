@@ -3,7 +3,9 @@ package com.move60.watch
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeUp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.move60.watch.health.WearHealthActivity
 import org.junit.Rule
@@ -37,7 +39,13 @@ class WearHealthScreenTest {
         rule.activity.getSharedPreferences("move60_watch_kcal_v1", 0).edit().clear().commit()
         org.junit.Assert.assertFalse(com.move60.watch.health.WatchExerciseCalories.isOptedIn(rule.activity))
         org.junit.Assert.assertFalse(WearHealthActivity.HealthState().kcalOptIn)
-        rule.onNodeWithTag("wear_kcal_chip").performScrollTo().assertIsDisplayed()
+        // ScalingLazyColumn composes only items near the center, so bring the chip into view by swiping.
+        repeat(8) {
+            if (rule.onAllNodesWithTag("wear_kcal_chip").fetchSemanticsNodes().isEmpty())
+                rule.onNodeWithTag("wear_health_root").performTouchInput { swipeUp() }
+            rule.waitForIdle()
+        }
+        rule.onNodeWithTag("wear_kcal_chip").assertIsDisplayed()
         Thread.sleep(1_500)
         val image = requireNotNull(androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot())
         java.io.File(rule.activity.getExternalFilesDir(null), "watch-v57-kcal-optin-off.png").outputStream().use {
