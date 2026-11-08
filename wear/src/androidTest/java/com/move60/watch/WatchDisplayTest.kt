@@ -265,7 +265,7 @@ class WatchDisplayTest {
                 val v = activity.window.decorView
                 assertEquals("오늘 기록 저장됨",v.findViewWithTag<TextView>("watch_detail").text.toString())
                 assertTrue(v.findViewWithTag<TextView>("watch_heart").text.contains("워치 착용 시 심박이 기록돼요"))
-                assertEquals("종료",v.findViewWithTag<Button>("watch_play").text.toString())
+                assertEquals("새 운동",v.findViewWithTag<Button>("watch_play").text.toString())
                 assertTrue(v.findViewWithTag<Button>("watch_play").isEnabled)
                 assertEquals(android.view.View.GONE,v.findViewWithTag<Button>("watch_next").visibility)
             }

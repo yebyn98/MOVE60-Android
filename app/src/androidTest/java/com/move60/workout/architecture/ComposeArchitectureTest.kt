@@ -119,9 +119,10 @@ class ComposeArchitectureTest {
         // The former "운동 현황" card now lives in the dock (progress bar) and the routine card header.
         rule.onNodeWithText("운동 현황").assertDoesNotExist()
         rule.onNodeWithTag("dock_progress").assertIsDisplayed()
-        // The caption sits inside the clickable routine card, whose semantics merge their children.
+        // Figma 01: the routine card header ends in a chevron; no "단계 n/5" or set-count caption anywhere on the home.
         rule.onNodeWithTag("dashboard_session_caption", useUnmergedTree = true).assertIsDisplayed()
-            .assertTextContains("단계 1/", substring = true)
+        rule.onNodeWithText("단계 1/", substring = true).assertDoesNotExist()
+        rule.onNodeWithText("1/5", substring = true).assertDoesNotExist()
         rule.onNodeWithText("상세 운동 화면").assertDoesNotExist()
         rule.onNodeWithText("중량 kg").assertDoesNotExist()
         // Actual emulator screenshot: the PR artifact includes this captured screen.
@@ -135,7 +136,8 @@ class ComposeArchitectureTest {
         // Figma: the weekly plan card is the first card and has no collapse control.
         val hint = "요일과 운동 부위를 선택하면 상세 운동 화면에 적용돼요."
         rule.onNodeWithTag("dashboard_plan_card").assertIsDisplayed()
-        rule.onNodeWithText(hint).assertIsDisplayed()
+        // Figma 01: the hint sentence is gone; the selected weekday ("금요일") sits at the right of the card title.
+        rule.onNodeWithText(hint).assertDoesNotExist()
         rule.onNodeWithText("오늘 운동 부위").assertIsDisplayed()
         rule.onNodeWithTag("dashboard_plan_header").assertDoesNotExist()
         val planTop = rule.onNodeWithTag("dashboard_plan_card").fetchSemanticsNode().boundsInRoot.top

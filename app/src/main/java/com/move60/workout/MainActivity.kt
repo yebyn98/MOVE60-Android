@@ -65,6 +65,8 @@ class MainActivity : Activity() {
     private lateinit var phaseRpe: TextView
     private lateinit var phaseTimeRow: LinearLayout
     private lateinit var phaseTime: TextView
+    private lateinit var phaseTimeCaption: TextView
+    private var selectedStrengthId: String? = null
     private lateinit var phaseBar: ProgressBar
     private var currentPhaseTime: TextView? = null
     private val publishDraft = Runnable { if (::session.isInitialized) syncService() }
@@ -368,7 +370,8 @@ class MainActivity : Activity() {
         phaseTimeRow = row().apply { gravity = Gravity.BOTTOM; visibility = View.GONE; tag = "phone_phase_time_row" }
         phaseTime = label("", 26, true, mint).apply { tag = "phone_phase_time" }
         phaseTimeRow.addView(phaseTime, LinearLayout.LayoutParams(0, -2, 1f))
-        phaseTimeRow.addView(label("남은 시간", 12, false, textSecondary))
+        phaseTimeCaption = label("남은 시간", 12, false, textSecondary)
+        phaseTimeRow.addView(phaseTimeCaption)
         box.addView(phaseTimeRow)
         phaseBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             progressTintList = android.content.res.ColorStateList.valueOf(mint)
@@ -425,7 +428,7 @@ class MainActivity : Activity() {
                 }
             }
             // Figma: the step name is a pill chip, no running number.
-            val chipText = step.name + when {
+            val chipText = step.name.replace(" · 실내 ", " · ") + when {
                 index == 2 && session.bodyFocus == "lower" -> " · 하체"
                 index == 2 && session.bodyFocus == "upper" -> " · 상체"
                 else -> ""
@@ -514,27 +517,40 @@ class MainActivity : Activity() {
         return box
     }
 
-    /** Figma phase rows: done = check, current = spinning ring + highlighted, upcoming = outline; 48dp tall. */
+    /**
+     * Figma item rows of the running stage: done = check, current = spinning ring + highlighted, upcoming = outline;
+     * 48dp tall. Every row is tappable: timed stages jump to that item (active workout time is kept), strength
+     * picks that exercise for set entry.
+     */
     private fun renderPhaseList() {
         if (!::phaseList.isInitialized) return
         phaseList.removeAllViews()
         currentPhaseTime = null
         val tasks = session.routine.stages[session.stage].tasks
+        val strength = session.stage == 2
         val timed = phasesKeyForStage(session.stage) != null && tasks.all { it.seconds > 0 }
         val started = session.running || session.elapsed() > 0
-        if (!timed || tasks.isEmpty() || session.finished || !started) { phaseList.visibility = View.GONE; return }
+        if ((!timed && !strength) || tasks.isEmpty() || session.finished || !started) { phaseList.visibility = View.GONE; return }
         phaseList.visibility = View.VISIBLE
-        val current = session.phase()?.first ?: -1
+        val strengthCurrent = if (strength) currentStrengthTask() else null
+        val current = if (strength) tasks.indexOfFirst { it.id == strengthCurrent?.id } else session.phase()?.first ?: -1
         tasks.forEachIndexed { i, task ->
-            val done = current < 0 || i < current
+            val done = if (strength) doneSets(task) >= strengthSetCount(task) else current < 0 || i < current
             val now = i == current
+            val state = if (done) "완료" else if (now) "진행 중" else "예정"
             val rowView = row().apply {
                 gravity = Gravity.CENTER_VERTICAL
                 minimumHeight = dp(48)
                 tag = "phone_phase_row_$i"
                 setPadding(dp(8), 0, dp(8), 0)
                 if (now) background = rounded(panelLight, 12)
-                contentDescription = "${task.name} ${if (done) "완료" else if (now) "진행 중" else "예정"}"
+                contentDescription = "${task.name} $state, 눌러서 이동"
+                isClickable = true
+                isFocusable = true
+                setOnClickListener {
+                    if (strength) { selectedStrengthId = task.id; renderCurrent(); refreshTimer() }
+                    else { session.jumpToPhase(i); afterAction() }
+                }
             }
             val icon = android.widget.ImageView(this).apply {
                 setImageResource(if (done) R.drawable.ic_check_circle else if (now) R.drawable.ic_progress_ring else R.drawable.ic_circle_outline)
@@ -555,9 +571,20 @@ class MainActivity : Activity() {
             rowView.addView(label(task.name, 15, now, if (done) textSecondary else textPrimary).apply {
                 setSingleLine(true); ellipsize = android.text.TextUtils.TruncateAt.END
             }, LinearLayout.LayoutParams(0, -2, 1f).apply { leftMargin = dp(12) })
-            val time = label(formatTime(if (now) session.phaseSecondsRemaining() else task.seconds), 12, false,
-                if (now) mint else textSecondary).apply { tag = "phone_phase_row_time_$i" }
-            if (now) currentPhaseTime = time
+            val meta = if (strength) {
+                val count = strengthSetCount(task)
+                if (now) "세트 ${(doneSets(task) + 1).coerceAtMost(count)} / $count"
+                else {
+                    val reps = Regex("×\\s*([^·]+)").find(task.detail)?.groupValues?.get(1)?.trim()
+                    if (reps.isNullOrEmpty()) "${count}세트" else "${count}세트 · $reps"
+                }
+            } else {
+                val over = session.overtimeSeconds()
+                if (now && over > 0) "+" + formatTime(over) else formatTime(if (now) session.phaseSecondsRemaining() else task.seconds)
+            }
+            val time = label(meta, 12, false, if (now) mint else textSecondary)
+                .apply { tag = "phone_phase_row_time_$i"; setSingleLine(true) }
+            if (now && !strength) currentPhaseTime = time
             rowView.addView(time)
             phaseList.addView(rowView, LinearLayout.LayoutParams(-1, -2))
         }
@@ -573,6 +600,12 @@ class MainActivity : Activity() {
     /** First strength exercise with unfinished sets; the last one once everything is done. */
     private fun currentStrengthTask(): WorkoutTask? {
         val tasks = session.routine.stages[2].tasks
+        // A manual pick (tap on an exercise row) wins until that exercise has all its sets done.
+        selectedStrengthId?.let { id ->
+            val picked = tasks.firstOrNull { it.id == id }
+            if (picked != null && doneSets(picked) < strengthSetCount(picked)) return picked
+            selectedStrengthId = null
+        }
         return tasks.firstOrNull { doneSets(it) < strengthSetCount(it) } ?: tasks.lastOrNull()
     }
 
@@ -913,9 +946,9 @@ class MainActivity : Activity() {
         if (!::timerValue.isInitialized) return
         session.reconcile()
         val stageName = session.routine.stages[session.stage].name
-        timerValue.text = formatTime(session.remaining)
+        timerValue.text = if (session.overtimeSeconds() > 0) "+" + formatTime(session.overtimeSeconds()) else formatTime(session.remaining)
         val finishLabel = if (session.elapsed() > 0) "오늘 운동 완료" else "운동 종료 · 기록 없음"
-        timerLabel.text = if (session.finished) finishLabel else "$stageName · 남은 시간"
+        timerLabel.text = if (session.finished) finishLabel else if (session.overtimeSeconds() > 0) "$stageName · 초과 시간" else "$stageName · 남은 시간"
         timerBadge.text = if (session.finished) "종료" else stageName
         val elapsed = session.elapsed()
         progress.max = max(3600, elapsed)
@@ -951,11 +984,14 @@ class MainActivity : Activity() {
                 timerCueTitle.text = task.name
                 phaseRpe.text = "RPE ${task.rpe}"
                 phaseRpe.visibility = if (task.rpe.isBlank()) View.GONE else View.VISIBLE
-                phaseTime.text = formatTime(left)
+                val over = session.overtimeSeconds()
+                val leftText = if (over > 0) "+" + formatTime(over) else formatTime(left)
+                phaseTime.text = leftText
+                phaseTimeCaption.text = if (over > 0) "초과 시간" else "남은 시간"
                 phaseTimeRow.visibility = View.VISIBLE
                 phaseBar.visibility = View.VISIBLE
-                phaseBar.progress = if (task.seconds > 0) ((task.seconds - left) * 1000 / task.seconds).coerceIn(0, 1000) else 0
-                currentPhaseTime?.text = formatTime(left)
+                phaseBar.progress = if (over > 0) 1000 else if (task.seconds > 0) ((task.seconds - left) * 1000 / task.seconds).coerceIn(0, 1000) else 0
+                currentPhaseTime?.text = leftText
                 val upcoming = session.routine.stages[session.stage].tasks.getOrNull(phase.first + 1)
                 timerCueDetail.text = (if (upcoming != null) "다음 · ${upcoming.name}\n" else "") + displayDetail(task.description)
             }
@@ -986,10 +1022,11 @@ class MainActivity : Activity() {
             session.stage == 2 -> currentStrengthTask()?.name
             else -> null
         }
-        dockStage.text = if (session.finished) finishLabel else listOfNotNull(stageName, dockItem).joinToString(" · ")
+        dockStage.text = if (session.finished) finishLabel else listOfNotNull(stageName.substringBefore(" · "), dockItem).joinToString(" · ")
         val dockTotal = "전체시간 ${formatTime(elapsed)} / 60:00"
         dockTime.text = when {
             session.finished -> "운동 완료 · $dockTotal"
+            session.overtimeSeconds() > 0 -> "초과시간 +${formatTime(session.overtimeSeconds())} · $dockTotal"
             phase != null -> "남은시간 ${formatTime(session.phaseSecondsRemaining())} · $dockTotal"
             session.stage == 2 -> dockTotal
             else -> "남은시간 ${formatTime(session.remaining)} · $dockTotal"

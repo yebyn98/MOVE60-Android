@@ -53,6 +53,8 @@ data class WorkoutUiState(
     val activeSeconds: Int = 0,
     val todayKcal: Double = 0.0,
     val stageNames: List<String> = emptyList(),
+    /** Current item inside the stage (dock: "대분류 · 항목"); empty when the stage has no items. */
+    val itemName: String = "",
     val stageTasks: List<WorkoutTaskUi> = emptyList(),
     val totalSets: Int = 0,
     val completedSets: Int = 0,
@@ -131,6 +133,14 @@ class DefaultWorkoutRepository @Inject constructor(
                 activeSeconds = session.elapsed(),
                 todayKcal = energy.estimate(today, JSONObject(session.snapshot())).coerceAtLeast(0.0),
                 stageNames = session.routine.stages.map { it.name },
+                itemName = when {
+                    session.finished -> ""
+                    session.stage == 2 -> strength.firstOrNull { task ->
+                        val count = Regex("(\\d+)\\s*세트").find(task.detail)?.groupValues?.get(1)?.toIntOrNull() ?: 3
+                        (1..count).count { "strength-${session.day}-${task.id}-$it" in session.checked } < count
+                    }?.name ?: strength.lastOrNull()?.name.orEmpty()
+                    else -> session.phase()?.second?.name.orEmpty()
+                },
                 stageTasks = tasks,
                 totalSets = total,
                 completedSets = done,

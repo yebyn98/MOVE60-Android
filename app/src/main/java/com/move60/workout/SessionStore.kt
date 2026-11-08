@@ -285,6 +285,29 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
         }
         return null
     }
+    /** Seconds spent beyond the target of a timed stage; the stage keeps running, so the UI shows "+mm:ss". */
+    fun overtimeSeconds(): Int =
+        if (timedStage() && !finished) (stageElapsedSeconds - stageSeconds(stage)).coerceAtLeast(0) else 0
+    /**
+     * Manual move to another item of the current timed stage. Only the position inside the stage changes;
+     * the accumulated active workout time is kept, and a running timer keeps running from the new item.
+     */
+    fun jumpToPhase(index: Int) {
+        reloadIfChanged()
+        reconcile()
+        val tasks = routine.stages[stage].tasks
+        if (!timedStage() || finished || index !in tasks.indices) return
+        controlVersion++
+        clearRest()
+        stageElapsedSeconds = tasks.take(index).sumOf { it.seconds }
+        remaining = (stageSeconds() - stageElapsedSeconds).coerceAtLeast(0)
+        if (running) {
+            val now = System.currentTimeMillis()
+            activeCheckpointAt = now
+            deadlineAt = now + remaining * 1000L
+        }
+        save()
+    }
     fun phaseSecondsRemaining(): Int {
         if (!timedStage()) return remaining
         var elapsed = stageElapsedSeconds.coerceAtMost(stageSeconds(stage) - 1)

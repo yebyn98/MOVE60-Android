@@ -356,16 +356,26 @@ class PhoneFeaturesTest {
                 assertTrue("second block is the elliptical", second.isNotEmpty() && second.all { it.kind == "일립티컬" })
                 assertTrue("no stair climber or rowing", (first + second).none { Regex("스텝밀|로잉").containsMatchIn(it.name + it.detail) })
                 assertTrue("elliptical text has no pedals", second.none { "페달" in it.name + it.detail + it.description })
-                // Round labels restart in each block, so no block ends at "2/5" while the other carries on with "3/5".
-                for (block in listOf(first, second)) {
-                    val labels = block.mapNotNull { Regex("^(\\d+)/(\\d+)회차").find(it.name)?.groupValues }
-                    if (labels.isNotEmpty()) {
-                        assertEquals("1", labels.first()[1])
-                        assertEquals(labels.last()[2], labels.last()[1])
-                    }
-                }
+                // v58: phase names never carry an "n/N회차" prefix (Figma shows plain interval names).
+                assertTrue("no 회차 labels", (first + second).none { "회차" in it.name })
             }
         }
+    }
+    @Test fun movingToAnotherItemKeepsActiveTime() {
+        val store = SessionStore(context, WorkoutData(context))
+        store.resetAll()
+        store.start()
+        store.jumpTo(1)
+        val before = store.elapsed()
+        val tasks = store.routine.stages[1].tasks
+        assertTrue("cardio has several items", tasks.size >= 3)
+        store.jumpToPhase(2)
+        assertEquals("phase moved to the picked item", 2, store.phase()?.first)
+        assertTrue("active workout time is not reset or shortened", store.elapsed() >= before)
+        store.jumpToPhase(0)
+        assertEquals(0, store.phase()?.first)
+        assertEquals("no overtime inside the target", 0, store.overtimeSeconds())
+        store.resetAll()
     }
     @Test fun dailyEnergyIsIdempotentAndRecalculatesCompletedSetInputs() {
         val ledger = EnergyLedger(context)

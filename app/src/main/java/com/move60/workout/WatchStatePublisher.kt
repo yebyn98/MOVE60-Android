@@ -28,6 +28,7 @@ object WatchStatePublisher {
         val names = listOf("준비운동", "유산소 ①", when (current.bodyFocus) { "upper" -> "상체 근력"; "lower" -> "하체 근력"; else -> "근력운동" }, "유산소 ②", "스트레칭")
         val running = state.optBoolean("running") && !state.optBoolean("finished")
         val deadline = state.optLong("deadlineAt")
+        val finishedNow = state.optBoolean("finished")
         val remaining = if (running) ceil((deadline - now) / 1000.0).toInt().coerceAtLeast(0)
             else state.optInt("remaining", 0).coerceAtLeast(0)
         var detail = names[index]
@@ -95,6 +96,7 @@ object WatchStatePublisher {
             putInt("intervalIndex", intervalIndex)
             putInt("intervalTotal", intervalCount)
             putString("upcomingInterval", upcomingInterval)
+            putInt("overtime", if (running || finishedNow) 0 else WorkoutWidgetModel.overtimeSeconds(state, index, now, false).toInt())
             putLong("updated", now)
         }
         return request
