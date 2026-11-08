@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="250dp"
+    android:minHeight="180dp"
+    android:targetCellWidth="4"
+    android:targetCellHeight="3"
+    android:initialLayout="@layout/widget_workout_large"
+    android:previewLayout="@layout/widget_workout_large"
+    android:description="@string/widget_large_description"
+    android:resizeMode="horizontal"
+    android:widgetCategory="home_screen|keyguard"
+    android:updatePeriodMillis="0" />

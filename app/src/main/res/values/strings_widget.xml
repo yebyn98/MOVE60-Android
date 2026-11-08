@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_small_description">운동 단계, 남은 시간, 심박수를 작게 보여줘요</string>
+    <string name="widget_large_description">운동 단계, 페이스·RPE, 남은 시간, 심박수를 크게 보여줘요</string>
+</resources>

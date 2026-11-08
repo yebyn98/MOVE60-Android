@@ -7,6 +7,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.SystemClock
+import android.view.View
 import android.widget.RemoteViews
 import org.json.JSONObject
 
@@ -36,33 +37,66 @@ class WorkoutWidget : AppWidgetProvider() {
             }
         }
 
+        private const val HEART_PREFS = "move60_widget_heart_v1"
+
+        /** Persist the newest Health Connect sample (or clear it) and redraw both widgets. */
+        fun saveHeart(context: Context, heart: WidgetHeart?) {
+            context.getSharedPreferences(HEART_PREFS, Context.MODE_PRIVATE).edit().apply {
+                if (heart == null) clear() else putInt("bpm", heart.bpm).putLong("at", heart.measuredAt)
+            }.apply()
+            refresh(context)
+        }
+
+        private fun loadHeart(context: Context): WidgetHeart? {
+            val opted = context.getSharedPreferences("move60_health_opt_in_v1", Context.MODE_PRIVATE)
+                .getBoolean("enabled", false)
+            if (!opted) return null
+            val p = context.getSharedPreferences(HEART_PREFS, Context.MODE_PRIVATE)
+            val bpm = p.getInt("bpm", 0)
+            return if (bpm > 0) WidgetHeart(bpm, p.getLong("at", 0L)) else null
+        }
+
         fun refresh(context: Context) {
             val manager = AppWidgetManager.getInstance(context)
-            val component = ComponentName(context, WorkoutWidget::class.java)
-            val ids = manager.getAppWidgetIds(component)
-            if (ids.isEmpty()) return
             val state = JSONObject(context.getSharedPreferences("timer", Context.MODE_PRIVATE)
                 .getString("snapshot", "{}") ?: "{}")
-            val finished = state.optBoolean("finished", false)
-            val running = state.optBoolean("running", false) && !finished
-            val hasSession = state.optLong("sessionStartedAt", 0L) > 0L
-            val stage = state.optInt("stage", 0).coerceIn(0, 3)
-            val stages = arrayOf("준비운동", "유산소 ①", "근력운동", "유산소 ②")
-            val remaining = remainingSecondsForWidget(state, System.currentTimeMillis())
+            val now = System.currentTimeMillis()
+            val model = WorkoutWidgetModel.build(state, loadHeart(context), now)
             val open = PendingIntent.getActivity(context, 601, Intent(context, MainActivity::class.java),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-            val views = RemoteViews(context.packageName, R.layout.widget_workout).apply {
-                setTextViewText(R.id.widget_status, when {
-                    finished -> "오늘 운동 완료"
-                    running -> "${stage + 1}/4 · ${stages[stage]}"
-                    hasSession -> "일시정지 · ${stages[stage]}"
-                    else -> "운동 대기"
-                })
-                setChronometer(R.id.widget_timer, SystemClock.elapsedRealtime() + remaining * 1000L, null, running)
-                if (android.os.Build.VERSION.SDK_INT >= 24) setChronometerCountDown(R.id.widget_timer, true)
-                setOnClickPendingIntent(R.id.widget_root, open)
+            for ((provider, layout) in listOf(
+                WorkoutWidget::class.java to R.layout.widget_workout,
+                WorkoutWidgetLarge::class.java to R.layout.widget_workout_large
+            )) {
+                val ids = manager.getAppWidgetIds(ComponentName(context, provider))
+                if (ids.isEmpty()) continue
+                manager.updateAppWidget(ids, render(context, layout, model, open))
             }
-            manager.updateAppWidget(ids, views)
         }
+
+        internal fun render(context: Context, layout: Int, model: WidgetModel, open: PendingIntent?): RemoteViews =
+            RemoteViews(context.packageName, layout).apply {
+                setTextViewText(R.id.widget_title, model.title)
+                setTextViewText(R.id.widget_chip, model.status.label)
+                setInt(R.id.widget_chip, "setBackgroundResource",
+                    if (model.status.highlighted) R.drawable.bg_widget_chip else R.drawable.bg_widget_chip_muted)
+                setTextColor(R.id.widget_chip, context.getColor(
+                    if (model.status.highlighted) R.color.move60_on_accent else R.color.move60_text))
+                if (layout == R.layout.widget_workout_large) setTextViewText(R.id.widget_pace, model.pace)
+                setTextColor(R.id.widget_timer, context.getColor(
+                    if (model.status == WidgetStatus.PAUSED) R.color.move60_text_medium else R.color.move60_text))
+                setChronometer(R.id.widget_timer, SystemClock.elapsedRealtime() + model.remainingSeconds * 1000L, null, model.running)
+                if (android.os.Build.VERSION.SDK_INT >= 24) setChronometerCountDown(R.id.widget_timer, true)
+                val hasHeart = model.heartBpm != null && model.heartTime != null
+                setViewVisibility(R.id.widget_heart_icon, if (hasHeart) View.VISIBLE else View.GONE)
+                setViewVisibility(R.id.widget_heart_value, if (hasHeart) View.VISIBLE else View.GONE)
+                setViewVisibility(R.id.widget_heart_time, if (hasHeart) View.VISIBLE else View.GONE)
+                setViewVisibility(R.id.widget_heart_empty, if (hasHeart) View.GONE else View.VISIBLE)
+                if (hasHeart) {
+                    setTextViewText(R.id.widget_heart_value, model.heartBpm.toString())
+                    setTextViewText(R.id.widget_heart_time, model.heartTime)
+                }
+                if (open != null) setOnClickPendingIntent(android.R.id.background, open)
+            }
     }
 }

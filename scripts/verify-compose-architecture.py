@@ -96,3 +96,14 @@ assert "cardFailedInThisProcess" in service_kt and "buildFallbackNotification(no
 
 print("PASS: Compose Navigation, StateFlow/SharedFlow, Hilt, Room, WorkManager and phone-only release")
 
+
+# v52: Figma 07 widgets (small + large), fill-only background, heart value/time only.
+_card = read("app/src/main/res/drawable/move60_widget_card.xml")
+assert "<stroke" not in _card, "widget background must not use a stroke (edge clipping)"
+assert "move60_widget_radius" in _card
+assert "system_app_widget_background_radius" in read("app/src/main/res/values-v31/dimens.xml")
+assert "WorkoutWidgetLarge" in read("app/src/main/AndroidManifest.xml")
+for _l in ("widget_workout", "widget_workout_large"):
+    _x = read(f"app/src/main/res/layout/{_l}.xml")
+    assert "widget_heart_value" in _x and "widget_heart_time" in _x and "widget_chip" in _x
+assert "widget_pace" in read("app/src/main/res/layout/widget_workout_large.xml")
