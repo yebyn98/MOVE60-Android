@@ -136,7 +136,8 @@ class ComposeArchitectureTest {
         // Figma: the weekly plan card is the first card and has no collapse control.
         val hint = "요일과 운동 부위를 선택하면 상세 운동 화면에 적용돼요."
         rule.onNodeWithTag("dashboard_plan_card").assertIsDisplayed()
-        rule.onNodeWithText(hint).assertIsDisplayed()
+        // Figma 01: the hint sentence is gone; the selected weekday ("금요일") sits at the right of the card title.
+        rule.onNodeWithText(hint).assertDoesNotExist()
         rule.onNodeWithText("오늘 운동 부위").assertIsDisplayed()
         rule.onNodeWithTag("dashboard_plan_header").assertDoesNotExist()
         val planTop = rule.onNodeWithTag("dashboard_plan_card").fetchSemanticsNode().boundsInRoot.top
