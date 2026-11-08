@@ -8,6 +8,10 @@ import kotlin.math.min
 
 /** Gross MET-based estimates. External load is volume, never a direct kcal conversion. */
 class EnergyLedger(private val context: Context) {
+    private companion object {
+        const val SECONDS_PER_REP = 3.0
+        const val REST_SECONDS_PER_SET = 40.0
+    }
     private val prefs = context.getSharedPreferences("move60_energy_v1", Context.MODE_PRIVATE)
     private val zone = ZoneId.of("Asia/Seoul")
     // Keep current-workout estimates independent of the historical daily energy ledger.
@@ -81,13 +85,15 @@ class EnergyLedger(private val context: Context) {
 
     private fun calculate(record: JSONObject, sets: List<SetRecordStore.Record>, kg: Double): Double {
         val strength = record.optDouble("strength_seconds", 0.0)
-        val strengthMetSeconds = if (sets.isEmpty()) strength * 3.5 else {
-            // As with the daily ledger, strength is estimated using actual active seconds.
-            val requestedWork = sets.sumOf { it.reps.toInt() * 3.0 }
+        // v56: strength energy comes only from sets the user actually checked off. Waiting time while the timer runs
+        // (no set done) adds nothing; each completed set earns its working seconds plus one short rest window.
+        val strengthMetSeconds = if (sets.isEmpty()) 0.0 else {
+            val requestedWork = sets.sumOf { it.reps.toInt() * SECONDS_PER_REP }
             val work = min(strength, requestedWork)
             val meanMet = sets.sumOf { it.reps.toInt() * if (it.rpe.toInt() >= 7) 6.0 else 3.5 } /
                 sets.sumOf { it.reps.toInt() }.coerceAtLeast(1)
-            work * meanMet + (strength - work) * 1.5
+            val rest = min((strength - work).coerceAtLeast(0.0), sets.size * REST_SECONDS_PER_SET)
+            work * meanMet + rest * 1.5
         }
         return ((record.optDouble("met_seconds", 0.0) +
             record.optDouble("legacy_met_seconds", 0.0) + strengthMetSeconds) /
