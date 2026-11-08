@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Fill only: a stroke on the widget background is cut by the launcher's rounded mask (Figma: no stroke on the card). -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
     <solid android:color="@color/move60_surface"/>
-    <corners android:radius="20dp"/>
-    <stroke android:width="1dp" android:color="@color/move60_outline"/>
+    <corners android:radius="@dimen/move60_widget_radius"/>
 </shape>

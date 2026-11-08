@@ -9,6 +9,8 @@ import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import com.google.android.gms.wearable.PutDataMapRequest
 import com.google.android.gms.wearable.Wearable
+import com.move60.workout.WidgetHeart
+import com.move60.workout.WorkoutWidget
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.Duration
 import java.time.Instant
@@ -86,11 +88,14 @@ class HealthConnectGateway @Inject constructor(
             }
             nextPage = page.pageToken
         } while (!nextPage.isNullOrEmpty())
-        return Metrics(
+        val metrics = Metrics(
             lastHeartBpm = latest?.second,
             heartMeasuredAt = latest?.first?.toEpochMilli() ?: 0L,
             sourcePackage = latest?.third
         )
+        // Widget shows only a real stored sample with its measurement time; empty result clears it.
+        WorkoutWidget.saveHeart(context, metrics.lastHeartBpm?.let { WidgetHeart(it, metrics.heartMeasuredAt) })
+        return metrics
     }
 
     fun enable() {
@@ -101,6 +106,7 @@ class HealthConnectGateway @Inject constructor(
     fun disable() {
         check(preferences.edit().putBoolean("enabled", false).commit())
         sendToWatch(Metrics(), false)
+        WorkoutWidget.saveHeart(context, null)
     }
 
     fun sendToWatch(metrics: Metrics, consented: Boolean = isOptedIn()) {

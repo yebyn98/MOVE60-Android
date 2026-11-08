@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Figma widget corner radius; Android 12+ uses the launcher's own radius so the card never looks cut. -->
+    <dimen name="move60_widget_radius">28dp</dimen>
+</resources>
