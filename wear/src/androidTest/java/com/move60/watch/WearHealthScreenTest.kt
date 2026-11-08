@@ -3,6 +3,7 @@ package com.move60.watch
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -38,19 +39,24 @@ class WearHealthScreenTest {
         rule.activity.getSharedPreferences("move60_watch_kcal_v1", 0).edit().clear().commit()
         org.junit.Assert.assertFalse(com.move60.watch.health.WatchExerciseCalories.isOptedIn(rule.activity))
         org.junit.Assert.assertFalse(WearHealthActivity.HealthState().kcalOptIn)
-        // ScalingLazyColumn composes only items near the center: swipe until the chip is actually on screen.
-        var shown = false
-        repeat(12) {
-            if (!shown) {
-                shown = try { rule.onNodeWithTag("wear_kcal_chip").assertIsDisplayed(); true } catch (_: AssertionError) { false }
-                if (!shown) { rule.onNodeWithTag("wear_health_root").performTouchInput { swipeUp() }; rule.waitForIdle() }
+        // ScalingLazyColumn composes only items near the center. Swipe down the list and keep a real capture of every
+        // step as evidence of what the round screen shows; the chip must exist once the list reaches it.
+        val instrumentation = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+        fun capture(name: String) {
+            Thread.sleep(800)
+            val image = requireNotNull(instrumentation.uiAutomation.takeScreenshot())
+            java.io.File(rule.activity.getExternalFilesDir(null), name).outputStream().use {
+                image.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
             }
         }
-        rule.onNodeWithTag("wear_kcal_chip").assertIsDisplayed()
-        Thread.sleep(1_500)
-        val image = requireNotNull(androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot())
-        java.io.File(rule.activity.getExternalFilesDir(null), "watch-v57-kcal-optin-off.png").outputStream().use {
-            image.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+        var found = false
+        for (step in 0..7) {
+            capture("watch-v57-health-scroll-$step.png")
+            found = rule.onAllNodesWithTag("wear_kcal_chip").fetchSemanticsNodes().isNotEmpty()
+            if (found && step >= 3) break
+            rule.onNodeWithTag("wear_health_root").performTouchInput { swipeUp() }
+            rule.waitForIdle()
         }
+        org.junit.Assert.assertTrue("kcal opt-in chip must exist in the list", found)
     }
 }
