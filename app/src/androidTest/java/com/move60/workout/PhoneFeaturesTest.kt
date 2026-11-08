@@ -12,6 +12,7 @@ import androidx.test.espresso.Espresso.pressBack
 import androidx.test.espresso.action.ViewActions.click
 import androidx.test.espresso.assertion.ViewAssertions.matches
 import androidx.test.espresso.assertion.ViewAssertions.doesNotExist
+import androidx.test.espresso.matcher.RootMatchers.isDialog
 import androidx.test.espresso.matcher.ViewMatchers.*
 import org.hamcrest.CoreMatchers.`is`
 import org.junit.Assert.*
@@ -167,7 +168,10 @@ class PhoneFeaturesTest {
                 next.performClick()
             }
             try {
-                onView(withText("기록하고 종료")).perform(click())
+                // The confirmation lives in its own dialog window. CI evidence showed the dialog on screen while the
+                // activity window still reported has-window-focus=false, so Espresso kept the activity as root and could
+                // not find the button. Waiting for the dialog root removes that timing race.
+                onView(withText("기록하고 종료")).inRoot(isDialog()).perform(click())
             } catch (e: Throwable) {
                 // Diagnostic evidence for CI: what was actually on screen when the confirmation was not found.
                 val shot = instrumentation.uiAutomation.takeScreenshot()
