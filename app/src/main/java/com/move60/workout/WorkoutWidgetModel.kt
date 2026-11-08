@@ -18,8 +18,11 @@ data class WidgetModel(
     val title: String,
     val status: WidgetStatus,
     val pace: String,
+    /** Countdown seconds, or elapsed seconds when [countDown] is false (strength has no allotted time). */
     val remainingSeconds: Long,
     val running: Boolean,
+    val countDown: Boolean = true,
+    val timerLabel: String = "남은 시간",
     val heartBpm: Int?,
     val heartTime: String?
 )
@@ -38,7 +41,7 @@ object WorkoutWidgetModel {
         val running = state.optBoolean("running", false) && !finished
         val hasSession = state.optLong("sessionStartedAt", 0L) > 0L
         val stage = state.optInt("stage", 0).coerceIn(0, LAST_STAGE)
-        val remaining = WorkoutWidget.remainingSecondsForWidget(state, nowMillis)
+        val stageRemaining = WorkoutWidget.remainingSecondsForWidget(state, nowMillis)
         val cardio = stage == 1 || stage == 3
         val phases = phasesKeyForStage(stage)?.let { state.optJSONArray(it) }
         val machine = phases?.optJSONObject(0)?.optString("kind").orEmpty()
@@ -58,14 +61,41 @@ object WorkoutWidgetModel {
         val pace = when (status) {
             WidgetStatus.DONE -> "수고하셨어요"
             WidgetStatus.IDLE -> "앱에서 오늘 운동을 시작하세요"
-            else -> paceLine(state, stage, phases, remaining)
+            else -> paceLine(state, stage, phases, stageRemaining)
+        }
+        // Timed stages count down the current item (same number as the phone dock); strength counts the overall time up.
+        val countUp = stage == 2 && hasSession && !finished
+        val timerSeconds = when {
+            countUp -> elapsedTotal(state, nowMillis, running)
+            finished || !hasSession -> 0L
+            else -> phaseRemaining(state, stage, phases, stageRemaining) ?: stageRemaining
         }
         return WidgetModel(
-            title = title, status = status, pace = pace, remainingSeconds = remaining, running = running,
+            title = title, status = status, pace = pace, remainingSeconds = timerSeconds, running = running,
+            countDown = !countUp, timerLabel = if (countUp) "전체시간" else "남은 시간",
             heartBpm = heart?.bpm?.takeIf { it in 30..240 },
             heartTime = heart?.takeIf { it.bpm in 30..240 && it.measuredAt > 0L }
                 ?.let { formatMeasuredAt(it.measuredAt, nowMillis, zone) }
         )
+    }
+
+    private fun elapsedTotal(state: JSONObject, nowMillis: Long, running: Boolean): Long {
+        val base = state.optLong("activeSeconds", 0L).coerceAtLeast(0L)
+        val checkpoint = state.optLong("activeCheckpointAt", 0L)
+        return if (running && checkpoint > 0L) base + ((nowMillis - checkpoint) / 1000L).coerceAtLeast(0L) else base
+    }
+
+    /** Seconds left in the current timed item, or null when the stage has no timed items. */
+    private fun phaseRemaining(state: JSONObject, stage: Int, phases: org.json.JSONArray?, stageRemaining: Long): Long? {
+        if (phases == null || phases.length() == 0) return null
+        val total = state.optJSONArray("stageSeconds")?.optInt(stage, 0) ?: 0
+        var elapsed = (total - stageRemaining).coerceAtLeast(0L)
+        for (i in 0 until phases.length()) {
+            val seconds = phases.optJSONObject(i)?.optInt("seconds", 60) ?: continue
+            if (elapsed < seconds || i == phases.length() - 1) return (seconds - elapsed).coerceAtLeast(0L)
+            elapsed -= seconds
+        }
+        return null
     }
 
     private fun paceLine(state: JSONObject, stage: Int, phases: org.json.JSONArray?, remaining: Long): String {

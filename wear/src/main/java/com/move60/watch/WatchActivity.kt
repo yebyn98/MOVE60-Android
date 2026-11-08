@@ -333,7 +333,7 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
         timer.textSize = if (strengthTarget) Theme.Type.wearTitle else Theme.Type.wearHeadline
         timer.contentDescription = when {
             resting -> "남은 휴식 ${timer.text} · 눌러서 15초 늘리기 또는 줄이기"
-            strengthTarget -> "현재 세트 ${timer.text}, 단계 남은 시간 ${remaining / 60}분 ${remaining % 60}초"
+            strengthTarget -> "현재 세트 ${timer.text}, 전체 운동 시간 ${workout.activeSeconds / 60}분"
             else -> "운동 시간 ${timer.text}"
         }
         progressBar.progress = when {
@@ -419,6 +419,8 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
         ambientTime.text = when {
             workout.finished -> "총 ${(workout.activeSeconds + 30) / 60}분 수행"
             workout.running && rest > 0 -> "남은 약 ${minutes}분"
+            // Strength has no allotted time: show the overall time instead of a stage countdown.
+            workout.running && workout.stageIndex == 2 -> "전체 약 ${(workout.activeSeconds + 30) / 60}분"
             workout.running -> "남은 약 ${minutes}분"
             workout.hasSession -> workout.stageLabel
             else -> "휴대폰에서 시작"

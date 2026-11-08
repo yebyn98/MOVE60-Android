@@ -41,8 +41,9 @@ class WorkoutSplitTest {
         assertEquals(15, again.strengthMinutes())
     }
 
-    @Test fun phaseKeysCoverCardioAndStretchStagesOnly() {
-        assertEquals(listOf(null, "phases", null, "phases3", "phases4"), (0..4).map { phasesKeyForStage(it) })
+    @Test fun phaseKeysCoverEveryStageExceptStrength() {
+        // Strength has no allotted time per machine, so it is the only stage without timed items.
+        assertEquals(listOf("phases0", "phases", null, "phases3", "phases4"), (0..4).map { phasesKeyForStage(it) })
         assertEquals(5, STAGE_COUNT)
     }
 }

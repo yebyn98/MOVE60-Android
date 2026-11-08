@@ -275,7 +275,7 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
         return accumulatedActiveSeconds
     }
     /** Cardio stages (1, 3) and the stretch stage (4) run as timed phases. */
-    private fun timedStage() = phasesKeyForStage(stage) != null
+    private fun timedStage() = phasesKeyForStage(stage) != null && routine.stages[stage].tasks.all { it.seconds > 0 }
     fun phase(): Pair<Int, WorkoutTask>? {
         if (!timedStage() || finished) return null
         var elapsed = stageElapsedSeconds.coerceAtMost(stageSeconds(stage) - 1)
@@ -303,6 +303,7 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
                     .put("rpe", t.rpe).put("description", t.description).put("kind", t.kind))
             }
         }
+        val phases0 = if (routine.stages[0].tasks.all { it.seconds > 0 }) phasesOf(0) else JSONArray()
         val phases = phasesOf(1)
         val phases3 = phasesOf(3)
         val phases4 = phasesOf(4)
@@ -312,8 +313,9 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
             .put("restPaused", restPaused).put("restId", restId)
             .put("day", day).put("stage", stage).put("remaining", remaining)
             .put("deadlineAt", deadlineAt).put("activeSeconds", accumulatedActiveSeconds)
+            .put("activeCheckpointAt", activeCheckpointAt)
             .put("stageElapsedSeconds", stageElapsedSeconds)
-            .put("cardioMachine", routine.stages[1].tasks.firstOrNull()?.kind ?: routine.stages[1].name).put("stageSeconds", times).put("phases", phases).put("phases3", phases3).put("phases4", phases4).toString()
+            .put("cardioMachine", routine.stages[1].tasks.firstOrNull()?.kind ?: routine.stages[1].name).put("stageSeconds", times).put("phases0", phases0).put("phases", phases).put("phases3", phases3).put("phases4", phases4).toString()
     }
 }
 

@@ -19,7 +19,7 @@ data class MovementDetails(val area: String, val equipment: String, val steps: L
 const val STAGE_COUNT = 5
 const val LAST_STAGE = STAGE_COUNT - 1
 /** Snapshot JSON key that carries the timed phases of a stage (null = untimed stage). */
-fun phasesKeyForStage(stage: Int): String? = when (stage) { 1 -> "phases"; 3 -> "phases3"; 4 -> "phases4"; else -> null }
+fun phasesKeyForStage(stage: Int): String? = when (stage) { 0 -> "phases0"; 1 -> "phases"; 3 -> "phases3"; 4 -> "phases4"; else -> null }
 data class DailyRoutine(
     val day: Int, val name: String, val short: String, val focus: String,
     val desc: String, val tag: String, val stages: List<WorkoutStage>
@@ -98,7 +98,17 @@ class WorkoutData(private val context: Context) {
     fun routine(day: Int, week: Long = weekOrdinal(), focus: String? = null): DailyRoutine {
         val d = day.coerceIn(1, 5)
         val obj = plan.getJSONObject(d.toString())
-        val warm = obj.getJSONArray("warmTasks").pairs().map { (name, note) -> WorkoutTask(name, note, "준비운동") }
+        // Each warm-up item states its own minutes ("... 2분"); they become timed phases only when they add up to the stage.
+        val warmMinutes = obj.optInt("warm", 5)
+        val warmRaw = obj.getJSONArray("warmTasks").pairs()
+        val warmSeconds = warmRaw.map { (_, note) -> Regex("(\\d+)\\s*분").find(note)?.groupValues?.get(1)?.toIntOrNull()?.times(60) ?: 0 }
+        val warmTimed = warmSeconds.all { it > 0 } && warmSeconds.sum() == warmMinutes * 60
+        val warm = warmRaw.mapIndexed { i, (name, note) ->
+            if (!warmTimed) WorkoutTask(name, note, "준비운동")
+            else WorkoutTask(name, note, "준비운동", seconds = warmSeconds[i],
+                rpe = Regex("RPE\\s*([0-9–~-]+)").find(note)?.groupValues?.get(1).orEmpty(),
+                description = note, phaseIndex = i)
+        }
         val phases = mutableListOf<WorkoutTask>()
         val phaseData = obj.getJSONArray("cyclePhases")
         // The interval program is written for the bike; the elliptical block re-words it in forMachine().

@@ -423,8 +423,8 @@ class MainActivity : Activity() {
                 else -> ""
             }
             val titleBox = row().apply { gravity = Gravity.CENTER_VERTICAL }
-            titleBox.addView(label(chipText, 12, true, mint).apply {
-                setPadding(dp(10), dp(4), dp(10), dp(4))
+            titleBox.addView(label(chipText, 16, true, mint).apply {
+                setPadding(dp(12), dp(4), dp(12), dp(4))
                 background = rounded(panelLight, 24)
                 tag = "phone_step_chip_$index"
                 setSingleLine(true)
@@ -477,8 +477,8 @@ class MainActivity : Activity() {
         if (!::phaseList.isInitialized) return
         phaseList.removeAllViews()
         currentPhaseTime = null
-        val timed = phasesKeyForStage(session.stage) != null
         val tasks = session.routine.stages[session.stage].tasks
+        val timed = phasesKeyForStage(session.stage) != null && tasks.all { it.seconds > 0 }
         val started = session.running || session.elapsed() > 0
         if (!timed || tasks.isEmpty() || session.finished || !started) { phaseList.visibility = View.GONE; return }
         phaseList.visibility = View.VISIBLE
@@ -936,9 +936,22 @@ class MainActivity : Activity() {
             restPanel.visibility = if (rest > 0 && session.stage == 2 && !session.finished) View.VISIBLE else View.GONE
             restValue.text = formatTime(rest) + if (!session.running) " · 일시정지" else " 남음"
         }
-        dockStage.text = if (session.finished) finishLabel
-            else "$stageName · ${session.stage + 1}/${session.routine.stages.size} 단계"
-        dockTime.text = "${if (session.finished) "운동 완료" else "남음 ${formatTime(session.remaining)}"} · 전체 ${formatTime(elapsed)} / 60:00"
+        // Dock: "대분류 · 현재 항목". Remaining time is the current item's (same number as the big timer);
+        // strength has no allotted time per machine, so it only shows the overall flow.
+        val dockItem = when {
+            session.finished -> null
+            phase != null -> phase.second.name
+            session.stage == 2 -> currentStrengthTask()?.name
+            else -> null
+        }
+        dockStage.text = if (session.finished) finishLabel else listOfNotNull(stageName, dockItem).joinToString(" · ")
+        val dockTotal = "전체시간 ${formatTime(elapsed)} / 60:00"
+        dockTime.text = when {
+            session.finished -> "운동 완료 · $dockTotal"
+            phase != null -> "남은시간 ${formatTime(session.phaseSecondsRemaining())} · $dockTotal"
+            session.stage == 2 -> dockTotal
+            else -> "남은시간 ${formatTime(session.remaining)} · $dockTotal"
+        }
         // Figma dock: pause/play 20dp and arrows 18dp icons instead of text glyphs.
         dockButton(play, if (session.finished) "새 운동 시작" else if (session.running) "일시정지" else "운동 시작",
             if (session.finished) R.drawable.ic_replay else if (session.running) R.drawable.ic_pause else R.drawable.ic_play, 20, true)
