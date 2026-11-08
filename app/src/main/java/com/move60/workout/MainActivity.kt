@@ -428,7 +428,7 @@ class MainActivity : Activity() {
                 }
             }
             // Figma: the step name is a pill chip, no running number.
-            val chipText = step.name + when {
+            val chipText = step.name.replace(" · 실내 ", " · ") + when {
                 index == 2 && session.bodyFocus == "lower" -> " · 하체"
                 index == 2 && session.bodyFocus == "upper" -> " · 상체"
                 else -> ""
@@ -1022,7 +1022,7 @@ class MainActivity : Activity() {
             session.stage == 2 -> currentStrengthTask()?.name
             else -> null
         }
-        dockStage.text = if (session.finished) finishLabel else listOfNotNull(stageName, dockItem).joinToString(" · ")
+        dockStage.text = if (session.finished) finishLabel else listOfNotNull(stageName.substringBefore(" · "), dockItem).joinToString(" · ")
         val dockTotal = "전체시간 ${formatTime(elapsed)} / 60:00"
         dockTime.text = when {
             session.finished -> "운동 완료 · $dockTotal"

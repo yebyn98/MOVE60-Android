@@ -214,7 +214,7 @@ fun WorkoutDashboard(
                                 Text("${index + 1}", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium,
                                     color = if (current) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
                             }
-                            Text(name + if (index == 2 && state.bodyFocus == "lower") " · 하체"
+                            Text(name.replace(" · 실내 ", " · ") + if (index == 2 && state.bodyFocus == "lower") " · 하체"
                                 else if (index == 2 && state.bodyFocus == "upper") " · 상체" else "",
                                 modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold,
                                 color = if (current) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
@@ -258,7 +258,7 @@ private fun WorkoutDock(state: WorkoutUiState, viewModel: WorkoutViewModel, onOp
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(listOf(state.stageName, state.itemName).filter { it.isNotBlank() }.joinToString(" · "),
+                    Text(listOf(state.stageName.substringBefore(" · "), state.itemName).filter { it.isNotBlank() }.joinToString(" · "),
                         style = MaterialTheme.typography.titleMedium, maxLines = 1)
                     Text("${formatSeconds(state.activeSeconds)} / 60:00", color = secondary,
                         style = MaterialTheme.typography.bodySmall)
