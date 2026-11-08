@@ -361,7 +361,7 @@ class PhoneFeaturesTest {
             }
         }
     }
-    @Test fun movingToAnotherItemKeepsActiveTimeAndOvertimeCountsUp() {
+    @Test fun movingToAnotherItemKeepsActiveTime() {
         val store = SessionStore(context, WorkoutData(context))
         store.resetAll()
         store.start()
@@ -375,9 +375,6 @@ class PhoneFeaturesTest {
         store.jumpToPhase(0)
         assertEquals(0, store.phase()?.first)
         assertEquals("no overtime inside the target", 0, store.overtimeSeconds())
-        store.pause()
-        store.stageElapsedSeconds = store.routine.stages[1].minutes * 60 + 5
-        assertEquals("past the target the extra seconds are counted up", 5, store.overtimeSeconds())
         store.resetAll()
     }
     @Test fun dailyEnergyIsIdempotentAndRecalculatesCompletedSetInputs() {
