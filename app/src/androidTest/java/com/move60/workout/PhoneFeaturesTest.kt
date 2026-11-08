@@ -190,6 +190,43 @@ class PhoneFeaturesTest {
             screenshot("phone-v55-completed-warmup-rows.png")
         }
     }
+    @Test fun watchKcalMessageIsValidatedAndOnlyShownWhileFreshForThisSession() {
+        val now = System.currentTimeMillis()
+        assertNotNull(WatchKcal.parse("kcal:123:45.5:$now", now))
+        assertNull("malformed", WatchKcal.parse("kcal:abc:45:$now", now))
+        assertNull("negative", WatchKcal.parse("kcal:123:-1:$now", now))
+        assertNull("implausible", WatchKcal.parse("kcal:123:99999:$now", now))
+        assertNull("stale replay", WatchKcal.parse("kcal:123:45:${now - 60_000L}", now))
+        assertNull("future", WatchKcal.parse("kcal:123:45:${now + 60_000L}", now))
+        WatchKcal.save(context, WatchKcal.Sample(123L, 45.5, now))
+        assertNotNull(WatchKcal.fresh(context, 123L, now + 1_000L))
+        assertNull("other workout session", WatchKcal.fresh(context, 124L, now + 1_000L))
+        assertNull("no session", WatchKcal.fresh(context, 0L, now + 1_000L))
+        assertNull("expired sample must never look current", WatchKcal.fresh(context, 123L, now + WatchKcal.MAX_AGE_MS + 1_000L))
+        WatchKcal.save(context, WatchKcal.Sample(123L, 10.0, now - 5_000L))
+        assertEquals("older replay cannot overwrite", 45.5, WatchKcal.fresh(context, 123L, now + 1_000L)!!.totalKcal, 0.0001)
+    }
+    @Test fun dockHidesWatchKcalUntilAFreshSampleExistsForTheRunningSession() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { it.window.decorView.findViewWithTag<TextView>("phone_play").performClick() }
+            instrumentation.waitForIdleSync()
+            scenario.onActivity { activity ->
+                assertEquals("no watch data: line stays hidden", View.GONE,
+                    activity.window.decorView.findViewWithTag<View>("phone_watch_kcal").visibility)
+            }
+            val token = JSONObject(SessionStore(context, WorkoutData(context)).snapshot()).optLong("sessionStartedAt")
+            assertTrue("running workout has a session token", token > 0L)
+            // Test fixture (not a real watch measurement): a fresh sample for the running session.
+            WatchKcal.save(context, WatchKcal.Sample(token, 123.0, System.currentTimeMillis()))
+            Thread.sleep(2_500)
+            scenario.onActivity { activity ->
+                val line = activity.window.decorView.findViewWithTag<TextView>("phone_watch_kcal")
+                assertEquals(View.VISIBLE, line.visibility)
+                assertTrue(line.text.toString().contains("기초대사 포함"))
+            }
+            screenshot("phone-v57-watch-kcal-line-FIXTURE.png")
+        }
+    }
     @Test fun guideImagesExistForEveryLicensedExercise() {
         val files = context.assets.list("exercise")!!.toSet()
         val ids = files.filter { it.endsWith("_0.jpg") }.map { it.removeSuffix("_0.jpg") }
