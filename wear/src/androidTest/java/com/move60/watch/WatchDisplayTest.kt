@@ -48,9 +48,9 @@ class WatchDisplayTest {
                 assertTrue("Button corner clipped by round screen: $x,$y",
                     (x-cx)*(x-cx) + (y-cy)*(y-cy) <= radius*radius)
     }
-    @Test fun allFourStagesAndBothButtonsFitSmallRoundScreen() {
+    @Test fun allFiveStagesAndBothButtonsFitSmallRoundScreen() {
         ActivityScenario.launch(WatchActivity::class.java).use { scenario ->
-            val names = listOf("준비운동", "유산소 ①", "근력운동", "유산소 ②")
+            val names = listOf("준비운동", "유산소 ①", "근력운동", "유산소 ②", "스트레칭")
             names.forEachIndexed { index, name ->
                 scenario.onActivity { activity ->
                     activity.applyWorkoutState(WatchWorkoutState(
@@ -60,7 +60,7 @@ class WatchDisplayTest {
                 instrumentation.waitForIdleSync()
                 scenario.onActivity { activity ->
                     val stage = activity.window.decorView.findViewWithTag<TextView>("watch_stage")
-                    assertEquals("${index+1}/4 · $name", stage.text.toString())
+                    assertEquals("${index+1}/5 · $name", stage.text.toString())
                     assertEquals("Stage text clipped", 0, stage.layout.getEllipsisCount(0))
                     val ring = activity.window.decorView.findViewWithTag<WorkoutProgressRing>("watch_progress_ring")
                     assertTrue("Circular exercise progress must remain visible", ring.isShown)
@@ -81,7 +81,7 @@ class WatchDisplayTest {
                     assertEquals("Next button text clipped", 0, activity.window.decorView.findViewWithTag<Button>("watch_next").layout.getEllipsisCount(0))
                     assertButtonInsideCircle(activity, activity.window.decorView.findViewWithTag("watch_play"))
                     assertButtonInsideCircle(activity, activity.window.decorView.findViewWithTag("watch_next"))
-                    assertEquals(if (index == 3) "운동 완료" else "다음 단계",
+                    assertEquals(if (index == LAST_STAGE) "운동 완료" else "다음 단계",
                         activity.window.decorView.findViewWithTag<Button>("watch_next").text.toString())
                 }
             }
@@ -103,7 +103,7 @@ class WatchDisplayTest {
                 val root = activity.window.decorView
                 assertEquals(View.VISIBLE, root.findViewWithTag<View>("watch_ambient").visibility)
                 assertEquals(View.GONE, root.findViewWithTag<View>("watch_scroll").visibility)
-                assertEquals("2/4 · 유산소",
+                assertEquals("2/5 · 유산소",
                     root.findViewWithTag<TextView>("ambient_stage").text.toString())
                 val ambientTime = root.findViewWithTag<TextView>("ambient_time").text
                 assertTrue("Ambient must show minute-level timing", ambientTime.contains("분"))
@@ -254,7 +254,7 @@ class WatchDisplayTest {
             capture("watch-v26-rest.png")
             scenario.onActivity { activity ->
                 activity.applyWorkoutState(WatchWorkoutState(protocol=26,finished=true,hasSession=true,
-                    stageIndex=3,stageName="마무리 스트레칭",activeSeconds=3618,
+                    stageIndex=4,stageName="스트레칭",activeSeconds=3618,
                     completedSets=12,totalSets=12,estimatedKcal=307.5))
             }
             instrumentation.waitForIdleSync()

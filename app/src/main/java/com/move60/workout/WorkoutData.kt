@@ -15,6 +15,11 @@ data class WorkoutTask(
 )
 data class WorkoutStage(val name: String, val subtitle: String, val minutes: Int, val tasks: List<WorkoutTask>)
 data class MovementDetails(val area: String, val equipment: String, val steps: List<String>, val caution: String, val alternative: String)
+/** Five stages: 0 준비운동, 1 유산소 ①, 2 근력운동, 3 유산소 ②, 4 스트레칭. */
+const val STAGE_COUNT = 5
+const val LAST_STAGE = STAGE_COUNT - 1
+/** Snapshot JSON key that carries the timed phases of a stage (null = untimed stage). */
+fun phasesKeyForStage(stage: Int): String? = when (stage) { 1 -> "phases"; 3 -> "phases3"; 4 -> "phases4"; else -> null }
 data class DailyRoutine(
     val day: Int, val name: String, val short: String, val focus: String,
     val desc: String, val tag: String, val stages: List<WorkoutStage>
@@ -24,11 +29,33 @@ class WorkoutData(private val context: Context) {
     companion object {
         const val CARDIO_FIRST = "실내 사이클"
         const val CARDIO_SECOND = "일립티컬"
+        const val ADJUSTABLE_MINUTES = 50
+        const val STEP_MINUTES = 5
+        const val MIN_CARDIO = 5
+        const val MIN_STRENGTH = 10
+        fun isValidSplit(first: Int, second: Int): Boolean =
+            first % STEP_MINUTES == 0 && second % STEP_MINUTES == 0 &&
+                first >= MIN_CARDIO && second >= MIN_CARDIO &&
+                ADJUSTABLE_MINUTES - first - second >= MIN_STRENGTH
     }
     private val choices = ExercisePreferences(context)
     private val prefs = context.getSharedPreferences("move60_duration_v1", Context.MODE_PRIVATE)
-    fun setCardioMinutes(minutes: Int) { require(minutes in 20..40 && minutes % 5 == 0); prefs.edit().putInt("cardio_minutes", minutes).apply() }
-    fun cardioMinutes(): Int = prefs.getInt("cardio_minutes", 30)
+    /** 유산소 ①/② are set individually (5-minute steps); 근력 takes the rest of the 50 adjustable minutes. */
+    fun setCardioSplit(first: Int, second: Int) {
+        require(isValidSplit(first, second)) { "invalid split $first/$second" }
+        prefs.edit().putInt("cardio_first_minutes", first).putInt("cardio_second_minutes", second)
+            .putInt("cardio_minutes", first + second).apply()
+    }
+    /** Upgrade path: older builds stored one total (first block = half, rounded to 5). */
+    fun cardioFirstMinutes(): Int =
+        if (prefs.contains("cardio_first_minutes")) prefs.getInt("cardio_first_minutes", 15)
+        else (legacyCardioTotal() / 2 + 2) / 5 * 5
+    fun cardioSecondMinutes(): Int =
+        if (prefs.contains("cardio_second_minutes")) prefs.getInt("cardio_second_minutes", 15)
+        else legacyCardioTotal() - cardioFirstMinutes()
+    fun cardioMinutes(): Int = cardioFirstMinutes() + cardioSecondMinutes()
+    fun strengthMinutes(): Int = ADJUSTABLE_MINUTES - cardioMinutes()
+    private fun legacyCardioTotal(): Int = prefs.getInt("cardio_minutes", 30)
     private val root = JSONObject(context.assets.open("workouts.json").bufferedReader().use { it.readText() })
     private val plan = root.getJSONObject("plan")
     private val exercise = root.getJSONObject("exercise")
@@ -94,7 +121,7 @@ class WorkoutData(private val context: Context) {
                 for (r in 1..repeat) for (j in 0 until parts.length()) addPhase(parts.getJSONObject(j), "$r/${repeat}회차")
             } else addPhase(p)
         }
-        val cardioTarget = cardioMinutes() * 60
+        val cardioTarget = (cardioFirstMinutes() + cardioSecondMinutes()) * 60
         val originalCardioSeconds = phases.sumOf { it.seconds }
         if (originalCardioSeconds > cardioTarget) {
             var remainingSeconds = cardioTarget
@@ -112,8 +139,7 @@ class WorkoutData(private val context: Context) {
             phases += WorkoutTask("추가 유산소 · 편안한 페이스", "${extra / 60}분 · RPE 4", CARDIO_FIRST, seconds = extra, rpe = "4", description = "무리하지 않는 일정한 속도", phaseIndex = phases.size)
         }
         // 유산소 - 근력 - 유산소: cardio is split around strength, one machine per block (bike first, elliptical second).
-        val firstCardioMinutes = (cardioMinutes() / 2 + 2) / 5 * 5
-        val firstSeconds = firstCardioMinutes.coerceAtLeast(5) * 60
+        val firstSeconds = cardioFirstMinutes() * 60
         val firstBlock = mutableListOf<WorkoutTask>()
         val secondBlock = mutableListOf<WorkoutTask>()
         var cursor = 0
@@ -153,19 +179,21 @@ class WorkoutData(private val context: Context) {
         val perStretch = stretchMinutes * 60 / stretchPairs.size
         val finish = stretchPairs.mapIndexed { i, (name, note) ->
             val seconds = if (i == stretchPairs.lastIndex) stretchMinutes * 60 - perStretch * i else perStretch
-            WorkoutTask(name, note, "마무리 스트레칭", seconds = seconds, description = note, phaseIndex = cardioSecond.size + i)
+            WorkoutTask(name, note, "마무리 스트레칭", seconds = seconds, description = note, phaseIndex = i)
         }
         val firstMinutes = cardioFirst.sumOf { it.seconds } / 60
         val secondMinutes = cardioSecond.sumOf { it.seconds } / 60
         val stages = listOf(
             WorkoutStage("준비운동", "관절 가동성 · 워밍업", obj.getInt("warm"), warm),
             WorkoutStage("유산소 ① · $CARDIO_FIRST", "실시간 구간 체크리스트", firstMinutes, cardioFirst),
-            WorkoutStage("근력운동", when (focus) { "upper" -> "상체 · 가슴/등/어깨/팔"; "lower" -> "하체 · 허벅지/둔근/종아리"; else -> "이번 주 랜덤 운동 · 세트/횟수" }, 50 - cardioMinutes(), strength),
-            WorkoutStage("유산소 ② · $CARDIO_SECOND", "유산소 정리 + 스트레칭", secondMinutes + stretchMinutes, cardioSecond + finish)
+            WorkoutStage("근력운동", when (focus) { "upper" -> "상체 · 가슴/등/어깨/팔"; "lower" -> "하체 · 허벅지/둔근/종아리"; else -> "이번 주 랜덤 운동 · 세트/횟수" }, strengthMinutes(), strength),
+            WorkoutStage("유산소 ② · $CARDIO_SECOND", "실시간 구간 체크리스트", secondMinutes, cardioSecond),
+            WorkoutStage("스트레칭", "마무리 스트레칭", stretchMinutes, finish)
         )
         require(stages.sumOf { it.minutes } == 60) { "Daily routine must be exactly 60 minutes" }
         require(cardioFirst.sumOf { it.seconds } + cardioSecond.sumOf { it.seconds } == cardioMinutes() * 60) { "Cardio phase mismatch" }
-        require(stages[3].tasks.sumOf { it.seconds } == stages[3].minutes * 60) { "Final block phase mismatch" }
+        require(stages[3].tasks.sumOf { it.seconds } == stages[3].minutes * 60) { "Second cardio phase mismatch" }
+        require(stages[4].tasks.sumOf { it.seconds } == stages[4].minutes * 60) { "Stretch phase mismatch" }
 
         return DailyRoutine(d, obj.getString("day"), obj.getString("short"), when (focus) { "upper" -> "오늘 선택 · 상체"; "lower" -> "오늘 선택 · 하체"; else -> obj.getString("focus") }, obj.getString("desc"), obj.getString("tag"), stages)
     }

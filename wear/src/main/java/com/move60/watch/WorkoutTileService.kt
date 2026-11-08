@@ -65,7 +65,7 @@ class WorkoutTileService : TileService() {
             state.finished -> "${state.completedSets}/${state.totalSets}세트 · 약 ${state.estimatedKcal.toInt()}kcal"
             rest -> "남은 약 ${(state.restSeconds()+59)/60}분"
             state.stageIndex == 2 -> state.exerciseName.ifBlank { state.setLabel }.take(15)
-            (state.stageIndex == 1 || state.stageIndex == 3) -> state.detail.ifBlank { "운동 진행" }
+            isTimedStage(state.stageIndex) -> state.detail.ifBlank { "운동 진행" }
             state.running -> state.detail
             else -> "휴대폰에서 운동을 시작"
         }
@@ -80,7 +80,7 @@ class WorkoutTileService : TileService() {
         val ratio = when {
             state.finished -> 1f
             state.stageIndex == 2 && state.totalSets > 0 -> state.completedSets.toFloat() / state.totalSets
-            state.running -> (state.stageIndex.coerceIn(0, 3) + 1) / 4f
+            state.running -> (state.stageIndex.coerceIn(0, LAST_STAGE) + 1) / STAGE_COUNT.toFloat()
             else -> 0f
         }
         val center = LayoutElementBuilders.Column.Builder()

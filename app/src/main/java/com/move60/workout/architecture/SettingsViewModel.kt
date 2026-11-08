@@ -27,8 +27,9 @@ class SettingsViewModel @Inject constructor(
     private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 4)
     val messages = _messages.asSharedFlow()
 
-    private val _cardioMinutes = MutableStateFlow(data.cardioMinutes())
-    val cardioMinutes: StateFlow<Int> = _cardioMinutes.asStateFlow()
+    /** 유산소 ① / 유산소 ② minutes; 근력 is the rest of the 50 adjustable minutes. */
+    private val _split = MutableStateFlow(data.cardioFirstMinutes() to data.cardioSecondMinutes())
+    val split: StateFlow<Pair<Int, Int>> = _split.asStateFlow()
 
     fun setSound(enabled: Boolean) { preferences.updateSound(enabled) }
 
@@ -43,17 +44,22 @@ class SettingsViewModel @Inject constructor(
     }
 
     /** Cardio/strength split can only change before today's workout starts. */
-    fun setCardioMinutes(minutes: Int) {
+    fun setCardioSplit(first: Int, second: Int) {
+        if (!WorkoutData.isValidSplit(first, second)) return
+        if (first == _split.value.first && second == _split.value.second) return
         session.reloadIfChanged()
         if (session.running || session.elapsed() > 0) {
+            _split.value = data.cardioFirstMinutes() to data.cardioSecondMinutes() // snap the slider back
             viewModelScope.launch { _messages.emit("운동 시작 전 초기 상태에서 변경해 주세요.") }
             return
         }
-        data.setCardioMinutes(minutes)
+        data.setCardioSplit(first, second)
         session.refreshRoutine()
         session.resetAll()
-        _cardioMinutes.value = minutes
-        viewModelScope.launch { _messages.emit("유산소 ${minutes}분 · 근력 ${50 - minutes}분으로 변경했어요") }
+        _split.value = first to second
+        viewModelScope.launch {
+            _messages.emit("유산소 ① ${first}분 · ② ${second}분 · 근력 ${WorkoutData.ADJUSTABLE_MINUTES - first - second}분으로 변경했어요")
+        }
     }
 
     fun setCondition(condition: String, summary: String) {

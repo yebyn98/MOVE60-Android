@@ -77,7 +77,7 @@ class BodyFocusTest {
         assertFalse(store.selectBodyFocus("lower"))
         assertEquals(token,store.sessionStartedAt)
         val oldPacket = store.snapshot()
-        store.jumpTo(3)
+        store.jumpTo(LAST_STAGE)
         store.nextStage()
         assertTrue(store.selectBodyFocus("lower"))
         assertTrue(SetRecordStore(context).read(store.day,task.id,1,token=token).completed)
@@ -102,7 +102,7 @@ class BodyFocusTest {
                 val store = SessionStore(context,data)
                 // The finalized Figma has four collapsed steps before workout starts.
                 assertNotNull(root.findViewWithTag<View>("phone_stage_stack"))
-                for (step in 0..3) assertNotNull(root.findViewWithTag<View>("phone_step_$step"))
+                for (step in 0..4) assertNotNull(root.findViewWithTag<View>("phone_step_$step"))
                 root.findViewWithTag<TextView>("phone_play").performClick()
                 repeat(2) { root.findViewWithTag<TextView>("phone_next").performClick() }
                 assertTrue(root.findViewWithTag<View>("phone_current_exercise").isShown)

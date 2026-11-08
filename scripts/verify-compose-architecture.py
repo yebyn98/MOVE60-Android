@@ -107,3 +107,12 @@ for _l in ("widget_workout", "widget_workout_large"):
     _x = read(f"app/src/main/res/layout/{_l}.xml")
     assert "widget_heart_value" in _x and "widget_heart_time" in _x and "widget_chip" in _x
 assert "widget_pace" in read("app/src/main/res/layout/widget_workout_large.xml")
+
+# v53: five stages (준비/유산소①/근력/유산소②/스트레칭), individual ①/② ratio slider, watch protocol 0..4.
+_data = read("app/src/main/java/com/move60/workout/WorkoutData.kt")
+assert "STAGE_COUNT = 5" in _data and 'WorkoutStage("스트레칭"' in _data and "fun setCardioSplit" in _data
+_session = read("app/src/main/java/com/move60/workout/SessionStore.kt")
+assert "0..LAST_STAGE" in _session and "stage >= LAST_STAGE" in _session and "phases4" in _session
+assert "RangeSlider" in read("app/src/main/java/com/move60/workout/architecture/ComposeScreens.kt")
+assert "STAGE_COUNT = 5" in read("wear/src/main/java/com/move60/watch/WatchWorkoutState.kt")
+assert "0..LAST_STAGE" in read("app/src/main/java/com/move60/workout/StageLog.kt")

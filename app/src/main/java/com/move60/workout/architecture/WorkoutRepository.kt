@@ -7,6 +7,7 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.move60.workout.EnergyLedger
+import com.move60.workout.LAST_STAGE
 import com.move60.workout.SessionStore
 import com.move60.workout.SetRecordStore
 import com.move60.workout.TrainingProgress
@@ -163,7 +164,7 @@ class DefaultWorkoutRepository @Inject constructor(
     }
     override suspend fun finishWorkout() = mutate {
         // Explicit final-stage exit, never auto-advance on a countdown.
-        if (!session.finished && session.stage == 3) session.nextStage()
+        if (!session.finished && session.stage == LAST_STAGE) session.nextStage()
         publishToService()
         if (session.finished) syncHistoricalData()
     }

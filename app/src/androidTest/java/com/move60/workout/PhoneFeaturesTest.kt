@@ -12,6 +12,7 @@ import androidx.test.espresso.Espresso.pressBack
 import androidx.test.espresso.action.ViewActions.click
 import androidx.test.espresso.assertion.ViewAssertions.matches
 import androidx.test.espresso.assertion.ViewAssertions.doesNotExist
+import androidx.test.espresso.matcher.RootMatchers.isDialog
 import androidx.test.espresso.matcher.ViewMatchers.*
 import org.hamcrest.CoreMatchers.`is`
 import org.junit.Assert.*
@@ -50,7 +51,7 @@ class PhoneFeaturesTest {
                 assertNotNull(root.findViewWithTag<View>("phone_dock_progress"))
                 assertNull(root.findViewWithTag<View>("phone_dashboard_summary"))
                 assertNotNull(root.findViewWithTag<View>("phone_stage_stack"))
-                for (index in 0..3) {
+                for (index in 0..4) {
                     assertNotNull("Missing workout stage $index", root.findViewWithTag<View>("phone_step_$index"))
                 }
                 assertNull(root.findViewWithTag<View>("phone_training_heading"))
@@ -102,7 +103,9 @@ class PhoneFeaturesTest {
                 val routine = SessionStore(context, WorkoutData(context)).routine
                 assertEquals(listOf("준비운동", "근력운동"), listOf(routine.stages[0].name, routine.stages[2].name))
                 assertTrue(routine.stages[1].tasks.all { it.kind != "마무리 스트레칭" })
-                assertTrue(routine.stages[3].tasks.any { it.kind == "마무리 스트레칭" })
+                assertTrue(routine.stages[3].tasks.all { it.kind != "마무리 스트레칭" })
+                assertTrue(routine.stages[4].tasks.isNotEmpty() && routine.stages[4].tasks.all { it.kind == "마무리 스트레칭" })
+                assertEquals(5, routine.stages.size)
             }
             screenshot("phone-v40-detail-header.png")
             repeat(3) { scenario.onActivity { it.window.decorView.findViewWithTag<TextView>("phone_next").performClick() } }
@@ -110,11 +113,28 @@ class PhoneFeaturesTest {
             screenshot("phone-v40-cardio-final.png")
         }
     }
+    @Test fun cardioStageShowsPhaseRowsWithCurrentPhaseRpeAndNextPhase() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { it.window.decorView.findViewWithTag<TextView>("phone_play").performClick() }
+            scenario.onActivity { it.window.decorView.findViewWithTag<TextView>("phone_next").performClick() }
+            instrumentation.waitForIdleSync()
+            scenario.onActivity { activity ->
+                val root = activity.window.decorView
+                val row = root.findViewWithTag<View>("phone_phase_row_0")
+                assertNotNull("cardio phase rows must be listed", row)
+                assertTrue("phase rows keep a 48dp touch height", row.height >= (48 * activity.resources.displayMetrics.density).toInt() - 1)
+                assertNotNull(root.findViewWithTag<View>("phone_phase_bar"))
+                assertTrue(root.findViewWithTag<TextView>("phone_phase_time").text.toString().matches(Regex("\\d{2}:\\d{2}")))
+                assertTrue(root.findViewWithTag<TextView>("phone_step_chip_1").text.toString().startsWith("유산소 ①"))
+            }
+            screenshot("phone-v53-cardio-phases.png")
+        }
+    }
     @Test fun accordionHeadersUseChevronIconsWithFullTouchHeight() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             scenario.onActivity { activity ->
                 val root = activity.window.decorView
-                (0..3).forEach { index ->
+                (0..4).forEach { index ->
                     val chevron = root.findViewWithTag<View>("phone_step_chevron_$index")
                     assertTrue("step $index chevron must be an icon, not a text glyph", chevron is ImageView)
                     assertTrue("chevron touch area must stay at least 48dp", chevron.layoutParams.height >= (48 * activity.resources.displayMetrics.density).toInt())
@@ -140,7 +160,7 @@ class PhoneFeaturesTest {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             // The only pre-start action is Start; the final action now needs confirmation.
             scenario.onActivity { it.window.decorView.findViewWithTag<TextView>("phone_play").performClick() }
-            repeat(3) { scenario.onActivity { activity -> activity.window.decorView.findViewWithTag<TextView>("phone_next").performClick() } }
+            repeat(4) { scenario.onActivity { activity -> activity.window.decorView.findViewWithTag<TextView>("phone_next").performClick() } }
             scenario.onActivity { activity ->
                 val next = activity.window.decorView.findViewWithTag<TextView>("phone_next")
                 assertEquals("운동 종료", next.text.toString())
@@ -148,7 +168,10 @@ class PhoneFeaturesTest {
                 next.performClick()
             }
             try {
-                onView(withText("기록하고 종료")).perform(click())
+                // The confirmation lives in its own dialog window. CI evidence showed the dialog on screen while the
+                // activity window still reported has-window-focus=false, so Espresso kept the activity as root and could
+                // not find the button. Waiting for the dialog root removes that timing race.
+                onView(withText("기록하고 종료")).inRoot(isDialog()).perform(click())
             } catch (e: Throwable) {
                 // Diagnostic evidence for CI: what was actually on screen when the confirmation was not found.
                 val shot = instrumentation.uiAutomation.takeScreenshot()
@@ -234,17 +257,22 @@ class PhoneFeaturesTest {
     }
     @Test fun cardioUsesBikeThenEllipticalAndEveryCombinationRemainsSixtyMinutes() {
         val data = WorkoutData(context)
-        for (minutes in listOf(20, 25, 30, 35, 40)) {
-            data.setCardioMinutes(minutes)
+        for ((firstMin, secondMin) in listOf(15 to 15, 15 to 20, 5 to 5, 35 to 5, 5 to 35, 20 to 10, 10 to 30, 25 to 15)) {
+            data.setCardioSplit(firstMin, secondMin)
+            val minutes = firstMin + secondMin
             for (week in 0L..10L) for (day in 1..5) {
                 val routine = data.routine(day, week)
                 assertEquals(60, routine.stages.sumOf { it.minutes })
                 val first = routine.stages[1].tasks
-                val second = routine.stages[3].tasks.filter { it.kind != "마무리 스트레칭" }
+                val second = routine.stages[3].tasks
                 assertEquals(minutes * 60, (first + second).sumOf { it.seconds })
                 assertEquals(routine.stages[1].minutes * 60, first.sumOf { it.seconds })
                 assertEquals(routine.stages[3].minutes * 60, routine.stages[3].tasks.sumOf { it.seconds })
-                assertTrue("cardio-strength-cardio", routine.stages[1].minutes in 5..routine.stages[3].minutes)
+                assertEquals("유산소 ① is set individually", firstMin, routine.stages[1].minutes)
+                assertEquals("유산소 ② is set individually", secondMin, routine.stages[3].minutes)
+                assertEquals("근력 takes the rest of the 50 minutes", 50 - minutes, routine.stages[2].minutes)
+                assertEquals(routine.stages[4].minutes * 60, routine.stages[4].tasks.sumOf { it.seconds })
+                assertTrue("stretch stage only holds stretches", routine.stages[4].tasks.all { it.kind == "마무리 스트레칭" })
                 assertTrue("first block is the bike", first.isNotEmpty() && first.all { it.kind == "실내 사이클" })
                 assertTrue("second block is the elliptical", second.isNotEmpty() && second.all { it.kind == "일립티컬" })
                 assertTrue("no stair climber or rowing", (first + second).none { Regex("스텝밀|로잉").containsMatchIn(it.name + it.detail) })

@@ -62,7 +62,8 @@ class ComposeArchitectureTest {
         rule.onNodeWithText("보통").assertIsDisplayed()
         rule.onNodeWithText("좋음").assertIsDisplayed()
         list.performScrollToNode(hasTestTag("settings_ratio"))
-        for (minutes in listOf(20, 25, 30, 35, 40)) rule.onNodeWithTag("settings_ratio_$minutes").assertIsDisplayed()
+        rule.onNodeWithTag("settings_ratio_slider").assertIsDisplayed()
+        rule.onNodeWithTag("settings_ratio_summary", useUnmergedTree = true).assertIsDisplayed()
         list.performScrollToNode(hasText("칼로리 계산 체중"))
         rule.onNodeWithText("칼로리 계산 체중").assertIsDisplayed()
         rule.onNodeWithTag("settings_weight_field").assertIsDisplayed()
@@ -76,18 +77,20 @@ class ComposeArchitectureTest {
         capture("compose-settings-list.png")
     }
 
-    @Test fun ratioChipsChangeTheSplitInline() {
+    @Test fun ratioSliderShowsThreeIndividualSegmentsThatAlwaysSumToFifty() {
         rule.onNodeWithContentDescription("앱 설정").performClick()
         val list = rule.onNodeWithTag("settings_list")
         list.performScrollToNode(hasTestTag("settings_ratio"))
-        rule.onNodeWithTag("settings_ratio_25").performClick()
-        rule.waitForIdle()
-        rule.onNodeWithTag("settings_ratio_summary", useUnmergedTree = true)
-            .assertTextContains("유산소 25분 · 근력 25분", substring = true)
-        rule.onNodeWithTag("settings_ratio_30").performClick()
-        rule.waitForIdle()
-        rule.onNodeWithTag("settings_ratio_summary", useUnmergedTree = true)
-            .assertTextContains("유산소 30분 · 근력 20분", substring = true)
+        rule.onNodeWithText("유산소 ①").assertIsDisplayed()
+        rule.onNodeWithText("유산소 ②").assertIsDisplayed()
+        rule.onNodeWithText("근력").assertIsDisplayed()
+        val description = rule.onNodeWithTag("settings_ratio_summary", useUnmergedTree = true)
+            .fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.ContentDescription].first()
+        val minutes = Regex("(\\d+)분").findAll(description).map { it.groupValues[1].toInt() }.toList()
+        org.junit.Assert.assertEquals(3, minutes.size)
+        org.junit.Assert.assertEquals(50, minutes.sum())
+        org.junit.Assert.assertTrue("every segment is a 5-minute step", minutes.all { it % 5 == 0 && it >= 5 })
+        org.junit.Assert.assertTrue("strength keeps at least 10 minutes", minutes[2] >= 10)
     }
 
     @Test fun turningNotificationsOnOpensTheDiagnostics() {

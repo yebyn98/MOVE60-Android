@@ -25,7 +25,7 @@ class SessionDateTest {
         val data = WorkoutData(context)
         val store = SessionStore(context,data) { date }
         store.setDay(5)
-        store.jumpTo(3)
+        store.jumpTo(LAST_STAGE)
         store.nextStage()
         date = today
         val fresh = SessionStore(context,data) { date }
@@ -43,7 +43,7 @@ class SessionDateTest {
         val data = WorkoutData(context)
         val first = SessionStore(context,data)
         first.setDay(4)
-        first.jumpTo(3)
+        first.jumpTo(LAST_STAGE)
         first.start()
         first.reconcile(System.currentTimeMillis()+1500L)
         first.nextStage()
@@ -84,7 +84,7 @@ class SessionDateTest {
         assertTrue(restored.running)
         assertEquals(today.minusDays(1),restored.recordDate)
         val old = restored.snapshot()
-        restored.jumpTo(3)
+        restored.jumpTo(LAST_STAGE)
         restored.nextStage()
         val fresh = SessionStore(context,data)
         assertFalse(fresh.finished)

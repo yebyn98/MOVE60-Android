@@ -56,7 +56,7 @@ class TrainingSyncTest {
         assertEquals(paused+15,store.restSeconds())
         store.start()
         assertTrue(store.restDeadline > System.currentTimeMillis())
-        store.jumpTo(3)
+        store.jumpTo(LAST_STAGE)
         assertEquals(0,store.restSeconds())
         store.nextStage()
         assertTrue(SessionStore(context,WorkoutData(context)).finished)
