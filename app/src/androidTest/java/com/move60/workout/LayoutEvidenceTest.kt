@@ -89,10 +89,10 @@ class LayoutEvidenceTest {
     @Test fun expandedNotificationShowsLogoIconChipRowAndTotal() {
         val view = render(R.layout.notification_workout_expanded, 360, "notification-expanded.png") {
             it.setTextViewText(R.id.n_stage_chip, "실내 사이클")
-            it.setTextViewText(R.id.n_total, "전체 20/60분")
+            it.setTextViewText(R.id.n_total, "전체시간 20/60분")
             it.setTextViewText(R.id.n_title, "빠르게 페달링")
         }
-        assertEquals("전체 20/60분", view.findViewById<TextView>(R.id.n_total).text.toString())
+        assertEquals("전체시간 20/60분", view.findViewById<TextView>(R.id.n_total).text.toString())
         assertTrue(view.findViewById<View>(R.id.n_brand).measuredWidth > 0)
     }
 }

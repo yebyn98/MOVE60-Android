@@ -179,7 +179,9 @@ class WorkoutService : Service() {
     private data class Cue(
         val stageName: String, val title: String, val detail: String,
         val round: String, val effort: String, val ends: Long,
-        val progress: Int, val dayName: String
+        val progress: Int, val dayName: String,
+        /** Strength has no allotted time: show the overall elapsed time counting up instead of a countdown. */
+        val countUp: Boolean = false
     )
 
     private fun cue(now: Long): Cue {
@@ -216,7 +218,7 @@ class WorkoutService : Service() {
                 from = until
             }
         }
-        return Cue(stageNames[stage], title, detail, round, effort, countdownEnd, progress, dayNames[day - 1])
+        return Cue(stageNames[stage], title, detail, round, effort, countdownEnd, progress, dayNames[day - 1], countUp = stage == 2)
     }
 
     private fun builder(channel: String): Notification.Builder {
@@ -240,12 +242,17 @@ class WorkoutService : Service() {
         result.setTextViewText(R.id.n_detail, c.detail)
         result.setTextViewText(R.id.n_badge, c.round)
         result.setTextViewText(R.id.n_accent, c.effort)
-        result.setTextViewText(R.id.n_total, "전체 ${c.progress / 60}/60분")
-        result.setTextViewText(R.id.n_remaining_label, "남은 시간")
+        result.setTextViewText(R.id.n_total, "전체시간 ${c.progress / 60}/60분")
+        result.setTextViewText(R.id.n_remaining_label, if (c.countUp) "전체시간" else "남은 시간")
         result.setProgressBar(R.id.n_progress, max(3600, c.progress), c.progress, false)
-        val secondsLeft = max(0L, ceil((c.ends - now) / 1000.0).toLong())
-        result.setChronometer(R.id.n_timer, SystemClock.elapsedRealtime() + secondsLeft * 1000L, null, true)
-        if (Build.VERSION.SDK_INT >= 24) result.setChronometerCountDown(R.id.n_timer, true)
+        if (c.countUp) {
+            result.setChronometer(R.id.n_timer, SystemClock.elapsedRealtime() - c.progress * 1000L, null, true)
+            if (Build.VERSION.SDK_INT >= 24) result.setChronometerCountDown(R.id.n_timer, false)
+        } else {
+            val secondsLeft = max(0L, ceil((c.ends - now) / 1000.0).toLong())
+            result.setChronometer(R.id.n_timer, SystemClock.elapsedRealtime() + secondsLeft * 1000L, null, true)
+            if (Build.VERSION.SDK_INT >= 24) result.setChronometerCountDown(R.id.n_timer, true)
+        }
         return result
     }
 
@@ -253,8 +260,8 @@ class WorkoutService : Service() {
         val c = cue(now)
         return builder(CHANNEL_PROGRESS).setContentTitle("MOVE60 · " + c.title)
             .setContentText(c.effort + " · " + c.round + " · 총 운동 " + (c.progress / 60) + "분")
-            .setWhen(c.ends).setShowWhen(true)
-            .setUsesChronometer(true).setChronometerCountDown(true)
+            .setWhen(if (c.countUp) now - c.progress * 1000L else c.ends).setShowWhen(true)
+            .setUsesChronometer(true).setChronometerCountDown(!c.countUp)
             .setProgress(max(3600, c.progress), c.progress, false)
             .setOngoing(true).setCategory(Notification.CATEGORY_SERVICE)
             .build()
@@ -283,8 +290,8 @@ class WorkoutService : Service() {
             .setPublicVersion(publicVersion)
             .setOngoing(true)
             .setCategory(Notification.CATEGORY_SERVICE)
-            .setShowWhen(true).setWhen(c.ends)
-            .setUsesChronometer(true).setChronometerCountDown(true)
+            .setShowWhen(true).setWhen(if (c.countUp) now - c.progress * 1000L else c.ends)
+            .setUsesChronometer(true).setChronometerCountDown(!c.countUp)
             .build()
     }
 

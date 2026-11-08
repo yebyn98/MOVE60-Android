@@ -9,7 +9,7 @@ import kotlin.math.ceil
 const val STAGE_COUNT = 5
 const val LAST_STAGE = STAGE_COUNT - 1
 /** Cardio stages and the stretch stage carry timed intervals. */
-fun isTimedStage(stageIndex: Int) = stageIndex == 1 || stageIndex == 3 || stageIndex == 4
+fun isTimedStage(stageIndex: Int) = stageIndex == 0 || stageIndex == 1 || stageIndex == 3 || stageIndex == 4
 
 data class WatchWorkoutState(
     val running: Boolean = false, val finished: Boolean = false,

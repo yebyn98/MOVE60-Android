@@ -79,7 +79,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_vertical"
-            android:text="전체 20/60분"
+            android:text="전체시간 20/60분"
             android:textColor="@color/move60_text_medium"
             android:textSize="12sp" />
     </LinearLayout>
