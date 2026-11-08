@@ -62,7 +62,10 @@ class WearHealthActivity : ComponentActivity(), DataClient.OnDataChangedListener
         val heartStatus: String = "측정 대기",
         val sharedBpm: Int? = null,
         val healthConsent: Boolean = false,
-        val measuredAt: Long = 0L
+        val measuredAt: Long = 0L,
+        /** Opt-in watch calories (Health Services). Off until the user turns it on. */
+        val kcalOptIn: Boolean = false,
+        val kcalStatus: String = "꺼짐"
     )
 
     private var displayState by mutableStateOf(HealthState())
@@ -76,12 +79,33 @@ class WearHealthActivity : ComponentActivity(), DataClient.OnDataChangedListener
         else displayState = displayState.copy(heartStatus = "심박수 접근 권한이 필요해요")
     }
 
+    private val requestActivity = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { allowed ->
+        if (allowed) { WatchExerciseCalories.setOptIn(this, true); startLiveHeartRate() }
+        else WatchExerciseCalories.setOptIn(this, false)
+        refreshFromSaved()
+    }
+
+    /** Turning on needs an explicit activity-recognition grant; turning off is immediate. */
+    private fun toggleKcal() {
+        if (WatchExerciseCalories.isOptedIn(this)) {
+            WatchExerciseCalories.setOptIn(this, false)
+            refreshFromSaved()
+        } else if (WatchExerciseCalories.hasPermission(this)) {
+            WatchExerciseCalories.setOptIn(this, true)
+            startLiveHeartRate()
+            refreshFromSaved()
+        } else requestActivity.launch(Manifest.permission.ACTIVITY_RECOGNITION)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             HealthScreen(
                 state = displayState,
                 onStartSensor = { requestHeartRate() },
+                onToggleKcal = { toggleKcal() },
                 onBack = { finish() }
             )
         }
@@ -143,7 +167,9 @@ class WearHealthActivity : ComponentActivity(), DataClient.OnDataChangedListener
             heartStatus = sensorPrefs.getString("status", "센서 시작 전") ?: "센서 시작 전",
             sharedBpm = if (consented) prefs.getInt("lastHeartBpm", 0).takeIf { it in 30..240 } else null,
             healthConsent = consented,
-            measuredAt = freshAt
+            measuredAt = freshAt,
+            kcalOptIn = WatchExerciseCalories.isOptedIn(this) && WatchExerciseCalories.hasPermission(this),
+            kcalStatus = WatchExerciseCalories.status(this)
         )
     }
 
@@ -180,7 +206,8 @@ private val foreground = Color.White
 fun HealthScreen(
     state: WearHealthActivity.HealthState,
     onStartSensor: () -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onToggleKcal: () -> Unit = {}
 ) {
     Box(Modifier.fillMaxSize().testTag("wear_health_root").background(Color.Black), contentAlignment = Alignment.Center) {
         // Horologist preserves the safe square within a round display (Watch4 small).
@@ -237,6 +264,22 @@ fun HealthScreen(
                         fontSize = 10.sp, color = secondary, textAlign = TextAlign.Center,
                         maxLines = 3
                     )
+                }
+                item {
+                    HealthCard {
+                        Text("워치 칼로리 측정", color = secondary, fontSize = 12.sp)
+                        Text("운동 중 워치가 계산한 총 칼로리(기초대사 포함)를 폰에 보내요. 꺼두면 보내지 않아요.",
+                            color = secondary, fontSize = 10.sp, textAlign = TextAlign.Center, maxLines = 4)
+                        androidx.wear.compose.material.Chip(
+                            onClick = onToggleKcal,
+                            label = { Text(if (state.kcalOptIn) "측정 끄기" else "측정 켜기", fontSize = 12.sp) },
+                            secondaryLabel = { Text(state.kcalStatus, fontSize = 10.sp, maxLines = 2) },
+                            modifier = Modifier.fillMaxWidth().testTag("wear_kcal_chip"),
+                            colors = if (state.kcalOptIn) androidx.wear.compose.material.ChipDefaults.secondaryChipColors()
+                                else androidx.wear.compose.material.ChipDefaults.primaryChipColors(
+                                    backgroundColor = brand, contentColor = Color.Black)
+                        )
+                    }
                 }
                 item {
                     androidx.wear.compose.material.Chip(

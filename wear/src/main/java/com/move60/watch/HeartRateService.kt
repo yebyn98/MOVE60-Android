@@ -29,6 +29,9 @@ class HeartRateService : Service(), SensorEventListener, DataClient.OnDataChange
     private var sessionId = 0L
     private var hiddenSince = 0L
     private var lastSentAt = 0L
+    private var finished = false
+    private var exerciseKcal: com.move60.watch.health.WatchExerciseCalories? = null
+    private var exerciseKcalSession = 0L
     private val startedAt = SystemClock.elapsedRealtime()
     private val watchdog = object : Runnable {
         override fun run() {
@@ -148,6 +151,29 @@ class HeartRateService : Service(), SensorEventListener, DataClient.OnDataChange
         }
         sessionId = newSession
         running = map.getBoolean("running")
+        finished = map.getBoolean("finished")
+        syncExerciseCalories()
+    }
+
+    /** Opt-in watch calories: one Health Services exercise per phone workout session; never started without consent. */
+    private fun syncExerciseCalories() {
+        val enabled = com.move60.watch.health.WatchExerciseCalories.isOptedIn(this) &&
+            com.move60.watch.health.WatchExerciseCalories.hasPermission(this) && sessionId > 0L && !finished
+        if (!enabled || (exerciseKcal != null && exerciseKcalSession != sessionId)) {
+            exerciseKcal?.end(); exerciseKcal = null
+        }
+        if (!enabled) return
+        val session = sessionId
+        val controller = exerciseKcal ?: com.move60.watch.health.WatchExerciseCalories(this, session) { total, at ->
+            sendKcal(session, total, at)
+        }.also { exerciseKcal = it; exerciseKcalSession = session }
+        if (running) controller.startOrResume() else controller.pause()
+    }
+    private fun sendKcal(session: Long, total: Double, measuredAt: Long) {
+        Wearable.getNodeClient(this).connectedNodes.addOnSuccessListener { nodes ->
+            for (node in nodes) Wearable.getMessageClient(this).sendMessage(
+                node.id, "/move60/command", "kcal:$session:$total:$measuredAt".toByteArray(Charsets.UTF_8))
+        }
     }
     override fun onDataChanged(events: DataEventBuffer) {
         for (event in events) if (event.type == DataEvent.TYPE_CHANGED) readWorkout(event.dataItem)
@@ -167,6 +193,7 @@ class HeartRateService : Service(), SensorEventListener, DataClient.OnDataChange
     }
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
+        exerciseKcal?.end(); exerciseKcal = null
         Wearable.getDataClient(this).removeListener(this)
         if (registered) sensorManager.unregisterListener(this)
         registered = false

@@ -24,6 +24,10 @@ class WatchCommandService : WearableListenerService() {
                 .putLong("watch_heart_rate_at", measuredAt.coerceAtMost(now)).apply()
             return
         }
+        if (command.startsWith("kcal:")) {
+            WatchKcal.parse(command, System.currentTimeMillis())?.let { WatchKcal.save(this, it) }
+            return
+        }
         android.os.Handler(mainLooper).post {
             val request = try { org.json.JSONObject(command) } catch (_: Exception) { return@post }
             val resync = request.optString("op") == "resync"

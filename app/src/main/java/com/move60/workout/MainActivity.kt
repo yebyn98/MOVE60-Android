@@ -56,6 +56,7 @@ class MainActivity : Activity() {
     private lateinit var dockProgressFill: View
     private lateinit var dockTime: TextView
     private lateinit var dockCalories: TextView
+    private lateinit var dockWatchKcal: TextView
     private lateinit var dockHeartRate: TextView
     private lateinit var play: TextView
     private lateinit var previous: TextView
@@ -267,6 +268,12 @@ class MainActivity : Activity() {
             contentDescription = "오늘 날짜에 실제 운동한 시간의 누적 소모 칼로리 추정치"
             tag = "phone_session_calories"
         }
+        // Opt-in watch measurement: its own line, only while a fresh sample exists for this workout.
+        dockWatchKcal = label("", 12, false, textSecondary).apply {
+            tag = "phone_watch_kcal"
+            visibility = View.GONE
+            contentDescription = "워치가 측정한 이번 운동 총 칼로리, 기초대사 포함"
+        }
         info.addView(dockStage)
         info.addView(dockTime)
         state.addView(info, LinearLayout.LayoutParams(0, -2, 1f))
@@ -287,6 +294,7 @@ class MainActivity : Activity() {
         dock.addView(state)
         addGap(dock, 8)
         dock.addView(dockCalories)
+        dock.addView(dockWatchKcal)
         addGap(dock, 8)
         play = actionButton("운동 시작", true) {
             if (session.running) session.pause() else {
@@ -1009,6 +1017,9 @@ class MainActivity : Activity() {
         // Daily, not per-session: includes multiple workouts on the same Korean calendar day.
         // Previous dates are never combined with today's displayed total.
         dockCalories.text = "오늘 누적 ${"%.1f".format(EnergyLedger(this).estimate(data.localToday(), org.json.JSONObject(session.snapshot())))} kcal · 추정"
+        val watchKcal = WatchKcal.fresh(this, session.sessionStartedAt)
+        dockWatchKcal.visibility = if (watchKcal != null) View.VISIBLE else View.GONE
+        if (watchKcal != null) dockWatchKcal.text = "워치 측정 ${"%.0f".format(watchKcal.totalKcal)} kcal · 기초대사 포함"
     }
 
     private fun showWorkoutResult() {
