@@ -119,9 +119,10 @@ class ComposeArchitectureTest {
         // The former "운동 현황" card now lives in the dock (progress bar) and the routine card header.
         rule.onNodeWithText("운동 현황").assertDoesNotExist()
         rule.onNodeWithTag("dock_progress").assertIsDisplayed()
-        // The caption sits inside the clickable routine card, whose semantics merge their children.
+        // Figma 01: the routine card header ends in a chevron; no "단계 n/5" or set-count caption anywhere on the home.
         rule.onNodeWithTag("dashboard_session_caption", useUnmergedTree = true).assertIsDisplayed()
-            .assertTextContains("단계 1/", substring = true)
+        rule.onNodeWithText("단계 1/", substring = true).assertDoesNotExist()
+        rule.onNodeWithText("1/5", substring = true).assertDoesNotExist()
         rule.onNodeWithText("상세 운동 화면").assertDoesNotExist()
         rule.onNodeWithText("중량 kg").assertDoesNotExist()
         // Actual emulator screenshot: the PR artifact includes this captured screen.

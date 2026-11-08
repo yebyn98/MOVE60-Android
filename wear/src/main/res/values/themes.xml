@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Watch app theme. Android 12+ overrides the system launch screen in values-v31 (no green icon-only frame). -->
+    <style name="Move60Wear" parent="@android:style/Theme.Material.NoActionBar" />
+</resources>

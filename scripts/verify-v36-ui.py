@@ -32,6 +32,14 @@ assert "ic_expand_more" in main and "ic_expand_less" in main and "phone_step_che
 assert "phone_step_preview_" in main and "buildStageRows(" in main and "phone_step_row_" in main, "Non-active stages must show structured read-only rows (icon + name + meta), not plain text"
 assert "내용을 확인할 수 있어요" not in main and "step.tasks.take(4)" not in main, "Non-active stage rows must not use the legacy text preview or truncate tasks"
 assert "n_badge" not in (root/"app/src/main/java/com/move60/workout/WorkoutService.kt").read_text(), "Notification has no n/N section badge"
+# v58: Figma-sync regressions that the string checks above could not see.
+assert "회차" not in (root/"app/src/main/java/com/move60/workout/WorkoutData.kt").read_text().replace('"n/N회차"', ""), "cardio phase names carry no n/N회차 prefix"
+assert '"+%s"' in (root/"app/src/main/java/com/move60/workout/WorkoutService.kt").read_text(), "Notification overtime counts up as +mm:ss"
+assert '"+%s"' in (root/"app/src/main/java/com/move60/workout/WorkoutWidget.kt").read_text(), "Widget overtime counts up as +mm:ss"
+assert "setUsesChronometer" not in (root/"app/src/main/java/com/move60/workout/WorkoutService.kt").read_text().split("private fun buildNotification")[1].split("private fun updateAndSchedule")[0], "Card notification has no second (system header) chronometer"
+assert "windowSplashScreenAnimatedIcon" in (root/"wear/src/main/res/values-v31/themes.xml").read_text(), "Watch has no green icon-only launch frame"
+assert '"새 운동"' in (root/"wear/src/main/java/com/move60/watch/WatchActivity.kt").read_text(), "Watch offers a new workout after finishing"
+assert "jumpToPhase" in (root/"app/src/main/java/com/move60/workout/MainActivity.kt").read_text(), "Item rows of the running stage are tappable"
 assert "phone_current_guide" in main and "phone_rest" in main, "Figma: detail = rest card + current-exercise card with set entry"
 assert "fun buildSetTable" in main and "phone_current_exercise" in main and "buildSetTable(task)" in main.split("fun showDetails")[1], "Set entry: current-exercise card + exercise popup"
 for feature in ("운동 알림 진단", "notificationDiagnostics(", "updateManager.check(true)", "peekAvailability", "settings_ratio", "오늘 컨디션 루틴", "칼로리 계산 체중"):
@@ -65,7 +73,7 @@ assert "건강 대시보드" in old
 assert 'horologist-compose-layout:0.6.23' in read("wear/build.gradle")
 targets=read("scripts/release-targets.json")
 assert '"phone": true' in targets and '"watch":' in targets  # watch is released only when its code changes
-assert "versionCode 57" in read("app/build.gradle") and "versionCode 51" in read("wear/build.gradle")
+assert "versionCode 58" in read("app/build.gradle") and "versionCode 52" in read("wear/build.gradle")
 for manifest_path, activity in (
     ("app/src/main/AndroidManifest.xml", ".health.HealthConsentActivity"),
     ("wear/src/main/AndroidManifest.xml", ".health.WearHealthActivity"),

@@ -162,9 +162,12 @@ fun WorkoutDashboard(
             // Figma order: the weekly plan first, then today's routine.
             item {
                 Move60Card(Modifier.testTag("dashboard_plan_card")) {
-                    Text("이번 주 운동 계획", style = cardTitle)
-                    Text("요일과 운동 부위를 선택하면 상세 운동 화면에 적용돼요.",
-                        color = secondary, style = MaterialTheme.typography.bodySmall)
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text("이번 주 운동 계획", style = cardTitle, modifier = Modifier.weight(1f))
+                        Text(listOf("월", "화", "수", "목", "금").getOrElse(state.day - 1) { "" } + "요일",
+                            color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.bodySmall)
+                    }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         val days = listOf("월", "화", "수", "목", "금")
                         days.forEachIndexed { index, title ->
@@ -196,24 +199,25 @@ fun WorkoutDashboard(
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically) {
                         Text("오늘의 운동 구성", style = cardTitle, modifier = Modifier.weight(1f))
-                        Text("근력 세트 ${state.completedSets}/${state.totalSets} · 단계 " +
-                            "${state.stage + 1}/${state.stageNames.size.coerceAtLeast(1)}",
-                            color = secondary, style = MaterialTheme.typography.bodySmall, maxLines = 1,
-                            modifier = Modifier.testTag("dashboard_session_caption"))
+                        Icon(Icons.Outlined.ChevronRight, contentDescription = null,
+                            tint = secondary, modifier = Modifier.testTag("dashboard_session_caption"))
                     }
                     state.stageNames.forEachIndexed { index, name ->
-                        Row(Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        if (index > 0) Move60Divider()
+                        val current = index == state.stage
+                        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(vertical = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalAlignment = Alignment.CenterVertically) {
-                            Text("${index + 1}", color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.Bold)
-                            Text(name, modifier = Modifier.weight(1f),
-                                fontWeight = if (index == state.stage) FontWeight.Bold else FontWeight.Normal,
-                                color = if (index == state.stage)
-                                    MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.onSurface)
-                            if (index == state.stage) Text("현재", color = secondary,
-                                style = MaterialTheme.typography.labelSmall)
+                            Box(Modifier.size(28.dp).background(
+                                if (current) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant, CircleShape),
+                                contentAlignment = Alignment.Center) {
+                                Text("${index + 1}", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium,
+                                    color = if (current) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
+                            }
+                            Text(name + if (index == 2 && state.bodyFocus == "lower") " · 하체"
+                                else if (index == 2 && state.bodyFocus == "upper") " · 상체" else "",
+                                modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold,
+                                color = if (current) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
                         }
                     }
                 }
@@ -254,7 +258,7 @@ private fun WorkoutDock(state: WorkoutUiState, viewModel: WorkoutViewModel, onOp
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text("${state.stageName} · ${state.stage + 1}/${state.stageNames.size.coerceAtLeast(1)} 단계",
+                    Text(listOf(state.stageName, state.itemName).filter { it.isNotBlank() }.joinToString(" · "),
                         style = MaterialTheme.typography.titleMedium, maxLines = 1)
                     Text("${formatSeconds(state.activeSeconds)} / 60:00", color = secondary,
                         style = MaterialTheme.typography.bodySmall)
@@ -275,8 +279,10 @@ private fun WorkoutDock(state: WorkoutUiState, viewModel: WorkoutViewModel, onOp
                 color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.bodySmall)
         }
+        // Figma 01/02: before the workout starts the start button is the only action (no previous/next).
+        val started = state.running || state.activeSeconds > 0 || state.finished
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Move60Button(
+            if (started) Move60Button(
                 modifier = Modifier.weight(1f), primary = false, minHeight = 48,
                 enabled = state.stage > 0 && !state.finished,
                 contentPadding = PaddingValues(horizontal = 8.dp),
@@ -288,7 +294,7 @@ private fun WorkoutDock(state: WorkoutUiState, viewModel: WorkoutViewModel, onOp
                 Text("이전", maxLines = 1, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
             }
             Move60Button(
-                modifier = Modifier.weight(1.35f).testTag("dock_play"), minHeight = 48,
+                modifier = Modifier.weight(if (started) 1.35f else 1f).testTag("dock_play"), minHeight = 48,
                 onClick = {
                     val starting = !state.running
                     viewModel.playPause()
@@ -305,7 +311,7 @@ private fun WorkoutDock(state: WorkoutUiState, viewModel: WorkoutViewModel, onOp
                     else -> "운동 시작"
                 }, maxLines = 1)
             }
-            Move60Button(
+            if (started) Move60Button(
                 modifier = Modifier.weight(1f), primary = false, minHeight = 48,
                 enabled = !state.finished,
                 contentPadding = PaddingValues(horizontal = 8.dp),

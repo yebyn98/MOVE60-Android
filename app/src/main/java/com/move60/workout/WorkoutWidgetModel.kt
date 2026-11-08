@@ -23,6 +23,8 @@ data class WidgetModel(
     val running: Boolean,
     val countDown: Boolean = true,
     val timerLabel: String = "남은 시간",
+    /** True once a timed item ran past its target: the timer then counts UP and is shown as "+mm:ss". */
+    val overtime: Boolean = false,
     val heartBpm: Int?,
     val heartTime: String?
 )
@@ -70,13 +72,26 @@ object WorkoutWidgetModel {
             finished || !hasSession -> 0L
             else -> phaseRemaining(state, stage, phases, stageRemaining) ?: stageRemaining
         }
+        val over = if (countUp || finished || !hasSession || phases == null) 0L else overtimeSeconds(state, stage, nowMillis, running)
         return WidgetModel(
-            title = title, status = status, pace = pace, remainingSeconds = timerSeconds, running = running,
-            countDown = !countUp, timerLabel = if (countUp) "전체시간" else "남은 시간",
+            title = title, status = status, pace = pace,
+            remainingSeconds = if (over > 0L) over else timerSeconds, running = running,
+            countDown = !countUp && over == 0L,
+            timerLabel = if (countUp) "전체시간" else if (over > 0L) "초과 시간" else "남은 시간",
+            overtime = over > 0L,
             heartBpm = heart?.bpm?.takeIf { it in 30..240 },
             heartTime = heart?.takeIf { it.bpm in 30..240 && it.measuredAt > 0L }
                 ?.let { formatMeasuredAt(it.measuredAt, nowMillis, zone) }
         )
+    }
+
+    /** Seconds spent beyond the stage target (0 while inside it); the last item of a stage keeps running. */
+    internal fun overtimeSeconds(state: JSONObject, stage: Int, nowMillis: Long, running: Boolean): Long {
+        val total = (state.optJSONArray("stageSeconds")?.optInt(stage, 0) ?: 0).toLong()
+        if (total <= 0L) return 0L
+        val checkpoint = state.optLong("activeCheckpointAt", 0L)
+        val extra = if (running && checkpoint > 0L) ((nowMillis - checkpoint) / 1000L).coerceAtLeast(0L) else 0L
+        return (state.optLong("stageElapsedSeconds", 0L) + extra - total).coerceAtLeast(0L)
     }
 
     private fun elapsedTotal(state: JSONObject, nowMillis: Long, running: Boolean): Long {

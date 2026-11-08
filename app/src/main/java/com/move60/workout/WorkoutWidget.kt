@@ -87,7 +87,7 @@ class WorkoutWidget : AppWidgetProvider() {
                     if (model.status == WidgetStatus.PAUSED) R.color.move60_text_medium else R.color.move60_text))
                 val timerBase = if (model.countDown) SystemClock.elapsedRealtime() + model.remainingSeconds * 1000L
                     else SystemClock.elapsedRealtime() - model.remainingSeconds * 1000L
-                setChronometer(R.id.widget_timer, timerBase, null, model.running)
+                setChronometer(R.id.widget_timer, timerBase, if (model.overtime) "+%s" else null, model.running)
                 if (android.os.Build.VERSION.SDK_INT >= 24) setChronometerCountDown(R.id.widget_timer, model.countDown)
                 if (layout == R.layout.widget_workout_large) setTextViewText(R.id.widget_timer_label, model.timerLabel)
                 val hasHeart = model.heartBpm != null && model.heartTime != null

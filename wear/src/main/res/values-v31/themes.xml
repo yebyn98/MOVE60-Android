@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        The system launch screen used to paint the launcher icon on its green adaptive-icon background before the
+        in-app logo intro started. It is now the same black as the intro with a fully transparent icon, so the first
+        thing the user sees is the logo animation itself.
+    -->
+    <style name="Move60Wear" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowSplashScreenBackground">@color/move60_bg</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_empty</item>
+        <item name="android:windowSplashScreenAnimationDuration">0</item>
+    </style>
+</resources>

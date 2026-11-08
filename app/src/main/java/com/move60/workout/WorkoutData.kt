@@ -112,13 +112,13 @@ class WorkoutData(private val context: Context) {
         val phases = mutableListOf<WorkoutTask>()
         val phaseData = obj.getJSONArray("cyclePhases")
         // The interval program is written for the bike; the elliptical block re-words it in forMachine().
-        fun addPhase(phase: JSONObject, round: String = "") {
+        fun addPhase(phase: JSONObject) {
             val minutes = phase.getInt("m")
             val rpe = phase.getString("rpe")
             val note = phase.getString("detail")
             val name = phase.getString("label")
             phases += WorkoutTask(
-                name = if (round.isNotEmpty()) "$round · $name" else name,
+                name = name,
                 detail = "${minutes}분 · RPE $rpe · $note", kind = CARDIO_FIRST,
                 seconds = minutes * 60, rpe = rpe, description = note, phaseIndex = phases.size
             )
@@ -128,7 +128,7 @@ class WorkoutData(private val context: Context) {
             if (p.has("repeat")) {
                 val repeat = p.getInt("repeat")
                 val parts = p.getJSONArray("parts")
-                for (r in 1..repeat) for (j in 0 until parts.length()) addPhase(parts.getJSONObject(j), "$r/${repeat}회차")
+                for (round in 1..repeat) for (j in 0 until parts.length()) addPhase(parts.getJSONObject(j))
             } else addPhase(p)
         }
         val cardioTarget = (cardioFirstMinutes() + cardioSecondMinutes()) * 60
@@ -161,9 +161,9 @@ class WorkoutData(private val context: Context) {
             if (phase.seconds - head > 0) secondBlock += part(phase.seconds - head)
             cursor += phase.seconds
         }
-        // Round labels restart in each block, so a block never ends at "2/5" while the next one carries on with "3/5".
-        val cardioFirst = renumberRounds(firstBlock).mapIndexed { i, t -> forMachine(t, CARDIO_FIRST).copy(phaseIndex = i) }
-        val cardioSecond = renumberRounds(secondBlock).mapIndexed { i, t -> forMachine(t, CARDIO_SECOND).copy(phaseIndex = i) }
+        // Phase names carry no "n/N회차" prefix; repeated intervals simply repeat their name.
+        val cardioFirst = firstBlock.mapIndexed { i, t -> forMachine(t, CARDIO_FIRST).copy(phaseIndex = i) }
+        val cardioSecond = secondBlock.mapIndexed { i, t -> forMachine(t, CARDIO_SECOND).copy(phaseIndex = i) }
         val pool = strengthPool(d, focus)
         val repsForDay = reps.getJSONArray(d.toString())
         val used = mutableSetOf<String>()
@@ -213,17 +213,6 @@ class WorkoutData(private val context: Context) {
         if (machine == CARDIO_FIRST) return task.copy(kind = machine)
         fun w(text: String) = text.replace("페달링", "운동").replace("페달", "동작").replace("저항", "강도")
         return task.copy(name = w(task.name), detail = w(task.detail), description = w(task.description), kind = machine)
-    }
-
-    /** "3/5회차" -> "1/3회차": numbers the rounds that actually fall into this block. */
-    private fun renumberRounds(block: List<WorkoutTask>): List<WorkoutTask> {
-        val label = Regex("^(\\d+)/\\d+회차 · ")
-        val rounds = block.mapNotNull { label.find(it.name)?.groupValues?.get(1)?.toInt() }.distinct()
-        return block.map { task ->
-            val match = label.find(task.name) ?: return@map task
-            val index = rounds.indexOf(match.groupValues[1].toInt()) + 1
-            task.copy(name = "$index/${rounds.size}회차 · " + task.name.removePrefix(match.value))
-        }
     }
 
     private fun fnv1a(s: String): Long {

@@ -144,8 +144,8 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
         body.addView(progressBar, LinearLayout.LayoutParams(-1, dp(1)))
         val buttons = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         playButton = button("시작", "watch_play") {
-            // Finished sessions end here; starting a new workout is handled on the phone.
-            if (workout.finished) finish() else sendCommand(if (workout.running) "pause" else "start")
+            // A finished session offers "새 운동": the phone starts a fresh session exactly like its own new-workout button.
+            if (workout.finished) sendCommand("start") else sendCommand(if (workout.running) "pause" else "start")
         }
         nextButton = button("다음 단계", "watch_next") {
             sendCommand(if (workout.stageIndex == 2 && workout.restSeconds() > 0) "rest_skip"
@@ -325,15 +325,18 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
             else -> workout.secondsRemaining()
         }.coerceAtLeast(0)
         val strengthTarget = !resting && workout.stageIndex == 2 && !workout.finished && workout.targetReps > 0
+        val overtimeNow = workout.overtimeSeconds()
         timer.text = if (strengthTarget) {
             // Tight round displays must show the complete weight and rep target, not an ellipsis.
             val weight = workout.setWeight.takeIf { it.isNotBlank() }?.let { "${it}kg×" } ?: ""
             weight + "${workout.targetReps}회"
-        } else "%02d:%02d".format(remaining / 60, remaining % 60)
+        } else if (overtimeNow > 0 && !resting) "+%02d:%02d".format(overtimeNow / 60, overtimeNow % 60)
+        else "%02d:%02d".format(remaining / 60, remaining % 60)
         timer.textSize = if (strengthTarget) Theme.Type.wearTitle else Theme.Type.wearHeadline
         timer.contentDescription = when {
             resting -> "남은 휴식 ${timer.text} · 눌러서 15초 늘리기 또는 줄이기"
             strengthTarget -> "현재 세트 ${timer.text}, 전체 운동 시간 ${workout.activeSeconds / 60}분"
+            overtimeNow > 0 -> "목표 시간 초과 ${timer.text}"
             else -> "운동 시간 ${timer.text}"
         }
         progressBar.progress = when {
@@ -361,7 +364,7 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
         heartRate.setTextColor(if (workout.finished) Theme.Colors.textMedium else Theme.Colors.heart)
         heartRate.contentDescription = if (bpm in 30..240 && age in 0L..10_000L)
             "심박수 $bpm, ${age / 1000}초 전 측정" else "심박수 연결대기"
-        playButton.text = if (workout.finished) "종료" else if (workout.running) "일시정지" else "시작"
+        playButton.text = if (workout.finished) "새 운동" else if (workout.running) "일시정지" else "시작"
         if (styledIdle != idle) {
             styledIdle = idle
             styleButton(playButton, idle)

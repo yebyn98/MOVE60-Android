@@ -26,6 +26,23 @@ class WorkoutWidgetModelTest {
         assertEquals(800L, m.remainingSeconds)
     }
 
+    @Test fun overtimeCountsUpAsPlusInsteadOfFlickeringAroundZero() {
+        val paused = cardioState(false, 0).put("stageElapsedSeconds", 1207)
+        val m = WorkoutWidgetModel.build(paused, null, 0L, seoul)
+        assertEquals(true, m.overtime)
+        assertEquals(false, m.countDown)
+        assertEquals(7L, m.remainingSeconds)
+        assertEquals("초과 시간", m.timerLabel)
+        // Running: 4s recorded past the target plus 3s since the checkpoint.
+        val now = 1_000_000L
+        val running = cardioState(true, 0, now - 3000L).put("stageElapsedSeconds", 1204).put("activeCheckpointAt", now - 3000L)
+        assertEquals(7L, WorkoutWidgetModel.build(running, null, now, seoul).remainingSeconds)
+        // Inside the target nothing changes.
+        val before = WorkoutWidgetModel.build(cardioState(false, 800).put("stageElapsedSeconds", 400), null, 0L, seoul)
+        assertEquals(false, before.overtime)
+        assertEquals("남은 시간", before.timerLabel)
+    }
+
     @Test fun idleAndFinishedStates() {
         assertEquals("운동 대기", WorkoutWidgetModel.build(JSONObject(), null, 0L, seoul).title)
         val done = JSONObject().put("finished", true).put("sessionStartedAt", 1L)

@@ -246,10 +246,15 @@ class WorkoutService : Service() {
         result.setTextViewText(R.id.n_accent, c.effort)
         result.setViewVisibility(R.id.n_accent, if (c.effort.isEmpty()) View.GONE else View.VISIBLE)
         result.setTextViewText(R.id.n_total, "전체시간 ${c.progress / 60}/60분")
-        result.setTextViewText(R.id.n_remaining_label, if (c.countUp) "전체시간" else "남은 시간")
+        val overtime = !c.countUp && now > c.ends
+        result.setTextViewText(R.id.n_remaining_label, if (c.countUp) "전체시간" else if (overtime) "초과 시간" else "남은 시간")
         result.setProgressBar(R.id.n_progress, max(3600, c.progress), c.progress, false)
         if (c.countUp) {
             result.setChronometer(R.id.n_timer, SystemClock.elapsedRealtime() - c.progress * 1000L, null, true)
+            if (Build.VERSION.SDK_INT >= 24) result.setChronometerCountDown(R.id.n_timer, false)
+        } else if (overtime) {
+            // Past the target the chronometer counts UP from the deadline as "+mm:ss" (never a negative countdown).
+            result.setChronometer(R.id.n_timer, SystemClock.elapsedRealtime() - (now - c.ends), "+%s", true)
             if (Build.VERSION.SDK_INT >= 24) result.setChronometerCountDown(R.id.n_timer, false)
         } else {
             val secondsLeft = max(0L, ceil((c.ends - now) / 1000.0).toLong())
@@ -263,8 +268,7 @@ class WorkoutService : Service() {
         val c = cue(now)
         return builder(CHANNEL_PROGRESS).setContentTitle("MOVE60 · " + c.title)
             .setContentText(listOf(c.effort, "총 운동 " + (c.progress / 60) + "분").filter { it.isNotEmpty() }.joinToString(" · "))
-            .setWhen(if (c.countUp) now - c.progress * 1000L else c.ends).setShowWhen(true)
-            .setUsesChronometer(true).setChronometerCountDown(!c.countUp)
+            .setShowWhen(false)
             .setProgress(max(3600, c.progress), c.progress, false)
             .setOngoing(true).setCategory(Notification.CATEGORY_SERVICE)
             .build()
@@ -293,8 +297,7 @@ class WorkoutService : Service() {
             .setPublicVersion(publicVersion)
             .setOngoing(true)
             .setCategory(Notification.CATEGORY_SERVICE)
-            .setShowWhen(true).setWhen(if (c.countUp) now - c.progress * 1000L else c.ends)
-            .setUsesChronometer(true).setChronometerCountDown(!c.countUp)
+            .setShowWhen(false)
             .build()
     }
 
@@ -351,8 +354,9 @@ class WorkoutService : Service() {
                 .setAutoCancel(true).build())
         }
         lastPhase = phaseSignature
-        val nextTime = max(now + 1000L, c.ends)
-        handler.postDelayed(boundary, (nextTime - now + 40).coerceIn(1000L, 60_000L))
+        // After the target the card counts up by itself; re-post only now and then, never every second.
+        val delay = if (now >= c.ends) 30_000L else (c.ends - now + 40).coerceIn(1000L, 60_000L)
+        handler.postDelayed(boundary, delay)
     }
 
     /**

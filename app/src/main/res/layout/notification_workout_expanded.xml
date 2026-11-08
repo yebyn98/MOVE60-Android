@@ -3,8 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="16dp"
-    android:background="@drawable/bg_notification_card">
+    android:padding="0dp">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -34,7 +33,7 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
+        android:layout_marginTop="6dp"
         android:orientation="horizontal">
 
         <TextView
@@ -70,18 +69,21 @@
         android:id="@+id/n_title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
+        android:layout_marginTop="8dp"
+        android:maxLines="1"
+        android:ellipsize="end"
         android:text="빠르게 페달링"
         android:textColor="@color/move60_text"
-        android:textSize="18sp"
+        android:textSize="16sp"
         android:textStyle="bold" />
 
     <TextView
         android:id="@+id/n_detail"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:maxLines="3"
+        android:layout_marginTop="0dp"
+        android:visibility="gone"
+        android:maxLines="1"
         android:text="리듬을 유지하면서 페달링"
         android:textColor="@color/move60_text_medium"
         android:textSize="12sp" />
@@ -89,11 +91,10 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:background="@drawable/bg_notification_timer"
+        android:layout_marginTop="6dp"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:padding="14dp">
+        android:padding="0dp">
 
         <LinearLayout
             android:layout_width="0dp"
@@ -116,7 +117,7 @@
                 android:fontFamily="sans-serif-medium"
                 android:text="00:00"
                 android:textColor="@color/move60_text"
-                android:textSize="32sp"
+                android:textSize="26sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
@@ -139,8 +140,8 @@
         android:id="@+id/n_progress"
         style="?android:attr/progressBarStyleHorizontal"
         android:layout_width="match_parent"
-        android:layout_height="8dp"
-        android:layout_marginTop="12dp"
+        android:layout_height="6dp"
+        android:layout_marginTop="8dp"
         android:max="3600"
         android:progress="1200"
         android:progressDrawable="@drawable/bg_notification_progress" />

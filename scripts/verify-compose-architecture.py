@@ -33,8 +33,10 @@ assert "fun Move60Card(" in components and "fun Move60Button(" in components
 assert "com.google.android.material:material" in gradle
 screens=read("app/src/main/java/com/move60/workout/architecture/ComposeScreens.kt")
 for marker in ("@Composable","WorkoutDashboard(","WorkoutCalendar(","WorkoutSettings(",
-               "collectAsStateWithLifecycle()","오늘 누적","세트","hiltViewModel()"):
+               "collectAsStateWithLifecycle()","오늘 누적","state.itemName","hiltViewModel()"):
     assert marker in screens,marker
+# v58 (Figma 01/02): the home shows no "n/5 단계" counter and the dock names the current item.
+assert "단계\"" not in screens and "stageNames.size.coerceAtLeast(1)}" not in screens, "home must not show an n/N stage counter"
 vm=read("app/src/main/java/com/move60/workout/architecture/WorkoutViewModel.kt")
 assert "@HiltViewModel" in vm and "MutableSharedFlow" in vm and "viewModelScope" in vm
 repo=read("app/src/main/java/com/move60/workout/architecture/WorkoutRepository.kt")
