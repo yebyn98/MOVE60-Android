@@ -148,6 +148,48 @@ class PhoneFeaturesTest {
             }
         }
     }
+    private fun allText(root: View): String {
+        val out = StringBuilder()
+        fun walk(v: View) { if (v is TextView) out.append(v.text).append('\n'); if (v is android.view.ViewGroup) for (i in 0 until v.childCount) walk(v.getChildAt(i)) }
+        walk(root); return out.toString()
+    }
+    @Test fun upcomingAndCompletedStagesShowStructuredReadOnlyRowsNotPlainText() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            // Before the workout every stage is upcoming: open a timed stage and the strength stage.
+            scenario.onActivity { it.window.decorView.findViewWithTag<View>("phone_step_header_3").performClick() }
+            instrumentation.waitForIdleSync()
+            scenario.onActivity { activity ->
+                val root = activity.window.decorView
+                val row = root.findViewWithTag<View>("phone_step_row_3_0")
+                assertNotNull("upcoming timed stage must list structured rows", row)
+                assertTrue("rows keep a 48dp touch height", row.height >= (48 * activity.resources.displayMetrics.density).toInt() - 1)
+                assertTrue(root.findViewWithTag<TextView>("phone_step_row_meta_3_0").text.toString().matches(Regex("\\d{2}:\\d{2}")))
+                assertFalse(allText(root).contains("내용을 확인할 수 있어요"))
+            }
+            scenario.onActivity { it.window.decorView.findViewWithTag<View>("phone_step_header_2").performClick() }
+            instrumentation.waitForIdleSync()
+            scenario.onActivity { activity ->
+                val root = activity.window.decorView
+                assertNotNull(root.findViewWithTag<View>("phone_step_row_2_0"))
+                assertTrue(root.findViewWithTag<TextView>("phone_step_row_meta_2_0").text.toString().contains("세트"))
+            }
+            screenshot("phone-v55-upcoming-strength-rows.png")
+            // Completed stage: start, move to stage 1, then open the finished warm-up.
+            scenario.onActivity { it.window.decorView.findViewWithTag<TextView>("phone_play").performClick() }
+            scenario.onActivity { it.window.decorView.findViewWithTag<TextView>("phone_next").performClick() }
+            instrumentation.waitForIdleSync()
+            scenario.onActivity { it.window.decorView.findViewWithTag<View>("phone_step_header_0").performClick() }
+            instrumentation.waitForIdleSync()
+            scenario.onActivity { activity ->
+                val root = activity.window.decorView
+                val row = root.findViewWithTag<View>("phone_step_row_0_0")
+                assertNotNull("completed stage must list structured rows", row)
+                assertTrue(row.contentDescription.toString().endsWith("완료"))
+                assertFalse(allText(root).contains("완료한 운동 ·"))
+            }
+            screenshot("phone-v55-completed-warmup-rows.png")
+        }
+    }
     @Test fun guideImagesExistForEveryLicensedExercise() {
         val files = context.assets.list("exercise")!!.toSet()
         val ids = files.filter { it.endsWith("_0.jpg") }.map { it.removeSuffix("_0.jpg") }

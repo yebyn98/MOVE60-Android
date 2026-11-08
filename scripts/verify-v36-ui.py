@@ -29,7 +29,9 @@ assert "오늘의 운동 구성" not in main and "운동 진행 요약" not in m
 assert "phone_stage_stack" in main and "renderStageAccordion()" in main and "phone_step_header_" in main, "Figma: all four stages must share a single accordion"
 assert "\u2303" not in main and "\u2304" not in main, "Accordion arrows must be vector icons, not text glyphs"
 assert "ic_expand_more" in main and "ic_expand_less" in main and "phone_step_chevron_" in main, "Figma: accordion header uses chevron icons"
-assert "phone_step_preview_" in main and "현재 진행 단계에서만 입력" in main, "Non-active stages must remain read-only previews"
+assert "phone_step_preview_" in main and "buildStageRows(" in main and "phone_step_row_" in main, "Non-active stages must show structured read-only rows (icon + name + meta), not plain text"
+assert "내용을 확인할 수 있어요" not in main and "step.tasks.take(4)" not in main, "Non-active stage rows must not use the legacy text preview or truncate tasks"
+assert "n_badge" not in (root/"app/src/main/java/com/move60/workout/WorkoutService.kt").read_text(), "Notification has no n/N section badge"
 assert "phone_current_guide" in main and "phone_rest" in main, "Figma: detail = rest card + current-exercise card with set entry"
 assert "fun buildSetTable" in main and "phone_current_exercise" in main and "buildSetTable(task)" in main.split("fun showDetails")[1], "Set entry: current-exercise card + exercise popup"
 for feature in ("운동 알림 진단", "notificationDiagnostics(", "updateManager.check(true)", "peekAvailability", "settings_ratio", "오늘 컨디션 루틴", "칼로리 계산 체중"):
@@ -63,7 +65,7 @@ assert "건강 대시보드" in old
 assert 'horologist-compose-layout:0.6.23' in read("wear/build.gradle")
 targets=read("scripts/release-targets.json")
 assert '"phone": true' in targets and '"watch":' in targets  # watch is released only when its code changes
-assert "versionCode 54" in read("app/build.gradle") and "versionCode 48" in read("wear/build.gradle")
+assert "versionCode 55" in read("app/build.gradle") and "versionCode 49" in read("wear/build.gradle")
 for manifest_path, activity in (
     ("app/src/main/AndroidManifest.xml", ".health.HealthConsentActivity"),
     ("wear/src/main/AndroidManifest.xml", ".health.WearHealthActivity"),
