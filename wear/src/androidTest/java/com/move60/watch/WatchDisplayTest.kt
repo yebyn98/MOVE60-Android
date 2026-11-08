@@ -81,7 +81,7 @@ class WatchDisplayTest {
                     assertEquals("Next button text clipped", 0, activity.window.decorView.findViewWithTag<Button>("watch_next").layout.getEllipsisCount(0))
                     assertButtonInsideCircle(activity, activity.window.decorView.findViewWithTag("watch_play"))
                     assertButtonInsideCircle(activity, activity.window.decorView.findViewWithTag("watch_next"))
-                    assertEquals(if (index == 3) "운동 완료" else "다음 단계",
+                    assertEquals(if (index == LAST_STAGE) "운동 완료" else "다음 단계",
                         activity.window.decorView.findViewWithTag<Button>("watch_next").text.toString())
                 }
             }
