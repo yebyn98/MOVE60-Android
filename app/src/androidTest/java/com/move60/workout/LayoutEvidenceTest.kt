@@ -95,4 +95,9 @@ class LayoutEvidenceTest {
         assertEquals("전체시간 20/60분", view.findViewById<TextView>(R.id.n_total).text.toString())
         assertTrue(view.findViewById<View>(R.id.n_brand).measuredWidth > 0)
     }
+    @Test fun notificationHasNoSectionBadge() {
+        val ctx = InstrumentationRegistry.getInstrumentation().targetContext
+        assertEquals("the n/N section badge was removed from the notification", 0,
+            ctx.resources.getIdentifier("n_badge", "id", ctx.packageName))
+    }
 }

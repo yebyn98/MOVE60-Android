@@ -198,7 +198,8 @@ class WorkoutService : Service() {
             2 -> "운동 자세와 세트·횟수를 확인하세요"
             else -> "호흡을 정리하며 천천히 스트레칭하세요"
         }
-        var round = "${stage + 1}/$STAGE_COUNT 단계"
+        // `round` is only an internal phase key (vibration/dedupe); it is never shown to the user.
+        var round = "${stage + 1}/$STAGE_COUNT"
         var effort = "운동 진행 중"
         var countdownEnd = end
         if (phasesKeyForStage(stage) != null) {
@@ -210,8 +211,10 @@ class WorkoutService : Service() {
                 if (now < until || i == phases.length() - 1) {
                     title = phase.optString("name", "유산소")
                     detail = phase.optString("description", "유산소 운동 진행 중")
-                    round = "${i + 1}/${phases.length()} 구간"
-                    effort = "RPE ${phase.optString("rpe", "—")}"
+                    round = "${i + 1}/${phases.length()}"
+                    // RPE only where the phase really has one (warm-up/stretch phases carry none): no empty chip.
+                    val rpe = phase.optString("rpe", "").trim().takeIf { it.isNotEmpty() && it != "—" }
+                    effort = if (rpe != null) "RPE $rpe" else ""
                     countdownEnd = until
                     break
                 }
@@ -240,8 +243,8 @@ class WorkoutService : Service() {
         result.setTextViewText(R.id.n_stage_chip, c.stageName)
         result.setTextViewText(R.id.n_title, c.title)
         result.setTextViewText(R.id.n_detail, c.detail)
-        result.setTextViewText(R.id.n_badge, c.round)
         result.setTextViewText(R.id.n_accent, c.effort)
+        result.setViewVisibility(R.id.n_accent, if (c.effort.isEmpty()) View.GONE else View.VISIBLE)
         result.setTextViewText(R.id.n_total, "전체시간 ${c.progress / 60}/60분")
         result.setTextViewText(R.id.n_remaining_label, if (c.countUp) "전체시간" else "남은 시간")
         result.setProgressBar(R.id.n_progress, max(3600, c.progress), c.progress, false)
@@ -259,7 +262,7 @@ class WorkoutService : Service() {
     private fun buildFallbackNotification(now: Long): Notification {
         val c = cue(now)
         return builder(CHANNEL_PROGRESS).setContentTitle("MOVE60 · " + c.title)
-            .setContentText(c.effort + " · " + c.round + " · 총 운동 " + (c.progress / 60) + "분")
+            .setContentText(listOf(c.effort, "총 운동 " + (c.progress / 60) + "분").filter { it.isNotEmpty() }.joinToString(" · "))
             .setWhen(if (c.countUp) now - c.progress * 1000L else c.ends).setShowWhen(true)
             .setUsesChronometer(true).setChronometerCountDown(!c.countUp)
             .setProgress(max(3600, c.progress), c.progress, false)
@@ -273,7 +276,7 @@ class WorkoutService : Service() {
         // Make it the same widget rather than falling back to plain text there.
         val publicVersion = builder(CHANNEL_PROGRESS)
             .setContentTitle("MOVE60 · ${c.title}")
-            .setContentText("${c.effort} · ${c.round}")
+            .setContentText(c.effort.ifEmpty { c.stageName })
             .setCustomContentView(remoteView(R.layout.notification_workout_compact, c, now))
             .setCustomBigContentView(remoteView(R.layout.notification_workout_expanded, c, now))
             .setStyle(Notification.DecoratedCustomViewStyle())
@@ -283,7 +286,7 @@ class WorkoutService : Service() {
             .build()
         return builder(CHANNEL_PROGRESS)
             .setContentTitle("MOVE60 · ${c.title}")
-            .setContentText("${c.effort} · ${c.round}")
+            .setContentText(c.effort.ifEmpty { c.stageName })
             .setStyle(Notification.DecoratedCustomViewStyle())
             .setCustomContentView(remoteView(R.layout.notification_workout_compact, c, now))
             .setCustomBigContentView(remoteView(R.layout.notification_workout_expanded, c, now))
@@ -343,7 +346,7 @@ class WorkoutService : Service() {
             vibratePhaseTransition()
             nm.notify(PHASE_ID, builder(CHANNEL_PHASE)
                 .setContentTitle("다음 운동 · ${c.title}")
-                .setContentText("${c.effort} · ${c.round}")
+                .setContentText(c.effort.ifEmpty { c.stageName })
                 .setStyle(Notification.BigTextStyle().bigText(c.detail))
                 .setAutoCancel(true).build())
         }

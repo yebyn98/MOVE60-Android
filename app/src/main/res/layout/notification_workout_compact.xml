@@ -25,9 +25,7 @@
         <TextView android:id="@+id/n_stage_chip" android:layout_width="wrap_content"
             android:layout_height="wrap_content" android:text="실내 사이클"
             android:textSize="10sp" android:textColor="@color/move60_text_medium" />
-        <TextView android:id="@+id/n_badge" android:layout_width="0dp" android:layout_weight="1"
-            android:layout_height="wrap_content" android:layout_marginLeft="6dp"
-            android:text="3/18 구간" android:textSize="10sp" android:textColor="@color/move60_text_medium" />
+        <View android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
         <TextView android:id="@+id/n_accent" android:layout_width="wrap_content"
             android:layout_height="wrap_content" android:text="RPE 7"
             android:textSize="10sp" android:textStyle="bold" android:textColor="@color/move60_accent" />

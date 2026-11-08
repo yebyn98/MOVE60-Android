@@ -453,23 +453,57 @@ class MainActivity : Activity() {
                     (activeStageContent.parent as? android.view.ViewGroup)?.removeView(activeStageContent)
                     cell.addView(activeStageContent)
                 } else {
-                    val preview = column().apply { tag = "phone_step_preview_$index" }
-                    preview.addView(label(
-                        if (done) "완료한 운동 · ${step.minutes}분 계획"
-                        else "${step.minutes}분 예정 · 내용을 확인할 수 있어요.", 12, false, textSecondary))
-                    val tasks = step.tasks.take(4)
-                    tasks.forEach { task ->
-                        preview.addView(label("· ${task.name}", 13, false, textPrimary))
-                    }
-                    preview.addView(label("운동 기록은 현재 진행 단계에서만 입력할 수 있어요.",
-                        11, false, textSecondary))
-                    cell.addView(preview)
+                    cell.addView(buildStageRows(index, step, done))
                 }
             }
             stageAccordion.addView(cell, LinearLayout.LayoutParams(-1, -2).apply {
                 bottomMargin = dp(Theme.Space.two)
             })
         }
+    }
+
+    /**
+     * Read-only exercise rows for a stage that is not running (upcoming or completed). Same row anatomy as the
+     * running stage (Figma 08): status icon, name, trailing meta. Never truncated; no input controls.
+     */
+    private fun buildStageRows(index: Int, step: WorkoutStage, done: Boolean): LinearLayout {
+        val box = column().apply { tag = "phone_step_preview_$index" }
+        val timedStage = phasesKeyForStage(index) != null && step.tasks.all { it.seconds > 0 }
+        step.tasks.forEachIndexed { i, task ->
+            val meta = when {
+                timedStage -> formatTime(task.seconds)
+                index == 2 -> {
+                    val reps = Regex("×\\s*([^·]+)").find(task.detail)?.groupValues?.get(1)?.trim()
+                    if (reps.isNullOrEmpty()) "${strengthSetCount(task)}세트" else "${strengthSetCount(task)}세트 · $reps"
+                }
+                else -> task.detail
+            }
+            val rowView = row().apply {
+                gravity = Gravity.CENTER_VERTICAL
+                minimumHeight = dp(48)
+                tag = "phone_step_row_${index}_$i"
+                setPadding(dp(8), 0, dp(8), 0)
+                contentDescription = "${task.name} $meta ${if (done) "완료" else "예정"}"
+            }
+            rowView.addView(android.widget.ImageView(this).apply {
+                setImageResource(if (done) R.drawable.ic_check_circle else R.drawable.ic_circle_outline)
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            }, LinearLayout.LayoutParams(dp(24), dp(24)))
+            rowView.addView(label(task.name, 15, false, if (done) textSecondary else textPrimary).apply {
+                setSingleLine(true); ellipsize = android.text.TextUtils.TruncateAt.END
+            }, LinearLayout.LayoutParams(0, -2, 1f).apply { leftMargin = dp(12) })
+            rowView.addView(label(meta, 12, false, textSecondary).apply {
+                tag = "phone_step_row_meta_${index}_$i"
+                setSingleLine(true); ellipsize = android.text.TextUtils.TruncateAt.END
+                maxWidth = dp(150); gravity = Gravity.END
+            })
+            box.addView(rowView, LinearLayout.LayoutParams(-1, -2))
+        }
+        if (index == 2 && !done) {
+            box.addView(label("세트 기록은 근력운동이 진행 중일 때 입력해요.", 11, false, textSecondary)
+                .apply { setPadding(dp(8), dp(4), dp(8), dp(8)) })
+        }
+        return box
     }
 
     /** Figma phase rows: done = check, current = spinning ring + highlighted, upcoming = outline; 48dp tall. */
