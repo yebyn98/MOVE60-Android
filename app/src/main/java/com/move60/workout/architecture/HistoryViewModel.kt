@@ -106,6 +106,6 @@ class HistoryViewModel @Inject constructor(
     }
 
     private companion object {
-        val STAGE_NAMES = listOf("준비운동", "유산소 ①", "근력운동", "유산소 ② · 마무리")
+        val STAGE_NAMES = listOf("준비운동", "유산소 ①", "근력운동", "유산소 ②", "스트레칭")
     }
 }

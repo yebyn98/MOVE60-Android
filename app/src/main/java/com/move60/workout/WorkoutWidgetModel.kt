@@ -26,7 +26,7 @@ data class WidgetModel(
 
 /** Pure builder so widget text is unit-testable without RemoteViews. */
 object WorkoutWidgetModel {
-    private val stageNames = arrayOf("준비운동", "유산소 ①", "근력운동", "유산소 ②")
+    private val stageNames = arrayOf("준비운동", "유산소 ①", "근력운동", "유산소 ②", "스트레칭")
 
     fun build(
         state: JSONObject,
@@ -37,10 +37,10 @@ object WorkoutWidgetModel {
         val finished = state.optBoolean("finished", false)
         val running = state.optBoolean("running", false) && !finished
         val hasSession = state.optLong("sessionStartedAt", 0L) > 0L
-        val stage = state.optInt("stage", 0).coerceIn(0, 3)
+        val stage = state.optInt("stage", 0).coerceIn(0, LAST_STAGE)
         val remaining = WorkoutWidget.remainingSecondsForWidget(state, nowMillis)
         val cardio = stage == 1 || stage == 3
-        val phases = if (cardio) state.optJSONArray(if (stage == 3) "phases3" else "phases") else null
+        val phases = phasesKeyForStage(stage)?.let { state.optJSONArray(it) }
         val machine = phases?.optJSONObject(0)?.optString("kind").orEmpty()
             .ifBlank { state.optString("cardioMachine", "") }
             .removePrefix("실내 ").trim()

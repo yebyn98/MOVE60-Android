@@ -21,7 +21,7 @@ class StageLog(context: Context) {
 
     @Synchronized
     fun add(date: LocalDate, stage: Int, seconds: Long, met: Double) {
-        if (seconds <= 0L || stage !in 0..3) return
+        if (seconds <= 0L || stage !in 0..LAST_STAGE) return
         val record = read(date)
         val old = record.optJSONObject(stage.toString()) ?: JSONObject()
         record.put(stage.toString(), JSONObject()
@@ -33,7 +33,7 @@ class StageLog(context: Context) {
     /** Stages with recorded time, in plan order. Empty for days without stage data. */
     fun entries(date: LocalDate): List<Entry> {
         val record = read(date)
-        return (0..3).mapNotNull { stage ->
+        return (0..LAST_STAGE).mapNotNull { stage ->
             val item = record.optJSONObject(stage.toString()) ?: return@mapNotNull null
             val seconds = item.optLong("s", 0L)
             if (seconds <= 0L) null else Entry(stage, seconds, item.optDouble("m", 0.0))

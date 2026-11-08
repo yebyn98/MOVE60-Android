@@ -43,7 +43,7 @@ class WorkoutService : Service() {
         }
         private const val PHASE_ID = 602
     }
-    private val stageNames = listOf("준비운동", "유산소 ①", "근력운동", "유산소 ② · 마무리")
+    private val stageNames = listOf("준비운동", "유산소 ①", "근력운동", "유산소 ②", "스트레칭")
     private val dayNames = listOf("월요일", "화요일", "수요일", "목요일", "금요일")
     private val handler = Handler(Looper.getMainLooper())
     private var snapshot = JSONObject()
@@ -135,7 +135,7 @@ class WorkoutService : Service() {
         val old = snapshot
         val last = prefs.getLong("history_checkpoint_ms", 0L)
         if (last <= 0L || !old.optBoolean("running", false) || old.optBoolean("finished", false)) return
-        val stage = old.optInt("stage", 0).coerceIn(0, 3)
+        val stage = old.optInt("stage", 0).coerceIn(0, LAST_STAGE)
         val durations = old.optJSONArray("stageSeconds")
         val until = now
         if (until <= last) return
@@ -183,7 +183,7 @@ class WorkoutService : Service() {
     )
 
     private fun cue(now: Long): Cue {
-        val stage = snapshot.optInt("stage", 0).coerceIn(0, 3)
+        val stage = snapshot.optInt("stage", 0).coerceIn(0, LAST_STAGE)
         val day = snapshot.optInt("day", 1).coerceIn(1, 5)
         val stageElapsed = snapshot.optInt("stageElapsedSeconds", 0).coerceAtLeast(0)
         val progress = snapshot.optInt("activeSeconds", 0).coerceAtLeast(0)
@@ -196,11 +196,11 @@ class WorkoutService : Service() {
             2 -> "운동 자세와 세트·횟수를 확인하세요"
             else -> "호흡을 정리하며 천천히 스트레칭하세요"
         }
-        var round = "${stage + 1}/4 단계"
+        var round = "${stage + 1}/$STAGE_COUNT 단계"
         var effort = "운동 진행 중"
         var countdownEnd = end
-        if (stage == 1 || stage == 3) {
-            val phases = snapshot.optJSONArray(if (stage == 3) "phases3" else "phases") ?: JSONArray()
+        if (phasesKeyForStage(stage) != null) {
+            val phases = phasesKeyForStage(stage)?.let { snapshot.optJSONArray(it) } ?: JSONArray()
             var from = start
             for (i in 0 until phases.length()) {
                 val phase = phases.optJSONObject(i) ?: continue

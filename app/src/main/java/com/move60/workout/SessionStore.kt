@@ -100,7 +100,7 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
             restDeadline = o.optLong("restDeadline")
             restPaused = o.optInt("restPaused")
             restId = o.optLong("restId")
-            stage = o.optInt("stage", 0).coerceIn(0, 3)
+            stage = o.optInt("stage", 0).coerceIn(0, LAST_STAGE)
             accumulatedActiveSeconds = o.optInt("activeSeconds", o.optInt("elapsed", 0)).coerceAtLeast(0)
             stageElapsedSeconds = o.optInt("stageElapsedSeconds", stageSeconds() - o.optInt("remaining", stageSeconds())).coerceAtLeast(0)
             remaining = (stageSeconds() - stageElapsedSeconds).coerceAtLeast(0)
@@ -235,7 +235,7 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
     }
     fun jumpTo(target: Int) {
         reloadIfChanged()
-        if (target !in 0..3) return
+        if (target !in 0..LAST_STAGE) return
         val wasRunning = running
         reconcile()
         clearRest()
@@ -253,7 +253,7 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
     }
     fun nextStage() {
         reloadIfChanged()
-        if (stage >= 3) {
+        if (stage >= LAST_STAGE) {
             clearRest()
             controlVersion++
             reconcile()
@@ -274,8 +274,8 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
         if (running) reconcile()
         return accumulatedActiveSeconds
     }
-    /** Cardio stages (1 and 3) are run as timed phases; stage 3 ends with the stretch tasks. */
-    private fun timedStage() = stage == 1 || stage == 3
+    /** Cardio stages (1, 3) and the stretch stage (4) run as timed phases. */
+    private fun timedStage() = phasesKeyForStage(stage) != null
     fun phase(): Pair<Int, WorkoutTask>? {
         if (!timedStage() || finished) return null
         var elapsed = stageElapsedSeconds.coerceAtMost(stageSeconds(stage) - 1)
@@ -305,6 +305,7 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
         }
         val phases = phasesOf(1)
         val phases3 = phasesOf(3)
+        val phases4 = phasesOf(4)
         return JSONObject().put("bodyFocus", bodyFocus ?: "").put("workoutDate",recordDate.toString()).put("running", running).put("finished", finished)
             .put("sessionStartedAt", sessionStartedAt)
             .put("controlVersion", controlVersion).put("restDeadline", restDeadline)
@@ -312,7 +313,7 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
             .put("day", day).put("stage", stage).put("remaining", remaining)
             .put("deadlineAt", deadlineAt).put("activeSeconds", accumulatedActiveSeconds)
             .put("stageElapsedSeconds", stageElapsedSeconds)
-            .put("cardioMachine", routine.stages[1].tasks.firstOrNull()?.kind ?: routine.stages[1].name).put("stageSeconds", times).put("phases", phases).put("phases3", phases3).toString()
+            .put("cardioMachine", routine.stages[1].tasks.firstOrNull()?.kind ?: routine.stages[1].name).put("stageSeconds", times).put("phases", phases).put("phases3", phases3).put("phases4", phases4).toString()
     }
 }
 

@@ -308,7 +308,7 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
             workout.stageIndex == 2 && workout.hasSession ->
                 workout.exerciseName.ifBlank { workout.setLabel } +
                     (if (workout.setTotal > 0) " · ${workout.setNumber}/${workout.setTotal}세트" else "")
-            (workout.stageIndex == 1 || workout.stageIndex == 3) && workout.intervalTotal > 0 ->
+            isTimedStage(workout.stageIndex) && workout.intervalTotal > 0 ->
                 "${workout.intervalIndex}/${workout.intervalTotal}구간 · ${workout.detail}"
             workout.running -> workout.detail.ifBlank { "운동 중" }
             workout.hasSession -> "일시정지"
@@ -339,7 +339,7 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
         progressBar.progress = when {
             workout.finished -> 1000
             workout.stageIndex == 2 && workout.totalSets > 0 -> workout.completedSets.coerceIn(0,workout.totalSets)*1000/workout.totalSets
-            workout.running && workout.stageIndex >= 0 -> (workout.stageIndex * 250).coerceAtMost(1000)
+            workout.running && workout.stageIndex >= 0 -> (workout.stageIndex * 1000 / STAGE_COUNT).coerceAtMost(1000)
             else -> 0
         }
         progressRing.progress = progressBar.progress
@@ -367,9 +367,9 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
             styleButton(playButton, idle)
             styleButton(nextButton, false)
         }
-        detail.contentDescription = detail.text.toString() + (if ((workout.stageIndex == 1 || workout.stageIndex == 3) && workout.upcomingInterval.isNotBlank()) " · 다음 구간 ${workout.upcomingInterval}" else "")
+        detail.contentDescription = detail.text.toString() + (if (isTimedStage(workout.stageIndex) && workout.upcomingInterval.isNotBlank()) " · 다음 구간 ${workout.upcomingInterval}" else "")
         nextButton.text = when {
-            workout.stageIndex == 3 -> "운동 완료"
+            workout.stageIndex == LAST_STAGE -> "운동 완료"
             workout.stageIndex == 2 && workout.restSeconds() > 0 -> "건너뛰기"
             workout.stageIndex == 2 && workout.canComplete -> "세트 완료"
             else -> "다음 단계"

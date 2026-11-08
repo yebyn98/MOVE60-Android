@@ -17,6 +17,7 @@ import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
+import com.move60.workout.WorkoutData
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
@@ -584,7 +585,7 @@ fun WorkoutSettings(
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val settings by viewModel.state.collectAsStateWithLifecycle()
-    val cardioMinutes by viewModel.cardioMinutes.collectAsStateWithLifecycle()
+    val split by viewModel.split.collectAsStateWithLifecycle()
     val message = remember { SnackbarHostState() }
     val context = LocalContext.current
     val activity = context as ComponentActivity
@@ -639,19 +640,9 @@ fun WorkoutSettings(
                     Column(Modifier.fillMaxWidth().padding(16.dp).testTag("settings_ratio"),
                         verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text("유산소 · 근력 시간 비율")
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            listOf(20, 25, 30, 35, 40).forEach { minutes ->
-                                Move60Button(
-                                    modifier = Modifier.weight(1f).testTag("settings_ratio_$minutes"),
-                                    primary = cardioMinutes == minutes,
-                                    contentPadding = PaddingValues(0.dp),
-                                    onClick = { viewModel.setCardioMinutes(minutes) }
-                                ) { Text("${minutes}분", maxLines = 1) }
-                            }
+                        RatioSlider(split.first, split.second) { first, second ->
+                            viewModel.setCardioSplit(first, second)
                         }
-                        Text("유산소 ${cardioMinutes}분 · 근력 ${50 - cardioMinutes}분",
-                            color = secondary, style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.testTag("settings_ratio_summary"))
                     }
                 }
             }
@@ -795,5 +786,74 @@ private fun DialogDim() {
     SideEffect {
         window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND)
         window?.setDimAmount(0.72f)
+    }
+}
+
+
+/**
+ * Figma "split_slider": one track, two handles. ① 유산소 / ② 유산소 / 근력 are set individually in 5-minute
+ * steps and always add up to the 50 adjustable minutes (준비 5 + 스트레칭 5 stay fixed).
+ */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun RatioSlider(first: Int, second: Int, onCommit: (Int, Int) -> Unit) {
+    val total = WorkoutData.ADJUSTABLE_MINUTES
+    var a by remember(first, second) { mutableStateOf(first.toFloat()) }
+    var b by remember(first, second) { mutableStateOf((first + second).toFloat()) }
+    val primary = MaterialTheme.colorScheme.primary
+    val dark = primary.copy(alpha = 0.55f)
+    val rest = secondary
+    val firstMin = a.toInt()
+    val secondMin = (b - a).toInt()
+    val strengthMin = total - b.toInt()
+    Column(Modifier.testTag("settings_ratio_block"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        androidx.compose.material3.RangeSlider(
+            value = a..b,
+            onValueChange = { range ->
+                val nb = range.endInclusive.coerceIn((WorkoutData.MIN_CARDIO * 2).toFloat(), (total - WorkoutData.MIN_STRENGTH).toFloat())
+                val na = range.start.coerceIn(WorkoutData.MIN_CARDIO.toFloat(), nb - WorkoutData.MIN_CARDIO)
+                a = na; b = nb
+            },
+            onValueChangeFinished = { onCommit(a.toInt(), (b - a).toInt()) },
+            valueRange = 0f..total.toFloat(),
+            steps = total / WorkoutData.STEP_MINUTES - 1,
+            modifier = Modifier.fillMaxWidth().testTag("settings_ratio_slider"),
+            startThumb = { RatioThumb() },
+            endThumb = { RatioThumb() },
+            track = {
+                androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(16.dp)) {
+                    val xa = size.width * a / total
+                    val xb = size.width * b / total
+                    val radius = androidx.compose.ui.geometry.CornerRadius(size.height / 2)
+                    drawRoundRect(rest, size = size, cornerRadius = radius)
+                    drawRoundRect(dark, size = androidx.compose.ui.geometry.Size(xb, size.height), cornerRadius = radius)
+                    drawRoundRect(primary, size = androidx.compose.ui.geometry.Size(xa, size.height), cornerRadius = radius)
+                }
+            }
+        )
+        Row(Modifier.fillMaxWidth().testTag("settings_ratio_summary").semantics(mergeDescendants = true) {
+            contentDescription = "유산소 ① ${firstMin}분, 유산소 ② ${secondMin}분, 근력 ${strengthMin}분"
+        }, horizontalArrangement = Arrangement.SpaceBetween) {
+            RatioLegend("유산소 ①", firstMin, primary)
+            RatioLegend("유산소 ②", secondMin, dark)
+            RatioLegend("근력", strengthMin, rest)
+        }
+    }
+}
+
+@Composable
+private fun RatioThumb() {
+    Box(Modifier.size(28.dp).background(MaterialTheme.colorScheme.background, CircleShape)
+        .border(3.dp, MaterialTheme.colorScheme.primary, CircleShape))
+}
+
+@Composable
+private fun RatioLegend(name: String, minutes: Int, color: Color) {
+    Column {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Box(Modifier.size(8.dp).background(color, CircleShape))
+            Text(name, color = secondary, style = MaterialTheme.typography.bodySmall)
+        }
+        Text("${minutes}분", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
     }
 }

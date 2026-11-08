@@ -22,7 +22,7 @@ object WatchHaptics {
     fun transition(old: WatchWorkoutState, new: WatchWorkoutState): Transition {
         if (!old.ongoing || !new.ongoing || !new.running || old.session != new.session) return Transition.NONE
         if (new.stageIndex != old.stageIndex) return Transition.STAGE
-        if ((new.stageIndex == 1 || new.stageIndex == 3) && new.intervalIndex != old.intervalIndex) return Transition.STAGE
+        if (isTimedStage(new.stageIndex) && new.intervalIndex != old.intervalIndex) return Transition.STAGE
         if (new.stageIndex == 2 && old.exerciseId.isNotEmpty() && new.exerciseId.isNotEmpty() &&
             new.exerciseId != old.exerciseId) return Transition.EXERCISE
         return Transition.NONE

@@ -21,7 +21,7 @@ object CalorieEstimator {
         2 -> 3.5
         else -> {
             val stageIndex = state.optInt("stage")
-            val phases = state.optJSONArray(if (stageIndex == 3) "phases3" else "phases")
+            val phases = phasesKeyForStage(stageIndex)?.let { state.optJSONArray(it) }
             val duration = state.optJSONArray("stageSeconds")?.optInt(stageIndex, 1800) ?: 1800
             val remaining = if (state.optBoolean("running")) ((state.optLong("deadlineAt") - now) / 1000).toInt().coerceAtLeast(0) else state.optInt("remaining")
             var elapsed = (duration - remaining).coerceAtLeast(0)

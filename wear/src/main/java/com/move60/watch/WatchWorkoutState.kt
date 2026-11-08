@@ -5,6 +5,12 @@ import com.google.android.gms.wearable.DataMap
 import org.json.JSONObject
 import kotlin.math.ceil
 
+/** Five stages: 준비운동, 유산소 ①, 근력운동, 유산소 ②, 스트레칭 (phone protocol additive: older phones send 0..3). */
+const val STAGE_COUNT = 5
+const val LAST_STAGE = STAGE_COUNT - 1
+/** Cardio stages and the stretch stage carry timed intervals. */
+fun isTimedStage(stageIndex: Int) = stageIndex == 1 || stageIndex == 3 || stageIndex == 4
+
 data class WatchWorkoutState(
     val running: Boolean = false, val finished: Boolean = false,
     val hasSession: Boolean = false, val stageIndex: Int = 0,
@@ -20,7 +26,7 @@ data class WatchWorkoutState(
     val targetReps: Int = 0, val setWeight: String = "", val bodyFocus: String = "",
     val intervalIndex: Int = 0, val intervalTotal: Int = 0, val upcomingInterval: String = ""
 ) {
-    val stageLabel: String get() = (stageIndex+1).toString()+"/4 · "+stageName
+    val stageLabel: String get() = (stageIndex+1).toString()+"/$STAGE_COUNT · "+stageName
     val ongoing: Boolean get() = hasSession && !finished
     fun secondsRemaining(now: Long = System.currentTimeMillis()): Int =
         if (running) ceil((deadline - now) / 1000.0).toInt().coerceAtLeast(0) else remaining
@@ -55,7 +61,7 @@ data class WatchWorkoutState(
         fun fromData(d: DataMap) = WatchWorkoutState(
             running=d.getBoolean("running"),finished=d.getBoolean("finished"),
             hasSession=d.getBoolean("hasSession") || d.getBoolean("running"),
-            stageIndex=d.getInt("stageIndex").coerceIn(0,3),
+            stageIndex=d.getInt("stageIndex").coerceIn(0,LAST_STAGE),
             stageName=d.getString("stageName") ?: d.getString("stage") ?: "준비운동",
             detail=d.getString("detail") ?: d.getString("stage") ?: "",
             remaining=d.getInt("remaining",300).coerceAtLeast(0),deadline=d.getLong("deadline"),
@@ -73,7 +79,7 @@ data class WatchWorkoutState(
             val j = JSONObject(context.getSharedPreferences("watch_workout", Context.MODE_PRIVATE).getString("state","{}")!!)
             WatchWorkoutState(
                 running=j.optBoolean("running"),finished=j.optBoolean("finished"),hasSession=j.optBoolean("hasSession"),
-                stageIndex=j.optInt("stageIndex").coerceIn(0,3),stageName=j.optString("stageName","준비운동"),
+                stageIndex=j.optInt("stageIndex").coerceIn(0,LAST_STAGE),stageName=j.optString("stageName","준비운동"),
                 detail=j.optString("detail"),remaining=j.optInt("remaining",300).coerceAtLeast(0),deadline=j.optLong("deadline"),
                 protocol=j.optInt("protocol"),sequence=j.optLong("sequence"),session=j.optLong("session"),
                 controlVersion=j.optLong("controlVersion"),restDeadline=j.optLong("restDeadline"),
