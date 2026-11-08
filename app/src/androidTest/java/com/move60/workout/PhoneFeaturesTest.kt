@@ -147,7 +147,16 @@ class PhoneFeaturesTest {
                 assertTrue(next.isEnabled)
                 next.performClick()
             }
-            onView(withText("기록하고 종료")).perform(click())
+            try {
+                onView(withText("기록하고 종료")).perform(click())
+            } catch (e: Throwable) {
+                // Diagnostic evidence for CI: what was actually on screen when the confirmation was not found.
+                val shot = instrumentation.uiAutomation.takeScreenshot()
+                if (shot != null) File(context.getExternalFilesDir(null), "failure-last-stage-confirm.png").outputStream().use { shot.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                File(context.getExternalFilesDir(null), "failure-last-stage-confirm.txt").writeText(
+                    "windows=" + instrumentation.uiAutomation.windows.joinToString { it.toString() } + "\n" + e.toString())
+                throw e
+            }
             onView(withText("운동 결과")).check(matches(isDisplayed()))
             scenario.onActivity { activity -> assertFalse(activity.window.decorView.findViewWithTag<TextView>("phone_next").isEnabled) }
         }
