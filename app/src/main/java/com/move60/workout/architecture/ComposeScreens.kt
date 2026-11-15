@@ -34,6 +34,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.RadioButton
 import androidx.compose.runtime.DisposableEffect
@@ -70,7 +71,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.EmojiEvents
+import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Today
 import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.ChevronRight
@@ -118,8 +121,11 @@ private val muted: Color get() = Color(Move60Theme.Colors.textMuted)
 @Composable
 fun WorkoutDashboard(
     onRunningChanged: (Boolean) -> Unit = {},
-    viewModel: WorkoutViewModel = hiltViewModel()
+    onOpenChallenge: () -> Unit = {},
+    viewModel: WorkoutViewModel = hiltViewModel(),
+    challenges: ChallengeViewModel = hiltViewModel()
 ) {
+    val challengeState by challenges.state.collectAsStateWithLifecycle()
     val state by viewModel.state.collectAsStateWithLifecycle()
     LaunchedEffect(state.running) { onRunningChanged(state.running) }
     val snackbar = remember { SnackbarHostState() }
@@ -151,6 +157,21 @@ fun WorkoutDashboard(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Figma 03: active challenge summary (real data from ChallengeService; hidden when none is active).
+            challengeState.active?.let { active ->
+                item {
+                    Move60Card(Modifier.clickable(onClick = onOpenChallenge).testTag("dashboard_challenge_card")) {
+                        Text("진행 중 도전", color = secondary, style = MaterialTheme.typography.bodySmall)
+                        Text(active.name, style = cardTitle)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("${active.creditedDays} / ${active.targetDays}일", fontWeight = FontWeight.Bold)
+                            Text("${(active.rate * 100).toInt()}% 달성", color = secondary)
+                        }
+                        LinearProgressIndicator(progress = { active.rate }, modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.primary, trackColor = MaterialTheme.colorScheme.outline)
+                    }
+                }
+            }
             // Figma order: the weekly plan first, then today's routine.
             item {
                 Move60Card(Modifier.testTag("dashboard_plan_card")) {
@@ -864,8 +885,8 @@ private fun RatioLegend(name: String, minutes: Int, color: Color) {
 /** Top-level destinations of the 4-tab bar (Figma GNB). */
 enum class Move60Tab(val route: String, val label: String, val tag: String) {
     TODAY("dashboard", "오늘", "tab_today"),
-    CHALLENGE("challenge", "도전", "tab_challenge"),
     RECORD("calendar", "기록", "tab_calendar"),
+    CHALLENGE("challenge", "도전", "tab_challenge"),
     MY("settings", "마이", "tab_settings")
 }
 
@@ -884,10 +905,10 @@ fun Move60TabBar(currentRoute: String?, onSelect: (Move60Tab) -> Unit) {
                 icon = {
                     Icon(
                         when (tab) {
-                            Move60Tab.TODAY -> Icons.Outlined.PlayArrow
-                            Move60Tab.CHALLENGE -> Icons.Outlined.EmojiEvents
+                            Move60Tab.TODAY -> Icons.Outlined.Home
+                            Move60Tab.CHALLENGE -> Icons.Outlined.Flag
                             Move60Tab.RECORD -> Icons.Outlined.Today
-                            Move60Tab.MY -> Icons.Outlined.Settings
+                            Move60Tab.MY -> Icons.Outlined.Person
                         }, contentDescription = null
                     )
                 },

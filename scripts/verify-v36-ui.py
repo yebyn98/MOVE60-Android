@@ -45,7 +45,7 @@ assert "fun buildSetTable" in main and "phone_current_exercise" in main and "bui
 for feature in ("운동 알림 진단", "notificationDiagnostics(", "updateManager.check(true)", "peekAvailability", "settings_ratio", "오늘 컨디션 루틴", "칼로리 계산 체중"):
     assert feature in compose, f"Compose settings lost: {feature}"
 # 4-tab bar replaced the top-bar icons (no duplicated controls): every tab keeps an icon and a visible label.
-assert 'Icons.Outlined.Today' in compose and 'Icons.Outlined.Settings' in compose and 'Icons.Outlined.EmojiEvents' in compose
+assert 'Icons.Outlined.Home' in compose and 'Icons.Outlined.Today' in compose and 'Icons.Outlined.Flag' in compose and 'Icons.Outlined.Person' in compose
 assert 'fun Move60TabBar' in compose and 'label = { Text(tab.label) }' in compose and 'compose_calendar_icon' not in compose
 assert "동작 영상" not in compose
 assert "PermissionController.createRequestPermissionResultContract()" in consent

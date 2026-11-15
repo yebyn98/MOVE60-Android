@@ -66,6 +66,13 @@ class ComposeChallengeTest {
         rule.onNodeWithTag("challenge_progress").assertIsDisplayed()
         rule.onNodeWithText("0 / 4일 달성 (누적)").assertIsDisplayed()
         capture("compose-challenge-active.png")
+        // Figma 03: the active challenge is summarised on the today home and opens the challenge tab.
+        rule.onNodeWithTag("tab_today").performClick()
+        rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("dashboard_challenge_card")).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithTag("dashboard_challenge_card").assertIsDisplayed()
+        capture("compose-home-challenge-card.png")
+        rule.onNodeWithTag("dashboard_challenge_card").performClick()
+        rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("challenge_active")).fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithTag("challenge_abandon").performClick()
         rule.onNodeWithTag("challenge_abandon_dialog").assertIsDisplayed()
         captureScreen("compose-challenge-abandon-dialog.png")

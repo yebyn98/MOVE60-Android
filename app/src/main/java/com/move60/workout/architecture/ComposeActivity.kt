@@ -93,7 +93,10 @@ fun Move60ComposeApp(showIntro: Boolean = false, openCalendar: Boolean = false) 
                     startDestination = if (openCalendar) "calendar" else "dashboard",
                     modifier = Modifier.weight(1f)
                 ) {
-                    composable("dashboard") { WorkoutDashboard(onRunningChanged = { workoutRunning = it }) }
+                    composable("dashboard") { WorkoutDashboard(
+                        onRunningChanged = { workoutRunning = it },
+                        onOpenChallenge = { nav.navigate("challenge") { popUpTo("dashboard") { saveState = true }; launchSingleTop = true; restoreState = true } }
+                    ) }
                     composable("challenge") { ChallengeScreen(onBack = { nav.popBackStack() }) }
                     composable("calendar") { WorkoutCalendar(onBack = { nav.popBackStack() }) }
                     composable("settings") { WorkoutSettings(onBack = { nav.popBackStack() }) }
