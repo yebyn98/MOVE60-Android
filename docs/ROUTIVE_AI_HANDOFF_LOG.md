@@ -103,3 +103,9 @@ no rows with those values were ever written by a shipped build).
 - 구현: Room v4 `routine_exercises`(+`MIGRATION_3_4`, schemas/4.json), `RoutinePlanService.save(..., exercises)`(운동 1개 이상 필수=E-02 B, 시간 null 허용), `RoutineComposeViewModel/Screen`, 홈 카드 "루틴 직접 구성"(`dashboard_compose_routine`) → `routine_compose` 경로. 목표시간 비우면 "미정"(60분 고정 아님). 후보 종목은 앱 카탈로그(workouts.json)에서만 가져옴.
 - 의도적 미구현: 16(추천 근거 문구는 추천 엔진이 없어 가짜 추천이 됨), 17의 "실제 동작 영상"(영상 자산 없음, 만들지 않음), 보유 기구 필터(61·62 미구현 → "등록된 기구가 아직 없어요"), 저장한 루틴 목록/편집/시작(4단계 엔진 미구현), 실패 시 Draft 영속(현재 화면 상태 메모리만).
 - 검증: JVM 테스트(서비스·v3→v4 마이그레이션), androidTest `ComposeRoutineComposeTest`(빈 상태·선택·오류·저장 캡처) — CI 결과/캡처는 푸시 후 확인. 실기기 미검증.
+
+### F-5. 41 루틴 구성 CI 결과 (커밋 91a7e5a, 2026-11-16)
+- CI 전체 통과(JVM + 에뮬레이터 스모크). 실제 에뮬레이터 캡처 확인: `compose-routine-empty/picker/error/saved.png`(아티팩트 `move60-smoke-evidence`, run 43728034683). 실기기 미검증.
+- 발견·수정: (1) 시간 오류 문구가 목록 맨 아래라 스크롤 전에는 안 보임 → 확정 버튼 위로 이동(화면 결함). (2) 기존 `PhoneFeaturesTest.movingToAnotherItemKeepsActiveTime`가 요일 의존(월·수 루틴은 유산소 1~2개 vs 테스트 ≥3 요구)이라 월요일(KST) CI에서 실패 → 요일을 화요일로 고정(검증 약화 아님).
+- Figma 41과의 차이(미해결): Figma는 단계 행이 `>` 이동 행이고 시간 입력이 없는데, 구현은 단계 카드에 계획시간 입력란이 포함됨. 탭바는 Figma와 동일하게 유지. 보유 기구는 61·62 미구현으로 빈 상태.
+- 남은 것: 저장 루틴 목록·편집·시작(4단계 엔진 필요), 16 추천 상세, 17 동작 안내(영상 없음), 실패 Draft 영속.
