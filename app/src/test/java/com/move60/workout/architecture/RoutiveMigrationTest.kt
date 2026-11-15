@@ -82,7 +82,7 @@ class RoutiveMigrationTest {
 
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val db = Room.databaseBuilder(context, WorkoutDatabase::class.java, dbName)
-            .addMigrations(RoutiveMigrations.MIGRATION_1_2, RoutiveMigrations.MIGRATION_2_3).allowMainThreadQueries().build()
+            .addMigrations(RoutiveMigrations.MIGRATION_1_2, RoutiveMigrations.MIGRATION_2_3, RoutiveMigrations.MIGRATION_3_4).allowMainThreadQueries().build()
         try {
             val legacy = db.workoutDao()
             assertEquals(3540L, legacy.day("2026-11-04")?.activeSeconds)
@@ -126,6 +126,20 @@ class RoutiveMigrationTest {
             for (t in listOf("routine_plans", "routine_stage_plans")) {
                 db.query("SELECT COUNT(*) FROM `$t`").use { c -> assertTrue(c.moveToFirst()); assertEquals(0, c.getInt(0)) }
             }
+        }
+    }
+
+    @Test fun v3ToV4AddsExerciseTableAndKeepsRoutinePlans() {
+        helper.createDatabase(dbName, 1).use { seedV1(it) }
+        helper.runMigrationsAndValidate(dbName, 3, true, RoutiveMigrations.MIGRATION_1_2, RoutiveMigrations.MIGRATION_2_3).use { db ->
+            db.execSQL("INSERT INTO routine_plans(routineId,name,structure,targetSeconds,createdAtEpochMs,updatedAtEpochMs) VALUES('r1','하체','ROUTIVE_4',NULL,1,1)")
+            db.execSQL("INSERT INTO routine_stage_plans(routineId,orderIndex,kind,plannedSeconds) VALUES('r1',0,'WARM_UP',NULL)")
+        }
+        helper.runMigrationsAndValidate(dbName, 4, true, RoutiveMigrations.MIGRATION_3_4).use { db ->
+            db.query("SELECT name, structure FROM routine_plans WHERE routineId='r1'").use { assertTrue(it.moveToFirst()); assertEquals("하체", it.getString(0)) }
+            db.query("SELECT plannedSeconds FROM routine_stage_plans WHERE routineId='r1'").use { assertTrue(it.moveToFirst()); assertTrue(it.isNull(0)) }
+            db.query("SELECT COUNT(*) FROM routine_exercises").use { assertTrue(it.moveToFirst()); assertEquals(0, it.getInt(0)) }
+            assertEquals(2, db.query("SELECT COUNT(*) FROM daily_workouts").use { it.moveToFirst(); it.getInt(0) })
         }
     }
 }

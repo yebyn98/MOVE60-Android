@@ -8,6 +8,7 @@ import androidx.room.RoomDatabase
  * v2: ROUTIVE session/interval/segment/set/adjustment/challenge/draft tables (unreleased), added by
  * [RoutiveMigrations.MIGRATION_1_2]. Legacy tables are never altered or dropped.
  * v3: routine_plans / routine_stage_plans (nullable planned seconds), added by [RoutiveMigrations.MIGRATION_2_3].
+ * v4: routine_exercises (exercises chosen per stage), added by [RoutiveMigrations.MIGRATION_3_4].
  */
 @Database(
     entities = [
@@ -16,9 +17,9 @@ import androidx.room.RoomDatabase
         SessionSetEntity::class, SessionAdjustmentEntity::class,
         ChallengeEntity::class, ChallengeDayCreditEntity::class,
         SessionDraftEntity::class,
-        RoutinePlanEntity::class, RoutineStagePlanEntity::class
+        RoutinePlanEntity::class, RoutineStagePlanEntity::class, RoutineExerciseEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = true
 )
 abstract class WorkoutDatabase : RoomDatabase() {

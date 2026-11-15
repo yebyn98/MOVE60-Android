@@ -97,3 +97,9 @@ no rows with those values were ever written by a shipped build).
 - 현재는 새 세션도 LEGACY_5로 시작(4단계 엔진 미구현). ROUTIVE_4를 쓰는 경로는 아직 없음.
 - 워치/위젯으로 보내는 스냅샷에는 아직 구조 정보를 싣지 않음(다음 단계에서 라벨 통일 시 추가).
 - 검증: JVM SessionStructureCompatTest 3(마커 없는 저장 세션 복원·진행 유지·재개, 알 수 없는 마커 폴백, 신규 마커 저장). 실기기·CI는 푸시 후 확인.
+
+### F-4. Figma 41 루틴 직접 구성 (구현 완료·CI 캡처 대기) / 번호 정정
+- **번호 정정:** Figma 16=추천 루틴 상세 확인, 41=루틴 직접 구성·편집, 17=근력 종목 동작 상세(루틴 편집 아님). 이전 문서의 "16·17·41 루틴 생성·편집" 표기는 부정확.
+- 구현: Room v4 `routine_exercises`(+`MIGRATION_3_4`, schemas/4.json), `RoutinePlanService.save(..., exercises)`(운동 1개 이상 필수=E-02 B, 시간 null 허용), `RoutineComposeViewModel/Screen`, 홈 카드 "루틴 직접 구성"(`dashboard_compose_routine`) → `routine_compose` 경로. 목표시간 비우면 "미정"(60분 고정 아님). 후보 종목은 앱 카탈로그(workouts.json)에서만 가져옴.
+- 의도적 미구현: 16(추천 근거 문구는 추천 엔진이 없어 가짜 추천이 됨), 17의 "실제 동작 영상"(영상 자산 없음, 만들지 않음), 보유 기구 필터(61·62 미구현 → "등록된 기구가 아직 없어요"), 저장한 루틴 목록/편집/시작(4단계 엔진 미구현), 실패 시 Draft 영속(현재 화면 상태 메모리만).
+- 검증: JVM 테스트(서비스·v3→v4 마이그레이션), androidTest `ComposeRoutineComposeTest`(빈 상태·선택·오류·저장 캡처) — CI 결과/캡처는 푸시 후 확인. 실기기 미검증.

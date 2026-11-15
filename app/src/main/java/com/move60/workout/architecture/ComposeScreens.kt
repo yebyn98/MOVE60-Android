@@ -122,6 +122,7 @@ private val muted: Color get() = Color(Move60Theme.Colors.textMuted)
 fun WorkoutDashboard(
     onRunningChanged: (Boolean) -> Unit = {},
     onOpenChallenge: () -> Unit = {},
+    onComposeRoutine: () -> Unit = {},
     onWorkoutFinished: (sessionId: String) -> Unit = {},
     onOpenWorkout: () -> Unit = {},
     viewModel: WorkoutViewModel = hiltViewModel(),
@@ -181,6 +182,13 @@ fun WorkoutDashboard(
                         LinearProgressIndicator(progress = { active.rate }, modifier = Modifier.fillMaxWidth(),
                             color = MaterialTheme.colorScheme.primary, trackColor = MaterialTheme.colorScheme.outline)
                     }
+                }
+            }
+            // Figma 03 → 41: entry to the custom routine composer (saved plans only; no recommendation is shown).
+            item {
+                Move60Card(Modifier.clickable(onClick = onComposeRoutine).testTag("dashboard_compose_routine")) {
+                    Text("루틴 직접 구성", style = cardTitle)
+                    Text("운동과 계획시간을 직접 골라 루틴을 만들어요.", color = secondary, style = MaterialTheme.typography.bodySmall)
                 }
             }
             // Figma order: the weekly plan first, then today's routine.

@@ -209,3 +209,19 @@ data class RoutineStagePlanEntity(
     val kind: String,
     val plannedSeconds: Long?
 )
+
+/** An exercise the user put into one stage of a routine plan (Room v4, additive). `plannedSeconds` null = unknown. */
+@Entity(
+    tableName = "routine_exercises",
+    primaryKeys = ["routineId", "stageIndex", "orderIndex"],
+    foreignKeys = [ForeignKey(RoutinePlanEntity::class, ["routineId"], ["routineId"], onDelete = ForeignKey.CASCADE)]
+)
+data class RoutineExerciseEntity(
+    val routineId: String,
+    val stageIndex: Int,
+    val orderIndex: Int,
+    /** Catalog id (e.g. a strength exercise id) or a cardio machine name. */
+    val exerciseId: String,
+    val name: String,
+    val plannedSeconds: Long?
+)

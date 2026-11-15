@@ -110,7 +110,8 @@ fun Move60ComposeApp(showIntro: Boolean = false, openCalendar: Boolean = false, 
                         onRunningChanged = { workoutRunning = it },
                         onWorkoutFinished = openResult,
                         onOpenWorkout = { nav.navigate("workout") { launchSingleTop = true } },
-                        onOpenChallenge = { nav.navigate("challenge") { popUpTo("dashboard") { saveState = true }; launchSingleTop = true; restoreState = true } }
+                        onOpenChallenge = { nav.navigate("challenge") { popUpTo("dashboard") { saveState = true }; launchSingleTop = true; restoreState = true } },
+                        onComposeRoutine = { nav.navigate("routine_compose") }
                     ) }
                     composable("workout") {
                         WorkoutProgressScreen(onBack = { nav.popBackStack() }, onResult = openResult)
@@ -121,6 +122,7 @@ fun Move60ComposeApp(showIntro: Boolean = false, openCalendar: Boolean = false, 
                         })
                     }
                     composable("challenge") { ChallengeScreen(onBack = { nav.popBackStack() }) }
+                    composable("routine_compose") { RoutineComposeScreen(onBack = { nav.popBackStack() }) }
                     composable("calendar") { WorkoutCalendar(onBack = { nav.popBackStack() }) }
                     composable("settings") { WorkoutSettings(onBack = { nav.popBackStack() }) }
                 }

@@ -98,5 +98,7 @@ interface RoutiveDao {
     @Insert(onConflict = OnConflictStrategy.ABORT) suspend fun insertRouteStages(stages: List<RoutineStagePlanEntity>)
     @Query("SELECT * FROM routine_plans WHERE routineId = :id") suspend fun routinePlan(id: String): RoutinePlanEntity?
     @Query("SELECT * FROM routine_stage_plans WHERE routineId = :id ORDER BY orderIndex") suspend fun routineStages(id: String): List<RoutineStagePlanEntity>
+    @Insert(onConflict = OnConflictStrategy.ABORT) suspend fun insertRoutineExercises(items: List<RoutineExerciseEntity>)
+    @Query("SELECT * FROM routine_exercises WHERE routineId = :id ORDER BY stageIndex, orderIndex") suspend fun routineExercises(id: String): List<RoutineExerciseEntity>
     @Query("SELECT * FROM routine_plans ORDER BY updatedAtEpochMs DESC") suspend fun routinePlans(): List<RoutinePlanEntity>
 }
