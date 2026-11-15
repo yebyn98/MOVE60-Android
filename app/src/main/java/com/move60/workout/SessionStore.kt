@@ -33,6 +33,9 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
         private set
     var finished = false
         private set
+    /** The user confirmed ending a partly performed session (saved as PARTIAL). Distinct from [finished]. */
+    var endedEarly = false
+        private set
     var sessionStartedAt: Long = 0L
         private set
     var accumulatedActiveSeconds: Int = 0
@@ -117,6 +120,7 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
             deadlineAt = o.optLong("deadlineAt", 0L)
             running = o.optBoolean("running", false) && deadlineAt > 0L
             finished = o.optBoolean("finished", false)
+            endedEarly = o.optBoolean("endedEarly", false)
             sessionStartedAt = o.optLong("sessionStartedAt", 0L)
             activeCheckpointAt = if (running) o.optLong("activeCheckpointAt", System.currentTimeMillis()) else 0L
             val tasks = o.optJSONArray("checked") ?: JSONArray()
@@ -137,6 +141,7 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
         deadlineAt = 0
         running = false
         finished = false
+        endedEarly = false
         sessionStartedAt = 0
         accumulatedActiveSeconds = 0
         intervals.clear()
@@ -188,7 +193,7 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
         val completedArray = JSONArray(); completed.sorted().forEach { completedArray.put(it) }
         val intervalArray = JSONArray(); intervals.forEach { intervalArray.put(JSONArray().put(it[0]).put(it[1])) }
         val state = JSONObject().put("bodyFocus", bodyFocus ?: "").put("stage", stage).put("remaining", remaining)
-            .put("deadlineAt", deadlineAt).put("running", running).put("finished", finished)
+            .put("deadlineAt", deadlineAt).put("running", running).put("finished", finished).put("endedEarly", endedEarly)
             .put("sessionStartedAt", sessionStartedAt).put("activeSeconds", accumulatedActiveSeconds)
             .put("stageElapsedSeconds", stageElapsedSeconds).put("activeCheckpointAt", activeCheckpointAt)
             .put("controlVersion", controlVersion).put("restDeadline", restDeadline)
@@ -215,7 +220,7 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
     }
     fun start() {
         reloadIfChanged()
-        if (finished) resetFields()
+        if (finished || endedEarly) resetFields()
         if (running) return
         controlVersion++
         running = true
@@ -285,6 +290,21 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
         completed += stage
         jumpTo(stage + 1)
     }
+    /**
+     * User-confirmed early end: stops the timer and keeps the real recorded intervals for saving as PARTIAL.
+     * Returns false when nothing was performed or the session is already over. Pauses are not counted as active time.
+     */
+    fun endEarly(): Boolean {
+        reloadIfChanged()
+        if (finished || endedEarly) return false
+        pause()
+        if (sessionStartedAt == 0L && accumulatedActiveSeconds == 0) return false
+        controlVersion++
+        endedEarly = true
+        save()
+        return true
+    }
+    /** Reset (P-28 A): discards the current session's temporary data. Stored past records are never touched. */
     fun resetAll() { pause(); resetFields(); save() }
     fun toggleChecked(key: String, value: Boolean) { reloadIfChanged(); controlVersion++; if (value) checked.add(key) else checked.remove(key); save() }
     fun elapsed(): Int {

@@ -174,7 +174,8 @@ data class SessionDraftEntity(
     val updatedAtEpochMs: Long
 )
 
-enum class SessionCompletion { COMPLETED, PARTIAL, STOPPED, UNKNOWN }
+/** How far the plan was performed. Validity (>=60 s active or >=1 completed set) is derived separately and never from this. */
+enum class SessionCompletion { COMPLETED, PARTIAL, NOT_PERFORMED }
 enum class SegmentKind { WARMUP, STRENGTH, CARDIO_WORK, CARDIO_RECOVERY, CARDIO_STEADY, COOLDOWN }
 enum class SetState { COMPLETED, SKIPPED }
 enum class ChallengeStatus { ACTIVE, COMPLETE, EXPIRED, ABANDONED }

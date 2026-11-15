@@ -27,21 +27,25 @@ Two sections are kept strictly separate. Policy items are NOT decided by develop
 Superseded earlier assumptions (old questions 1, 2, 3, 5): summary kept for below-threshold sessions, no retro credit,
 first-600s credit freeze, and virtual `LEGACY_DAY_AGGREGATE` sessions are all removed.
 
-## C. Assumptions made by development (NOT policy; confirm or reject)
-1. Challenge creation is limited to `startDate == creation date in the challenge zone` (`START_DATE_NOT_CREATION_DAY`).
-   Past/future start dates are an unapproved exception and are rejected.
-2. A session saved after a challenge has already ended never changes it (the challenge is settled before the insert).
-   Late-saved-session credit is an unapproved exception.
-3. `abandon` is minimal: terminal ABANDONED with a snapshot of days credited so far.
-4. No rule exists for `targetDays` larger than the number of days in the period; it is currently accepted.
-5. The correction path (P-22/P-23: user edits of stored evidence) is not built. Re-derivation (`refreshActive`) and
-   additional sessions are tested; edits are simulated with raw SQL in tests.
+## C. Confirmed by the user on 2026-11-15 (ChatGPT review result "Android 개발 정책 검토 결과 전달")
+| Item | Decision | Code status |
+| --- | --- | --- |
+| Challenge start date | Creation day only; no past/future start, no SCHEDULED state. Earlier same-day sessions are retro-credited (C-01) | Implemented (`START_DATE_NOT_CREATION_DAY`), tested |
+| Late-saved session after the end boundary | Record is kept; ended challenge (days, rate, state, snapshot) is never changed | Implemented, tested (`touchedChallenges` empty = record saved, challenge not credited) |
+| Early end | Confirmed end is saved by real performance: >=60 s or >=1 completed set = valid; PARTIAL if not all done, COMPLETED if all done, NOT_PERFORMED if nothing performed; <60 s and 0 sets discarded (D-01 B); validity is separate from completion | Store/commit layer implemented, tested. `SessionStore.endEarly()` exists but NO screen calls it yet |
+| Reset | Confirmed reset discards the current session's temporary data; stored past records untouched; cancel keeps state | `resetAll()` discards temporary intervals, tested. Confirmation dialog is UI (not built) |
+| targetDays cap | `1 <= targetDays <= days(startDate..endDate inclusive)`; otherwise rejected | Implemented (`TARGET_EXCEEDS_PERIOD`), tested |
+| Abandon | ACTIVE -> ABANDONED only after explicit user confirmation; snapshot keeps credited days, target, original period, rate, abandon time; sessions and calendar kept; later workouts never change it | Implemented (`abandon(id, confirmed)`; `NotConfirmed` when false), tested. Confirmation dialog is UI (not built) |
+
+Not assumptions any more. Remaining development defaults (not policy, flagged): `abandon` snapshot stores the abandon time in
+`endedAtEpochSec`; `SessionCompletion` is now COMPLETED / PARTIAL / NOT_PERFORMED (old STOPPED/UNKNOWN values removed;
+no rows with those values were ever written by a shipped build).
 
 ## D. Remaining risks
 - Timer bridge (new this slice): only sessions the user FINISHED (last stage completed) are committed, from intervals
   recorded by `SessionStore.reconcile`. Sessions saved by older app versions have no intervals and are skipped (never
-  reconstructed). Early end / reset of a partly done workout is NOT saved to the new store: policy for "end early"
-  saving (E-series) is not defined in the material available to development.
+  reconstructed). `endEarly()` is implemented and saved as PARTIAL, but no screen calls it yet; if the user starts a new
+  session before the early-ended one is synced, the unsynced intervals would be lost (callers must trigger sync first).
 - The timer has two accounting paths (`SessionStore` and the service's `history_checkpoint_ms` -> `daily_workouts`);
   both still run. The new store is additive and failures are swallowed so the timer is unaffected, but the
   interplay is unverified on a real device (multi-instance SessionStore across service/activity).

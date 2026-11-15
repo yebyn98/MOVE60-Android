@@ -10,11 +10,12 @@ data class TimerSnapshot(
     val startedAtEpochMs: Long,
     val finished: Boolean,
     val accumulatedSeconds: Int,
-    val intervals: List<Pair<Long, Long>>
+    val intervals: List<Pair<Long, Long>>,
+    val endedEarly: Boolean = false
 )
 
 fun SessionStore.timerSnapshot() = TimerSnapshot(
-    recordDate, day, sessionStartedAt, finished, accumulatedActiveSeconds, activeIntervals()
+    recordDate, day, sessionStartedAt, finished, accumulatedActiveSeconds, activeIntervals(), endedEarly
 )
 
 sealed interface SyncOutcome {
@@ -34,21 +35,21 @@ class TimerSessionSync(private val committer: SessionCommitter, private val zone
     fun sessionId(s: TimerSnapshot) = "timer-${s.recordDate}-d${s.day}-${s.startedAtEpochMs}"
 
     fun bundleOrNull(s: TimerSnapshot): SessionBundle? {
-        if (!s.finished || s.startedAtEpochMs <= 0L || s.intervals.isEmpty()) return null
+        if (!(s.finished || s.endedEarly) || s.startedAtEpochMs <= 0L || s.intervals.isEmpty()) return null
         if (s.intervals.any { it.second <= it.first }) return null
         if (s.intervals.sumOf { it.second - it.first } != s.accumulatedSeconds.toLong()) return null
         val id = sessionId(s)
         val rows = s.intervals.mapIndexed { i, (a, b) -> SessionActiveIntervalEntity(id, i, a, b) }
         val session = SessionEntity(
             id, null, zoneId(), s.intervals.first().first * 1000L, s.intervals.last().second * 1000L,
-            SessionCompletion.COMPLETED.name, s.accumulatedSeconds.toLong(), 0, false, null, 0L
+            (if (s.finished) SessionCompletion.COMPLETED else SessionCompletion.PARTIAL).name, s.accumulatedSeconds.toLong(), 0, false, null, 0L
         )
         return SessionBundle(session, rows, emptyList(), emptyList())
     }
 
     suspend fun syncFinished(s: TimerSnapshot): SyncOutcome {
         val bundle = bundleOrNull(s) ?: return SyncOutcome.Skipped(
-            if (!s.finished) "not finished" else "no verifiable interval record"
+            if (!(s.finished || s.endedEarly)) "not finished" else "no verifiable interval record"
         )
         return try {
             when (val r = committer.commit(bundle)) {

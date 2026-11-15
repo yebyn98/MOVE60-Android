@@ -108,4 +108,51 @@ class TimerSessionSyncTest {
         assertTrue("got $r", r is SyncOutcome.Failed)
         assertEquals(600L, db.routiveDao().session(sync.sessionId(snap()))!!.totalActiveSeconds)
     }
+
+    // ---- confirmed 2026-11-15: early end saved as PARTIAL, reset discards temporary data ----
+    @Test fun endEarlyIsSavedAsPartialFromRealIntervalsAndSurvivesReload() = runBlocking {
+        val s = store(); s.start()
+        val t0 = System.currentTimeMillis()
+        s.reconcile(t0 + 300_400L)
+        assertTrue(s.endEarly()); assertEquals(false, s.finished)
+        val reloaded = store()
+        assertEquals(true, reloaded.endedEarly); assertEquals(false, reloaded.running)
+        val snapshot = reloaded.timerSnapshot()
+        val outcome = sync.syncFinished(snapshot)
+        assertTrue("got $outcome", outcome is SyncOutcome.Committed)
+        val row = db.routiveDao().session(sync.sessionId(snapshot))!!
+        assertEquals("PARTIAL", row.completion); assertEquals(true, row.validSession)
+        assertEquals(snapshot.accumulatedSeconds.toLong(), row.totalActiveSeconds)
+        assertTrue(sync.syncFinished(snapshot) is SyncOutcome.AlreadyCommitted)
+    }
+
+    @Test fun finishedSessionIsStillCompleted() = runBlocking {
+        val r = sync.syncFinished(snap()); assertTrue(r is SyncOutcome.Committed)
+        assertEquals("COMPLETED", db.routiveDao().session(sync.sessionId(snap()))!!.completion)
+    }
+
+    @Test fun endEarlyUnderSixtySecondsIsDiscardedAndNothingPerformedCannotEndEarly() = runBlocking {
+        val none = store(); assertEquals(false, none.endEarly())
+        val s = store(); s.start(); s.reconcile(System.currentTimeMillis() + 30_000L)
+        assertTrue(s.endEarly())
+        val snapshot = s.timerSnapshot()
+        assertTrue(sync.syncFinished(snapshot) is SyncOutcome.Discarded)
+        assertNull(db.routiveDao().session(sync.sessionId(snapshot)))
+    }
+
+    @Test fun resetDiscardsTemporaryDataAndNeverTouchesStoredRecords() = runBlocking {
+        val stored = snap(); assertTrue(sync.syncFinished(stored) is SyncOutcome.Committed)
+        val s = store(); s.start(); s.reconcile(System.currentTimeMillis() + 300_000L)
+        s.resetAll()
+        assertTrue(s.activeIntervals().isEmpty()); assertEquals(0, s.accumulatedActiveSeconds); assertEquals(false, s.endedEarly)
+        assertTrue(sync.syncFinished(s.timerSnapshot()) is SyncOutcome.Skipped)
+        assertEquals(1, db.query("SELECT COUNT(*) FROM sessions", null).use { it.moveToFirst(); it.getInt(0) })
+        assertEquals(600L, db.routiveDao().session(sync.sessionId(stored))!!.totalActiveSeconds)
+    }
+
+    @Test fun startingAfterAnEarlyEndBeginsAFreshSession() {
+        val s = store(); s.start(); s.reconcile(System.currentTimeMillis() + 120_000L)
+        assertTrue(s.endEarly()); s.start()
+        assertEquals(false, s.endedEarly); assertEquals(true, s.running); assertEquals(0, s.accumulatedActiveSeconds)
+    }
 }

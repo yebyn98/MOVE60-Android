@@ -20,7 +20,7 @@ data class SessionBundle(
 enum class RejectReason {
     BLANK_SESSION_ID, UNKNOWN_ENUM_VALUE, INVALID_ZONE, NEGATIVE_VALUE, INVALID_INTERVAL, DUPLICATE_INTERVAL,
     INTERVAL_OVERLAP, INTERVAL_SUM_OVERFLOW, INTERVAL_SUM_MISMATCH, DUPLICATE_SET, INVALID_SET,
-    COMPLETED_SET_COUNT_MISMATCH, DUPLICATE_SEGMENT, INVALID_SEGMENT, INVALID_LEGACY_TOKEN, CHILD_SESSION_ID_MISMATCH
+    COMPLETED_SET_COUNT_MISMATCH, COMPLETION_CONTRADICTS_ACTIVITY, DUPLICATE_SEGMENT, INVALID_SEGMENT, INVALID_LEGACY_TOKEN, CHILD_SESSION_ID_MISMATCH
 }
 
 sealed interface CommitResult {
@@ -76,6 +76,11 @@ object SessionBundleValidator {
             }
         }
         if (sum != s.totalActiveSeconds) return reject(RejectReason.INTERVAL_SUM_MISMATCH, "intervals=$sum total=${s.totalActiveSeconds}")
+
+        // NOT_PERFORMED means no performed event at all; it cannot carry active time, intervals or completed sets.
+        if (s.completion == SessionCompletion.NOT_PERFORMED.name &&
+            (s.totalActiveSeconds != 0L || s.completedStrengthSets != 0 || bundle.intervals.isNotEmpty() || bundle.sets.any { it.state == SetState.COMPLETED.name })
+        ) return reject(RejectReason.COMPLETION_CONTRADICTS_ACTIVITY, "NOT_PERFORMED with activity")
 
         // Sets: only COMPLETED or SKIPPED rows exist; completed count must match the snapshot.
         val setKeys = HashSet<Pair<String, Int>>()

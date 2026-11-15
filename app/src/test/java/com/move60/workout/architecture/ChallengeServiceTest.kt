@@ -223,10 +223,69 @@ class ChallengeServiceTest {
     @Test fun abandonIsTerminalAndKeepsEarnedDays() = runBlocking {
         at("2026-11-15", 9); service.create(challengeOf(start = "2026-11-15", end = "2026-11-21"))
         at("2026-11-15", 10, 30); store("s", "2026-11-15", 10, 15)
-        assertEquals(AbandonResult.Abandoned("c1"), service.abandon("c1"))
+        assertEquals(AbandonResult.Abandoned("c1"), service.abandon("c1", confirmed = true))
         assertEquals("ABANDONED", status())
         assertEquals(1, snapshot(dao.challenge("c1")!!).getInt("creditedDays"))
-        assertTrue(service.abandon("c1") is AbandonResult.AlreadyEnded)
-        assertEquals(AbandonResult.NotFound, service.abandon("nope"))
+        assertTrue(service.abandon("c1", confirmed = true) is AbandonResult.AlreadyEnded)
+        assertEquals(AbandonResult.NotFound, service.abandon("nope", confirmed = true))
+    }
+
+    // ---- confirmed 2026-11-15: target-day cap, abandon snapshot, late save, PARTIAL credit ----
+    @Test fun targetDaysMustFitTheInclusivePeriod() = runBlocking {
+        val cases = listOf(                                   // (start, end, target, allowed)
+            Triple("2026-11-15" to "2026-11-17", 3, true), Triple("2026-11-15" to "2026-11-17", 4, false),
+            Triple("2026-11-15" to "2026-11-15", 1, true), Triple("2026-11-15" to "2026-11-15", 2, false)
+        )
+        for ((i, c) in cases.withIndex()) {
+            val (period, target, allowed) = c
+            val r = service.create(challengeOf(id = "t$i", start = period.first, end = period.second, target = target))
+            if (allowed) { assertTrue("$c -> $r", r is ChallengeResult.Created); service.abandon("t$i", confirmed = true) }
+            else assertTrue("$c -> $r", r is ChallengeResult.Rejected && r.reason == ChallengeReject.TARGET_EXCEEDS_PERIOD)
+        }
+        assertNull(dao.challenge("t1")); assertNull(dao.challenge("t3"))
+    }
+
+    @Test fun abandonNeedsConfirmationAndNothingChangesWithout() = runBlocking {
+        service.create(challengeOf(start = "2026-11-15", end = "2026-11-21"))
+        assertEquals(AbandonResult.NotConfirmed, service.abandon("c1", confirmed = false))
+        assertEquals("ACTIVE", status())
+    }
+
+    @Test fun abandonSnapshotKeepsProgressAndLaterWorkoutNeverChangesIt() = runBlocking {
+        db.workoutDao().upsertDay(DailyWorkoutEntity("2026-11-15", 1200, 90.0, 1L))
+        at("2026-11-15", 8); service.create(challengeOf(start = "2026-11-15", end = "2026-11-21", target = 3))
+        at("2026-11-15", 10, 30); store("before", "2026-11-15", 10, 15)
+        at("2026-11-15", 21); assertEquals(AbandonResult.Abandoned("c1"), service.abandon("c1", confirmed = true))
+        val ended = dao.challenge("c1")!!
+        val snap = snapshot(ended)
+        assertEquals("ABANDONED", ended.status); assertEquals(T.ms("2026-11-15", 21), ended.endedAtEpochMs)
+        assertEquals(1, snap.getInt("creditedDays")); assertEquals(3, snap.getInt("targetDays"))
+        assertEquals("2026-11-15", snap.getString("startDate")); assertEquals("2026-11-21", snap.getString("endDate"))
+        assertEquals(1.0 / 3.0, snap.getDouble("achievementRate"), 1e-9); assertEquals(T.at("2026-11-15", 21), snap.getLong("endedAtEpochSec"))
+        // Past records are kept and later workouts do not touch the ended challenge.
+        assertEquals(1200L, db.workoutDao().day("2026-11-15")!!.activeSeconds); assertNotNullSession("before")
+        at("2026-11-16", 10); val later = store("after", "2026-11-16", 9, 30)
+        assertTrue(later is CommitResult.Committed && later.touchedChallenges.isEmpty())
+        assertEquals(ended, dao.challenge("c1")); assertNotNullSession("after")
+    }
+
+    private suspend fun assertNotNullSession(id: String) = assertTrue("session $id kept", dao.session(id) != null)
+
+    @Test fun lateSavedSessionIsKeptAsARecordButDoesNotTouchTheEndedChallenge() = runBlocking {
+        threeDays("2026-11-15"); at("2026-11-16", 0, 0, 0); service.settleDue()
+        val frozen = dao.challenge("c1")!!
+        at("2026-11-17", 9)
+        val r = store("late", "2026-11-15", 22, 20)          // performed before the boundary, first saved after it
+        assertTrue("got $r", r is CommitResult.Committed && r.touchedChallenges.isEmpty())
+        assertEquals(1200L, dao.session("late")!!.totalActiveSeconds)
+        assertEquals(frozen, dao.challenge("c1")); assertEquals("COMPLETE", status())
+    }
+
+    @Test fun partialSessionCountsForTheChallengeWhenItIsValid() = runBlocking {
+        at("2026-11-15", 8); service.create(challengeOf(start = "2026-11-15", end = "2026-11-21"))
+        at("2026-11-15", 10, 30)
+        committer.commit(sessionBundle("partial", listOf(T.run(T.at("2026-11-15", 10), 11 * 60)), completion = SessionCompletion.PARTIAL))
+        assertEquals(true, dao.credit("c1", "2026-11-15")!!.credited)
+        assertEquals(660L, dao.credit("c1", "2026-11-15")!!.activeSeconds)
     }
 }

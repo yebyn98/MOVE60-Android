@@ -10,10 +10,11 @@ import com.move60.workout.domain.WorkoutRecognitionPolicy
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 import org.json.JSONArray
 import org.json.JSONObject
 
-enum class ChallengeReject { INVALID_FIELD, INVALID_ZONE, INVALID_DATE, START_DATE_NOT_CREATION_DAY, ACTIVE_CHALLENGE_EXISTS }
+enum class ChallengeReject { TARGET_EXCEEDS_PERIOD, INVALID_FIELD, INVALID_ZONE, INVALID_DATE, START_DATE_NOT_CREATION_DAY, ACTIVE_CHALLENGE_EXISTS }
 
 sealed interface ChallengeResult {
     /** [creditedDays] counts dates already credited at creation, i.e. same-day retroactive credit (C-20261115-01). */
@@ -28,6 +29,8 @@ sealed interface AbandonResult {
     data class Abandoned(val challengeId: String) : AbandonResult
     data class AlreadyEnded(val status: String) : AbandonResult
     data object NotFound : AbandonResult
+    /** Abandoning needs an explicit user confirmation (policy P-14); nothing was changed. */
+    data object NotConfirmed : AbandonResult
 }
 
 /**
@@ -48,7 +51,8 @@ class ChallengeService(private val db: WorkoutDatabase, private val clock: () ->
         ChallengeResult.Failed(error)
     }
 
-    suspend fun abandon(challengeId: String): AbandonResult = db.withTransaction {
+    suspend fun abandon(challengeId: String, confirmed: Boolean): AbandonResult = db.withTransaction {
+        if (!confirmed) return@withTransaction AbandonResult.NotConfirmed
         val nowMs = clock()
         val current = dao.challenge(challengeId) ?: return@withTransaction AbandonResult.NotFound
         if (current.status == ChallengeStatus.ACTIVE.name) settle(current, nowMs / 1000L, nowMs)
@@ -119,6 +123,9 @@ class ChallengeService(private val db: WorkoutDatabase, private val clock: () ->
         val start = runCatching { LocalDate.parse(requested.startDate) }.getOrNull() ?: return reject(ChallengeReject.INVALID_DATE, requested.startDate)
         val end = runCatching { LocalDate.parse(requested.endDate) }.getOrNull() ?: return reject(ChallengeReject.INVALID_DATE, requested.endDate)
         if (end.isBefore(start)) return reject(ChallengeReject.INVALID_DATE, "endDate before startDate")
+        // Target days are cumulative credited days, at most one per date: 1 <= target <= days in the inclusive period.
+        val periodDays = ChronoUnit.DAYS.between(start, end) + 1
+        if (requested.targetDays > periodDays) return reject(ChallengeReject.TARGET_EXCEEDS_PERIOD, "target=${requested.targetDays} periodDays=$periodDays")
 
         val nowMs = clock()
         val today = Instant.ofEpochSecond(nowMs / 1000L).atZone(zone).toLocalDate()

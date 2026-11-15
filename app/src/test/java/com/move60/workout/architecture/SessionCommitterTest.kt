@@ -205,4 +205,36 @@ class SessionCommitterTest {
         assertEquals(listOf("280", "290"), dao.adjustments("adj").map { it.newValue })
         assertEquals(300L, dao.session("adj")!!.totalActiveSeconds)
     }
+
+    // ---- completion state is separate from validity (COMPLETED / PARTIAL / NOT_PERFORMED) ----
+    private fun withCompletion(id: String, completion: SessionCompletion, seconds: Long, sets: Int = 0) =
+        sessionBundle(id, if (seconds > 0) listOf(T.run(start(), seconds)) else emptyList(), sets = sets, completion = completion)
+
+    @Test fun completionAndValidityAreIndependent() = runBlocking {
+        assertTrue(committer.commit(withCompletion("p120", SessionCompletion.PARTIAL, 120)) is CommitResult.Committed)
+        assertEquals(true, dao.session("p120")!!.validSession); assertEquals("PARTIAL", dao.session("p120")!!.completion)
+        assertTrue(committer.commit(withCompletion("c59", SessionCompletion.COMPLETED, 59)) is CommitResult.DiscardedBelowThreshold)
+        assertTrue(committer.commit(withCompletion("p59", SessionCompletion.PARTIAL, 59)) is CommitResult.DiscardedBelowThreshold)
+        assertTrue(committer.commit(withCompletion("p59set", SessionCompletion.PARTIAL, 59, sets = 1)) is CommitResult.Committed)
+        assertEquals(true, dao.session("p59set")!!.validSession)
+        assertNull(dao.session("c59")); assertNull(dao.session("p59"))
+    }
+
+    @Test fun notPerformedWithoutActivityIsDiscardedAndWithActivityIsRejected() = runBlocking {
+        assertTrue(committer.commit(withCompletion("np0", SessionCompletion.NOT_PERFORMED, 0)) is CommitResult.DiscardedBelowThreshold)
+        assertNull(dao.session("np0"))
+        val r = committer.commit(withCompletion("np1", SessionCompletion.NOT_PERFORMED, 120))
+        assertTrue("got $r", r is CommitResult.Rejected && r.reason == RejectReason.COMPLETION_CONTRADICTS_ACTIVITY)
+        val withSet = committer.commit(withCompletion("np2", SessionCompletion.NOT_PERFORMED, 0, sets = 1))
+        assertTrue("got $withSet", withSet is CommitResult.Rejected)
+        assertNull(dao.session("np1"))
+    }
+
+    @Test fun retiredCompletionNamesAreRejected() = runBlocking {
+        val b = bundle("old", 120)
+        for (name in listOf("STOPPED", "UNKNOWN", "completed")) {
+            val r = committer.commit(b.copy(session = b.session.copy(completion = name)))
+            assertTrue("$name -> $r", r is CommitResult.Rejected && r.reason == RejectReason.UNKNOWN_ENUM_VALUE)
+        }
+    }
 }
