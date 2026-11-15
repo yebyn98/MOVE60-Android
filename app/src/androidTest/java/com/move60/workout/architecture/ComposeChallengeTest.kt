@@ -33,6 +33,15 @@ class ComposeChallengeTest {
         }
     }
 
+    /** A Dialog is a separate window, so the Compose root capture fails; take the real device screenshot instead. */
+    private fun captureScreen(name: String) {
+        rule.waitForIdle(); Thread.sleep(500)
+        val image = requireNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot())
+        File(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null), name).outputStream().use {
+            image.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+        }
+    }
+
     @Test fun createRenameAndAbandonWithConfirmation() {
         rule.onNodeWithTag("compose_challenge_icon").performClick()
         rule.waitUntil(5_000) {
@@ -59,7 +68,7 @@ class ComposeChallengeTest {
         capture("compose-challenge-active.png")
         rule.onNodeWithTag("challenge_abandon").performClick()
         rule.onNodeWithTag("challenge_abandon_dialog").assertIsDisplayed()
-        capture("compose-challenge-abandon-dialog.png")
+        captureScreen("compose-challenge-abandon-dialog.png")
         rule.onNodeWithTag("challenge_abandon_confirm").performClick()
         rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("challenge_ended_ABANDONED")).fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithTag("challenge_list").performScrollToNode(hasTestTag("challenge_ended_ABANDONED"))
