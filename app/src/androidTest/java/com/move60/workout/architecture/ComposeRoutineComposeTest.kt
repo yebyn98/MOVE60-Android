@@ -76,7 +76,15 @@ class ComposeRoutineComposeTest {
         // Fix the target: appending "0" makes it 100 minutes, above the known 30 (other stages unknown), so it saves.
         scrolled("routine_target").performTextInput("0")
         rule.onNodeWithTag("routine_confirm").performClick()
-        waitTag("routine_saved")
+        // Wait for either outcome and always keep the real screen, so a failure shows what the user would see.
+        rule.waitUntil(8_000) {
+            rule.onAllNodes(hasTestTag("routine_saved")).fetchSemanticsNodes().isNotEmpty() ||
+                rule.onAllNodes(hasTestTag("routine_error")).fetchSemanticsNodes().isNotEmpty()
+        }
+        capture("compose-routine-after-confirm.png")
+        val errors = rule.onAllNodes(hasTestTag("routine_error")).fetchSemanticsNodes()
+        check(errors.isEmpty()) { "save did not succeed; screen shows: " + errors.joinToString { n ->
+            n.config.getOrNull(SemanticsProperties.Text)?.joinToString { it.text }.orEmpty() } }
         rule.onNodeWithTag("routine_saved").assertIsDisplayed()
         capture("compose-routine-saved.png")
     }
