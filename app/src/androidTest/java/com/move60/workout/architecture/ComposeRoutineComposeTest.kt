@@ -75,8 +75,8 @@ class ComposeRoutineComposeTest {
         waitTag("routine_error")
         rule.onNodeWithTag("routine_error").assertIsDisplayed()
         capture("compose-routine-error.png")
-        // Fix the target: set it to 100 minutes, above the known 30 (other stages unknown), so it saves.
-        scrolled("routine_target").performTextReplacement("100")
+        // Fix the target. The only exercise now has a known time, so the plan is fully known and the target must equal it (30).
+        scrolled("routine_target").performTextReplacement("30")
         rule.onNodeWithTag("routine_confirm").performClick()
         // Wait for either outcome and always keep the real screen, so a failure shows what the user would see.
         rule.waitUntil(8_000) {
