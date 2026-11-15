@@ -38,6 +38,19 @@ class ComposeWorkoutProgressTest {
             context.getSharedPreferences(name, 0).edit().clear().commit()
     }
 
+    /**
+     * Process-wide singletons keep the previous test's timer in memory, so clearing prefs is not enough: reset the
+     * stored session through the app's own reset (P-28 A) and wait until the overview shows the idle start button.
+     */
+    private fun ensureIdleOverview() {
+        val store = com.move60.workout.SessionStore(context, com.move60.workout.WorkoutData(context))
+        store.reloadIfChanged()
+        if (store.running || store.elapsed() > 0 || store.stage != 0) store.resetAll()
+        rule.waitUntil(15_000) {
+            rule.onAllNodes(hasTestTag("dock_play") and androidx.compose.ui.test.hasText("운동 시작")).fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
     private fun tagStartsWith(prefix: String) = androidx.compose.ui.test.SemanticsMatcher("tag starts with $prefix") {
         it.config.getOrNull(androidx.compose.ui.semantics.SemanticsProperties.TestTag)?.startsWith(prefix) == true
     }
@@ -59,6 +72,7 @@ class ComposeWorkoutProgressTest {
 
     @Test fun startPauseConfirmedEarlyEndAndResult() {
         ActivityScenario.launch(ComposeActivity::class.java).use {
+            ensureIdleOverview()
             rule.onNodeWithTag("dock_play").performClick()
             rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("workout_progress")).fetchSemanticsNodes().isNotEmpty() }
             rule.onNodeWithTag("workout_status").assertIsDisplayed()
@@ -88,6 +102,7 @@ class ComposeWorkoutProgressTest {
     /** Strength stage: enter kg/reps for a set, complete it, and see the per-exercise counter move. */
     @Test fun strengthStageAcceptsSetEntryAndCountsCompletedSets() {
         ActivityScenario.launch(ComposeActivity::class.java).use {
+            ensureIdleOverview()
             rule.onNodeWithTag("dock_play").performClick()
             rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("workout_progress")).fetchSemanticsNodes().isNotEmpty() }
             repeat(2) {                                   // warm-up -> cardio -> strength
@@ -108,6 +123,7 @@ class ComposeWorkoutProgressTest {
     /** The notification still opens the legacy detail activity; it must see the same running session. */
     @Test fun legacyDetailActivityStillSeesTheSessionStartedInCompose() {
         ActivityScenario.launch(ComposeActivity::class.java).use {
+            ensureIdleOverview()
             rule.onNodeWithTag("dock_play").performClick()
             rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("workout_progress")).fetchSemanticsNodes().isNotEmpty() }
             Thread.sleep(1_500)
