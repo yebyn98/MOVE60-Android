@@ -18,6 +18,8 @@ data class MovementDetails(val area: String, val equipment: String, val steps: L
 /** Five stages: 0 준비운동, 1 유산소 ①, 2 근력운동, 3 유산소 ②, 4 스트레칭. */
 const val STAGE_COUNT = 5
 const val LAST_STAGE = STAGE_COUNT - 1
+/** Position of the strength stage inside the legacy 5-stage routine DATA (workouts.json). Not a session stage meaning: use SessionStore.isStrengthStage for that. */
+const val LEGACY_STRENGTH_DATA_INDEX = 2
 /** Snapshot JSON key that carries the timed phases of a stage (null = untimed stage). */
 fun phasesKeyForStage(stage: Int): String? = when (stage) { 0 -> "phases0"; 1 -> "phases"; 3 -> "phases3"; 4 -> "phases4"; else -> null }
 data class DailyRoutine(

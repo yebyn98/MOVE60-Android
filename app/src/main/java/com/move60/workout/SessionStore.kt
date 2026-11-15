@@ -75,6 +75,15 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
 
     init { load(day) }
     private fun key() = "daily_"+recordDate+"_"+day
+    /** P0-2: stage meaning comes from the session's structure, never from a hard-coded index. */
+    fun kindOf(index: Int): com.move60.workout.domain.StageKind? = com.move60.workout.domain.WorkoutStructures.kindAt(structure, index)
+    val isStrengthStage: Boolean get() = kindOf(stage) == com.move60.workout.domain.StageKind.STRENGTH
+    val lastStageIndex: Int get() = com.move60.workout.domain.WorkoutStructures.lastIndex(structure)
+    /**
+     * The timing/routine engine still implements the legacy 5-stage flow only. A slot marked with another structure
+     * (e.g. written by a newer build) is kept untouched and is not advanced by this engine until the 4-stage engine ships.
+     */
+    val engineSupported: Boolean get() = structure == com.move60.workout.domain.StructureVersion.LEGACY_5
     /**
      * P1-1: a finished / early-ended session lives only in this single day slot until its Room commit is confirmed.
      * Before the slot is replaced (new start, reset, day switch, date rollover) its real intervals and completed sets are
@@ -135,7 +144,7 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
             restDeadline = o.optLong("restDeadline")
             restPaused = o.optInt("restPaused")
             restId = o.optLong("restId")
-            stage = o.optInt("stage", 0).coerceIn(0, LAST_STAGE)
+            stage = o.optInt("stage", 0).coerceIn(0, com.move60.workout.domain.WorkoutStructures.lastIndex(structure))
             accumulatedActiveSeconds = o.optInt("activeSeconds", o.optInt("elapsed", 0)).coerceAtLeast(0)
             stageElapsedSeconds = o.optInt("stageElapsedSeconds", stageSeconds() - o.optInt("remaining", stageSeconds())).coerceAtLeast(0)
             remaining = (stageSeconds() - stageElapsedSeconds).coerceAtLeast(0)
@@ -194,7 +203,7 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
         if (restDeadline > 0L) ceil((restDeadline-now)/1000.0).toInt().coerceAtLeast(0) else restPaused
     fun startRest(seconds: Int) {
         reloadIfChanged()
-        if (!running || stage != 2 || finished) return
+        if (!running || !isStrengthStage || finished) return
         restId = System.currentTimeMillis()
         restDeadline = restId + seconds.coerceIn(5,300)*1000L
         restPaused = 0
@@ -216,7 +225,7 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
         val checkedArray = JSONArray(); checked.sorted().forEach { checkedArray.put(it) }
         val completedArray = JSONArray(); completed.sorted().forEach { completedArray.put(it) }
         val intervalArray = JSONArray(); intervals.forEach { intervalArray.put(JSONArray().put(it[0]).put(it[1])) }
-        val state = JSONObject().put("bodyFocus", bodyFocus ?: "").put("stage", stage).put("remaining", remaining)
+        val state = JSONObject().put("bodyFocus", bodyFocus ?: "").put("structure", structure.name).put("stage", stage).put("remaining", remaining)
             .put("deadlineAt", deadlineAt).put("running", running).put("finished", finished).put("endedEarly", endedEarly)
             .put("sessionStartedAt", sessionStartedAt).put("activeSeconds", accumulatedActiveSeconds)
             .put("stageElapsedSeconds", stageElapsedSeconds).put("activeCheckpointAt", activeCheckpointAt)
@@ -245,6 +254,7 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
     fun start() {
         reloadIfChanged()
         if (finished || endedEarly) { archiveUncommitted(); resetFields() }
+        if (!engineSupported) return   // never run a session of a newer structure with this engine
         if (running) return
         controlVersion++
         running = true
@@ -281,7 +291,7 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
     }
     fun jumpTo(target: Int) {
         reloadIfChanged()
-        if (target !in 0..LAST_STAGE) return
+        if (!engineSupported || target !in 0..lastStageIndex) return
         val wasRunning = running
         reconcile()
         clearRest()
@@ -299,7 +309,8 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
     }
     fun nextStage() {
         reloadIfChanged()
-        if (stage >= LAST_STAGE) {
+        if (!engineSupported) return
+        if (stage >= lastStageIndex) {
             clearRest()
             controlVersion++
             reconcile()
@@ -395,7 +406,7 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
             .put("sessionStartedAt", sessionStartedAt)
             .put("controlVersion", controlVersion).put("restDeadline", restDeadline)
             .put("restPaused", restPaused).put("restId", restId)
-            .put("day", day).put("stage", stage).put("remaining", remaining)
+            .put("day", day).put("structure", structure.name).put("stage", stage).put("remaining", remaining)
             .put("deadlineAt", deadlineAt).put("activeSeconds", accumulatedActiveSeconds)
             .put("activeCheckpointAt", activeCheckpointAt)
             .put("stageElapsedSeconds", stageElapsedSeconds)

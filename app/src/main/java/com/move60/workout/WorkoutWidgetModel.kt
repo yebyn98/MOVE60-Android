@@ -42,9 +42,11 @@ object WorkoutWidgetModel {
         val finished = state.optBoolean("finished", false)
         val running = state.optBoolean("running", false) && !finished
         val hasSession = state.optLong("sessionStartedAt", 0L) > 0L
-        val stage = state.optInt("stage", 0).coerceIn(0, LAST_STAGE)
+        val structure = com.move60.workout.domain.StructureVersion.fromStored(state.optString("structure").takeIf { it.isNotEmpty() })
+        val stage = state.optInt("stage", 0).coerceIn(0, com.move60.workout.domain.WorkoutStructures.lastIndex(structure))
+        val kind = com.move60.workout.domain.WorkoutStructures.kindAt(structure, stage)
         val stageRemaining = WorkoutWidget.remainingSecondsForWidget(state, nowMillis)
-        val cardio = stage == 1 || stage == 3
+        val cardio = kind == com.move60.workout.domain.StageKind.CARDIO
         val phases = phasesKeyForStage(stage)?.let { state.optJSONArray(it) }
         val machine = phases?.optJSONObject(0)?.optString("kind").orEmpty()
             .ifBlank { state.optString("cardioMachine", "") }
@@ -66,7 +68,7 @@ object WorkoutWidgetModel {
             else -> paceLine(state, stage, phases, stageRemaining)
         }
         // Timed stages count down the current item (same number as the phone dock); strength counts the overall time up.
-        val countUp = stage == 2 && hasSession && !finished
+        val countUp = kind == com.move60.workout.domain.StageKind.STRENGTH && hasSession && !finished
         val timerSeconds = when {
             countUp -> elapsedTotal(state, nowMillis, running)
             finished || !hasSession -> 0L

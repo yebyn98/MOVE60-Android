@@ -55,8 +55,8 @@ object WatchStatePublisher {
         if (index == 2) detail = state.optString("setLabel", names[index])
         val nextSet = TrainingProgress.next(current)
         val setRecord = nextSet?.let { SetRecordStore(context).read(current.day, it.task.id, it.set, date = current.recordDate, token = current.sessionStartedAt) }
-        val totalSets = current.routine.stages[2].tasks.sumOf { TrainingProgress.count(it) }
-        val completedSets = current.routine.stages[2].tasks.sumOf { task ->
+        val totalSets = current.routine.stages[LEGACY_STRENGTH_DATA_INDEX].tasks.sumOf { TrainingProgress.count(it) }
+        val completedSets = current.routine.stages[LEGACY_STRENGTH_DATA_INDEX].tasks.sumOf { task ->
             (1..TrainingProgress.count(task)).count { number -> "strength-"+current.day+"-"+task.id+"-"+number in current.checked }
         }
         val estimatedKcal = EnergyLedger(context).estimateSession(state)

@@ -112,7 +112,7 @@ fun WorkoutProgressScreen(
             Move60Card(Modifier.testTag("workout_stage_card")) {
                 Text(state.stageName.substringBefore(" · "), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 if (state.itemName.isNotBlank()) Text(state.itemName, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (state.stage != 2) {
+                if (!state.strengthStage) {
                     Text("이 구간 남은 시간", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                     Text(formatSeconds(state.remainingSeconds), style = MaterialTheme.typography.displayMedium,
                         fontWeight = FontWeight.Bold, modifier = Modifier.testTag("workout_remaining"))
@@ -123,7 +123,7 @@ fun WorkoutProgressScreen(
                 }
                 HeartRow()
             }
-            if (state.stage == 2) StrengthSets(state, viewModel)
+            if (state.strengthStage) StrengthSets(state, viewModel)
             state.stageNames.getOrNull(state.stage + 1)?.let {
                 Text("다음 단계", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Move60Card { Text(it.substringBefore(" · ")) }

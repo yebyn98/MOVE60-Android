@@ -114,7 +114,16 @@ assert "widget_pace" in read("app/src/main/res/layout/widget_workout_large.xml")
 _data = read("app/src/main/java/com/move60/workout/WorkoutData.kt")
 assert "STAGE_COUNT = 5" in _data and 'WorkoutStage("스트레칭"' in _data and "fun setCardioSplit" in _data
 _session = read("app/src/main/java/com/move60/workout/SessionStore.kt")
-assert "0..LAST_STAGE" in _session and "stage >= LAST_STAGE" in _session and "phases4" in _session
+# P0-2: stage bounds and the strength stage come from the session structure, not from 5-stage literals.
+assert "0..lastStageIndex" in _session and "stage >= lastStageIndex" in _session and "phases4" in _session
+assert "val isStrengthStage" in _session and "val engineSupported" in _session
+import pathlib as _pl
+for _f in _pl.Path("app/src/main/java").rglob("*.kt"):
+    _t = _f.read_text(encoding="utf-8")
+    if _f.name == "HistoryViewModel.kt":
+        continue  # stored history rows carry only a legacy stage index; tracked in the handoff log
+    for _bad in ("stage == 2", "stage != 2", "stage == LAST_STAGE", "stage >= LAST_STAGE"):
+        assert _bad not in _t, f"hard-coded 5-stage assumption '{_bad}' in {_f}"
 assert "RangeSlider" in read("app/src/main/java/com/move60/workout/architecture/ComposeScreens.kt")
 assert "STAGE_COUNT = 5" in read("wear/src/main/java/com/move60/watch/WatchWorkoutState.kt")
 assert "0..LAST_STAGE" in read("app/src/main/java/com/move60/workout/StageLog.kt")

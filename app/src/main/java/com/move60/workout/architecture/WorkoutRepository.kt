@@ -7,7 +7,7 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.move60.workout.EnergyLedger
-import com.move60.workout.LAST_STAGE
+import com.move60.workout.LEGACY_STRENGTH_DATA_INDEX
 import com.move60.workout.SessionStore
 import com.move60.workout.SetRecordStore
 import com.move60.workout.TrainingProgress
@@ -54,6 +54,8 @@ data class WorkoutUiState(
     /** Seconds of the current stage (elapsed + remaining), for the stage progress bar. */
     val stageTotalSeconds: Int = 0,
     val stage: Int = 0,
+    /** True while the current stage is the strength stage of the session's structure (set entry UI). */
+    val strengthStage: Boolean = false,
     val stageName: String = "준비운동",
     val remainingSeconds: Int = 0,
     val activeSeconds: Int = 0,
@@ -107,7 +109,7 @@ class DefaultWorkoutRepository @Inject constructor(
             val today = data.localToday()
             val workoutStage = session.routine.stages[session.stage]
             val tasks = workoutStage.tasks.map { task ->
-                val setCount = if (session.stage == 2)
+                val setCount = if (session.isStrengthStage)
                     Regex("(\\d+)\\s*세트").find(task.detail)?.groupValues?.get(1)?.toIntOrNull() ?: 3
                 else 0
                 val completedCount = (1..setCount).count {
@@ -120,7 +122,7 @@ class DefaultWorkoutRepository @Inject constructor(
                 }
                 WorkoutTaskUi(task.id, task.name, task.detail, setCount, completedCount, entries)
             }
-            val strength = session.routine.stages[2].tasks
+            val strength = session.routine.stages.getOrNull(LEGACY_STRENGTH_DATA_INDEX)?.tasks ?: emptyList()
             val total = strength.sumOf {
                 Regex("(\\d+)\\s*세트").find(it.detail)?.groupValues?.get(1)?.toIntOrNull() ?: 3
             }
@@ -139,6 +141,7 @@ class DefaultWorkoutRepository @Inject constructor(
                 endedEarly = session.endedEarly,
                 stageTotalSeconds = session.remaining + session.stageElapsedSeconds,
                 stage = session.stage,
+                strengthStage = session.isStrengthStage,
                 stageName = workoutStage.name,
                 remainingSeconds = session.remaining,
                 activeSeconds = session.elapsed(),
@@ -146,7 +149,7 @@ class DefaultWorkoutRepository @Inject constructor(
                 stageNames = session.routine.stages.map { it.name },
                 itemName = when {
                     session.finished -> ""
-                    session.stage == 2 -> strength.firstOrNull { task ->
+                    session.isStrengthStage -> strength.firstOrNull { task ->
                         val count = Regex("(\\d+)\\s*세트").find(task.detail)?.groupValues?.get(1)?.toIntOrNull() ?: 3
                         (1..count).count { "strength-${session.day}-${task.id}-$it" in session.checked } < count
                     }?.name ?: strength.lastOrNull()?.name.orEmpty()
@@ -185,7 +188,7 @@ class DefaultWorkoutRepository @Inject constructor(
     }
     override suspend fun finishWorkout() = mutate {
         // Explicit final-stage exit, never auto-advance on a countdown.
-        if (!session.finished && session.stage == LAST_STAGE) session.nextStage()
+        if (!session.finished && session.stage == session.lastStageIndex) session.nextStage()
         publishToService()
         if (session.finished) { syncHistoricalData(); commitTimerSession() }
     }
@@ -208,9 +211,9 @@ class DefaultWorkoutRepository @Inject constructor(
     override suspend fun saveSet(
         exerciseId: String, set: Int, kg: String, reps: String, done: Boolean
     ) = mutate {
-        val task = session.routine.stages[2].tasks.firstOrNull { it.id == exerciseId }
+        if (session.sessionStartedAt == 0L || !session.isStrengthStage) return@mutate
+        val task = session.routine.stages.getOrNull(LEGACY_STRENGTH_DATA_INDEX)?.tasks?.firstOrNull { it.id == exerciseId }
             ?: return@mutate
-        if (session.sessionStartedAt == 0L || session.stage != 2) return@mutate
         val record = SetRecordStore.Record(kg, reps, "5", done)
         if (done && !record.valid) throw IllegalArgumentException("중량과 횟수를 확인해 주세요")
         val token = session.sessionStartedAt

@@ -41,6 +41,14 @@ object WorkoutStructures {
 
     fun stageCount(version: StructureVersion): Int = stages(version).size
 
+    /** Kind of the stage at [index] for [version]; null when out of range. */
+    fun kindAt(version: StructureVersion, index: Int): StageKind? = stages(version).getOrNull(index)?.kind
+
+    /** Index of the single strength stage (1 in ROUTIVE_4, 2 in LEGACY_5). */
+    fun strengthIndex(version: StructureVersion): Int = stages(version).indexOfFirst { it.kind == StageKind.STRENGTH }
+
+    fun lastIndex(version: StructureVersion): Int = stageCount(version) - 1
+
     /** "n / total 단계" label shared by phone, watch, notification and widget. */
     fun label(version: StructureVersion, stageIndex: Int): String {
         val total = stageCount(version)
