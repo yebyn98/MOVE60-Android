@@ -58,6 +58,8 @@ fun RoutineComposeScreen(onBack: () -> Unit, viewModel: RoutineComposeViewModel 
         topBar = { ScreenTopBar("루틴 구성", onBack, backTag = "routine_back") },
         bottomBar = {
             Column(Modifier.navigationBarsPadding().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Errors sit next to the confirm button so they are visible without scrolling the list.
+                state.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag("routine_error")) }
                 if (state.save == ComposeSaveState.SAVED) {
                     Text("루틴을 저장했어요.", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag("routine_saved"))
                     Move60Button(onClick = onBack, modifier = Modifier.fillMaxWidth().testTag("routine_done")) { Text("완료") }
@@ -123,7 +125,6 @@ fun RoutineComposeScreen(onBack: () -> Unit, viewModel: RoutineComposeViewModel 
                         modifier = Modifier.fillMaxWidth().testTag("routine_minutes_${kind.name}"))
                 }
             }
-            state.error?.let { item { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("routine_error")) } }
         }
     }
     picking?.let { kind ->

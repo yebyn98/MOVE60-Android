@@ -71,7 +71,7 @@ class ComposeRoutineComposeTest {
         scrolled("routine_minutes_CARDIO").performTextInput("30")
         rule.onNodeWithTag("routine_confirm").performClick()
         waitTag("routine_error")
-        scrolled("routine_error").assertIsDisplayed()
+        rule.onNodeWithTag("routine_error").assertIsDisplayed()
         capture("compose-routine-error.png")
         // Fix the target: appending "0" makes it 100 minutes, above the known 30 (other stages unknown), so it saves.
         scrolled("routine_target").performTextInput("0")
