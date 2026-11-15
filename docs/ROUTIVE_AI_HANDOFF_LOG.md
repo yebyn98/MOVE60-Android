@@ -85,3 +85,9 @@ no rows with those values were ever written by a shipped build).
 - Wear(`WatchActivity`)는 별도 모듈이라 도메인 규칙을 공유하지 못하고 "연결대기" 문구가 남음. 10초/30~240 판정 자체는 동일.
 ### 다음 순서 제안
 1) 루틴 계획 저장 모델(Room 추가 마이그레이션, 단계별 nullable plannedSeconds) 2) 세션 스냅샷에 structureVersion 추가(없으면 LEGACY_5) 3) 4단계 세션 시작 경로 4) 폰·워치·알림·위젯 단계 라벨 공유 5) 01·02·61·62·16·17·41 화면.
+
+### F-2. 루틴 계획 저장 모델 (Room v3, 추가 전용)
+- `routine_plans`, `routine_stage_plans` 신규(기존 테이블 무변경). `MIGRATION_2_3` + `schemas/3.json`. 단계별 `plannedSeconds`는 null 허용, 0/기본값 저장 금지.
+- `RoutinePlanService.save/load`: 이름 1~30자, 공유 `RoutineDurationPolicy`로 검증(알려진 합이 목표 초과·전부 알려졌는데 불일치·0 이하 거부, null은 허용=E-02 B), 중복 ID 덮어쓰기 거부, 세션/기록 불변.
+- 검증: JVM(RoutinePlanServiceTest 6, RoutiveMigrationTest v2→v3 1 + 기존 업그레이드 테스트를 v3 경로로 갱신). 실기기 업그레이드·CI는 미확인.
+- 참고: 앱에서 이 서비스를 호출하는 화면(16·17·41)은 아직 없음 → 사용자에게 보이는 변화 없음.

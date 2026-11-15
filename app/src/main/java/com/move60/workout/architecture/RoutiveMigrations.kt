@@ -36,4 +36,16 @@ object RoutiveMigrations {
             V1_TO_V2_STATEMENTS.forEach(db::execSQL)
         }
     }
+
+    /** Room v2 -> v3: additive routine plan tables (nullable planned seconds). Copied from schemas/.../3.json. */
+    val V2_TO_V3_STATEMENTS: List<String> = listOf(
+        "CREATE TABLE IF NOT EXISTS `routine_plans` (`routineId` TEXT NOT NULL, `name` TEXT NOT NULL, `structure` TEXT NOT NULL, `targetSeconds` INTEGER, `createdAtEpochMs` INTEGER NOT NULL, `updatedAtEpochMs` INTEGER NOT NULL, PRIMARY KEY(`routineId`))",
+        "CREATE TABLE IF NOT EXISTS `routine_stage_plans` (`routineId` TEXT NOT NULL, `orderIndex` INTEGER NOT NULL, `kind` TEXT NOT NULL, `plannedSeconds` INTEGER, PRIMARY KEY(`routineId`, `orderIndex`), FOREIGN KEY(`routineId`) REFERENCES `routine_plans`(`routineId`) ON UPDATE NO ACTION ON DELETE CASCADE )"
+    )
+
+    val MIGRATION_2_3: Migration = object : Migration(2, 3) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            V2_TO_V3_STATEMENTS.forEach(db::execSQL)
+        }
+    }
 }

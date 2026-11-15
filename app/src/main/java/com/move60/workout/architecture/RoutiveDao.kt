@@ -93,4 +93,10 @@ interface RoutiveDao {
     suspend fun setDraftState(draftId: String, state: String, code: String?, now: Long): Int
     @Query("UPDATE session_drafts SET state = 'FAILED', lastErrorCode = 'UNKNOWN_OUTCOME', updatedAtEpochMs = :now WHERE state = 'SAVING'")
     suspend fun failInterruptedSaves(now: Long): Int
+
+    @Insert(onConflict = OnConflictStrategy.ABORT) suspend fun insertRoutinePlan(plan: RoutinePlanEntity)
+    @Insert(onConflict = OnConflictStrategy.ABORT) suspend fun insertRouteStages(stages: List<RoutineStagePlanEntity>)
+    @Query("SELECT * FROM routine_plans WHERE routineId = :id") suspend fun routinePlan(id: String): RoutinePlanEntity?
+    @Query("SELECT * FROM routine_stage_plans WHERE routineId = :id ORDER BY orderIndex") suspend fun routineStages(id: String): List<RoutineStagePlanEntity>
+    @Query("SELECT * FROM routine_plans ORDER BY updatedAtEpochMs DESC") suspend fun routinePlans(): List<RoutinePlanEntity>
 }

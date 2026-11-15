@@ -24,7 +24,7 @@ object WorkoutProvides {
     fun database(@ApplicationContext context: Context): WorkoutDatabase =
         Room.databaseBuilder(context, WorkoutDatabase::class.java, "move60_workouts_room_v1.db")
             // Keep the shipped file name so existing history is upgraded in place.
-            .addMigrations(RoutiveMigrations.MIGRATION_1_2)
+            .addMigrations(RoutiveMigrations.MIGRATION_1_2, RoutiveMigrations.MIGRATION_2_3)
             .build()
 
     @Provides fun dao(database: WorkoutDatabase): WorkoutDao = database.workoutDao()

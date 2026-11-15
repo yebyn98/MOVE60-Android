@@ -180,3 +180,32 @@ enum class SegmentKind { WARMUP, STRENGTH, CARDIO_WORK, CARDIO_RECOVERY, CARDIO_
 enum class SetState { COMPLETED, SKIPPED }
 enum class ChallengeStatus { ACTIVE, COMPLETE, EXPIRED, ABANDONED }
 enum class DraftState { EDITING, SAVING, FAILED }
+
+/**
+ * A user's saved routine plan (Room v3, additive). Stage times are the PLAN only; measured time lives in sessions (P-21).
+ * `targetSeconds` is null when the user gave no total target (E-02 B).
+ */
+@Entity(tableName = "routine_plans")
+data class RoutinePlanEntity(
+    @PrimaryKey val routineId: String,
+    val name: String,
+    /** `StructureVersion` name; new plans are ROUTIVE_4. */
+    val structure: String,
+    val targetSeconds: Long?,
+    val createdAtEpochMs: Long,
+    val updatedAtEpochMs: Long
+)
+
+/** One top-level stage of a routine plan. `plannedSeconds` null = not confirmed; never stored as 0 or a default. */
+@Entity(
+    tableName = "routine_stage_plans",
+    primaryKeys = ["routineId", "orderIndex"],
+    foreignKeys = [ForeignKey(RoutinePlanEntity::class, ["routineId"], ["routineId"], onDelete = ForeignKey.CASCADE)]
+)
+data class RoutineStagePlanEntity(
+    val routineId: String,
+    val orderIndex: Int,
+    /** `StageKind` name. */
+    val kind: String,
+    val plannedSeconds: Long?
+)

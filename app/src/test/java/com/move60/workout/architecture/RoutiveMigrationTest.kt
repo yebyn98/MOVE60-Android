@@ -82,7 +82,7 @@ class RoutiveMigrationTest {
 
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val db = Room.databaseBuilder(context, WorkoutDatabase::class.java, dbName)
-            .addMigrations(RoutiveMigrations.MIGRATION_1_2).allowMainThreadQueries().build()
+            .addMigrations(RoutiveMigrations.MIGRATION_1_2, RoutiveMigrations.MIGRATION_2_3).allowMainThreadQueries().build()
         try {
             val legacy = db.workoutDao()
             assertEquals(3540L, legacy.day("2026-11-04")?.activeSeconds)
@@ -116,5 +116,16 @@ class RoutiveMigrationTest {
             raw.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='sessions'", null).use { assertFalse("rolled back", it.moveToFirst()) }
             assertEquals(1, raw.version)
         } finally { raw.close() }
+    }
+
+    @Test fun v2ToV3AddsRoutinePlanTablesWithoutTouchingExistingData() {
+        val before: List<String>
+        helper.createDatabase(dbName, 1).use { db -> seedV1(db); before = legacyRows(db) }
+        helper.runMigrationsAndValidate(dbName, 3, true, RoutiveMigrations.MIGRATION_1_2, RoutiveMigrations.MIGRATION_2_3).use { db ->
+            assertEquals(before, legacyRows(db))
+            for (t in listOf("routine_plans", "routine_stage_plans")) {
+                db.query("SELECT COUNT(*) FROM `$t`").use { c -> assertTrue(c.moveToFirst()); assertEquals(0, c.getInt(0)) }
+            }
+        }
     }
 }
