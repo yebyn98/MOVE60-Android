@@ -116,3 +116,10 @@ no rows with those values were ever written by a shipped build).
 - **JVM 검증(SessionSetPersistenceTest 6):** 59초+세트1=저장·유효, 59초+세트0=폐기, PARTIAL(조기 종료)도 세트 보존, 반복 동기화 시 중복 없음, 다른 운동 세트·미완료·무효 세트 제외, 실행 중 세션 스냅샷에 실제 세트 포함.
 - **한계:** (1) 세트 편집은 운동 종료 전까지만 가능하다는 전제. 이전 빌드가 세트 0개로 이미 커밋한 세션과 같은 ID로 다시 커밋하면 Conflict로 보고됨(Room v2는 미출시로 판단, 실제 사용자 데이터 없음 — 출시 이력 확인 필요). (2) 에뮬레이터/실기기 end-to-end(Compose에서 세트 완료 → 종료 → 결과 화면 세트 수) 아직 미검증. (3) P1-1(저장 완료 전 새 세션 시작 시 구간 손실) 미착수.
 - **41 정책 확정 반영:** 단계 시간 별도 입력 제거, 종목별 시간(null 허용·커스텀 값 그대로 보존)에서 단계 합계 산출. 한 종목이라도 시간 미정이면 단계 시간 미정. `RoutinePlanService.save(routineId, name, target, exercises)`로 시그니처 변경. 유산소 내부 구간 합산은 아직 구간 모델이 없어 종목 단위 시간만 지원.
+
+### H. P1-1 저장 확정 전 세션 교체 보호 (2026-11-16, 구현 완료·CI 확인 대기)
+- **재현(코드 추적):** 종료/조기 종료한 세션은 Room 커밋이 확정되기 전까지 단일 일자 슬롯(`SessionStore`)에만 있음. 커밋은 비동기(`syncTimerSessionAsync`)이고 실패하면 재시도는 "현재 슬롯"만 읽음 → 그 전에 `start()`(새 운동), `resetAll()`, `selectBodyFocus`, `setDay`, 날짜 전환이 슬롯을 덮어쓰거나 다른 슬롯으로 옮기면 이전 구간·세트가 유실될 수 있었음.
+- **수정:** `PendingSessionOutbox`(SharedPreferences `move60_pending_sessions_v1`)에 종료/조기 종료된 세션의 실제 구간·완료 세트를 슬롯 교체 **직전에** `commit()`으로 복사. `Move60Application.syncTimerSessionAsync`가 현재 슬롯 동기화 뒤 `drain`으로 재시도. 멱등 커밋 결과가 Committed/AlreadyCommitted/DiscardedBelowThreshold일 때만 항목 삭제, Failed/Rejected/Conflict는 시도 횟수·오류를 기록하고 보관(원본 유일 사본이므로 삭제 금지).
+- **의도적으로 보관하지 않는 것:** 진행 중(미종료) 세션의 초기화(P-28 A, 사용자 폐기). 기존 Room·SharedPreferences 데이터는 변환·삭제하지 않음(보관함은 신규 파일, 기존 슬롯 형식 무변경).
+- **검증:** JVM `PendingSessionOutboxTest` 7(새 시작·초기화 시 보관, 진행 중 초기화는 보관 안 함, 실패 시 유지 후 재시도 성공·중복 없음, 이미 저장된 세션 정리, 60초 미만 폐기 후 정리, 중복 enqueue가 재시도 정보 유지). androidTest 2건 추가: 세트 완료→조기 종료→결과 화면 "1세트"·"저장됨"(캡처 `compose-workout-result-with-set.png`), 저장 전 새 운동 시작→이전 세션이 Room에 저장되고 보관함이 비워짐. 로컬 SDK가 없어 Gradle 실행은 CI에서만 확인. 실기기 미검증.
+- **남은 위험:** (1) 보관함은 Conflict(같은 ID, 다른 내용)를 자동 해소하지 않음 → 이전 빌드가 세트 0개로 커밋한 세션이 있으면 영구 보관됨(사용자 데이터 보존 우선, 해소 정책은 별도 결정 필요). (2) 앱 데이터 삭제 시 보관함도 함께 사라짐(OS 동작). (3) 결과 화면은 현재 세션 기준이며 보관함에서 나중에 저장된 세션의 결과 진입 경로는 아직 없음.

@@ -120,6 +120,78 @@ class ComposeWorkoutProgressTest {
         }
     }
 
+    /**
+     * P0-1 end to end: a set completed on screen must be stored with the early-ended session (valid by P-26 B even
+     * under one minute) and the result screen must show exactly that stored set.
+     */
+    @Test fun completedSetThenEarlyEndIsStoredAndShownOnTheResult() {
+        ActivityScenario.launch(ComposeActivity::class.java).use {
+            ensureIdleOverview()
+            rule.onNodeWithTag("dock_play").performClick()
+            rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("workout_progress")).fetchSemanticsNodes().isNotEmpty() }
+            repeat(2) { rule.onNodeWithTag("workout_next").performClick(); Thread.sleep(800) }
+            rule.waitUntil(8_000) { rule.onAllNodes(tagStartsWith("workout_task_")).fetchSemanticsNodes().isNotEmpty() }
+            rule.onAllNodes(tagStartsWith("set_kg_"))[0].performTextInput("40")
+            rule.onAllNodes(tagStartsWith("set_reps_"))[0].performTextInput("12")
+            rule.onAllNodes(tagStartsWith("set_done_"))[0].performClick()
+            rule.waitUntil(8_000) { rule.onAllNodesWithText("1 / ", substring = true).fetchSemanticsNodes().isNotEmpty() }
+            Thread.sleep(2_000)                                   // real active time, still < 60 s
+            rule.onNodeWithTag("workout_pause").performClick()
+            rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("workout_end")).fetchSemanticsNodes().isNotEmpty() }
+            rule.onNodeWithTag("workout_end").performClick()
+            rule.onNodeWithTag("workout_end_confirm").performClick()
+            rule.waitUntil(20_000) { rule.onAllNodes(hasTestTag("result_screen")).fetchSemanticsNodes().isNotEmpty() }
+            rule.waitUntil(20_000) { rule.onAllNodes(androidx.compose.ui.test.hasText("저장됨")).fetchSemanticsNodes().isNotEmpty() }
+            rule.onNodeWithText("운동을 일부 마쳤어요").assertIsDisplayed()
+            rule.onNodeWithTag("result_sets").assertIsDisplayed()
+            rule.onNodeWithText("1세트").assertIsDisplayed()
+            capture("compose-workout-result-with-set.png")
+        }
+    }
+
+    /**
+     * P1-1: an early-ended session whose commit was never confirmed must not be lost when a new workout starts. It is
+     * copied to the outbox before the timer slot is replaced and then stored by the idempotent sync.
+     */
+    @Test fun newWorkoutStartedBeforeCommitKeepsTheEarlierSessionAndStoresIt() {
+        val outbox = PendingSessionOutbox(context)
+        outbox.pending().forEach { outbox.remove(outbox.sessionId(it)) }
+        val earlier = com.move60.workout.SessionStore(context, com.move60.workout.WorkoutData(context))
+        earlier.reloadIfChanged(); earlier.resetAll(); earlier.start()
+        com.move60.workout.SetRecordStore(context).write(earlier.day, "chestPress", 1,
+            com.move60.workout.SetRecordStore.Record("40", "10", "5", true), earlier.recordDate, earlier.sessionStartedAt)
+        earlier.reconcile(System.currentTimeMillis() + 120_000L)
+        org.junit.Assert.assertTrue(earlier.endEarly())          // ended, but nothing has been committed here
+        val expected = earlier.timerSnapshot(com.move60.workout.SetRecordStore(context))
+        val expectedId = outbox.sessionId(expected)
+        org.junit.Assert.assertTrue("fixture: real intervals must exist", expected.intervals.isNotEmpty())
+
+        ActivityScenario.launch(ComposeActivity::class.java).use {
+            rule.waitUntil(15_000) { rule.onAllNodes(hasTestTag("dock_play")).fetchSemanticsNodes().isNotEmpty() }
+            rule.onNodeWithTag("dock_play").performClick()         // starts a new workout over the ended one
+            rule.waitUntil(8_000) { rule.onAllNodes(hasTestTag("workout_progress")).fetchSemanticsNodes().isNotEmpty() }
+        }
+        val app = context.applicationContext as com.move60.workout.Move60Application
+        app.syncTimerSessionAsync()                                // same call the foreground hook makes
+        val db = androidx.room.Room.databaseBuilder(context, WorkoutDatabase::class.java, "move60_workouts_room_v1.db").build()
+        try {
+            val deadline = System.currentTimeMillis() + 20_000
+            var stored: SessionEntity? = null
+            while (System.currentTimeMillis() < deadline && stored == null) {
+                stored = kotlinx.coroutines.runBlocking { db.routiveDao().session(expectedId) }
+                if (stored == null) Thread.sleep(500)
+            }
+            org.junit.Assert.assertNotNull("earlier session must be stored after the new workout started", stored)
+            org.junit.Assert.assertEquals("PARTIAL", stored!!.completion)
+            org.junit.Assert.assertEquals(expected.accumulatedSeconds.toLong(), stored.totalActiveSeconds)
+            org.junit.Assert.assertEquals(1, kotlinx.coroutines.runBlocking { db.routiveDao().sets(expectedId) }.size)
+        } finally { db.close() }
+        val drainDeadline = System.currentTimeMillis() + 10_000
+        while (outbox.size() > 0 && System.currentTimeMillis() < drainDeadline) Thread.sleep(250)
+        org.junit.Assert.assertEquals("confirmed commit empties the outbox", 0, outbox.size())
+        com.move60.workout.SessionStore(context, com.move60.workout.WorkoutData(context)).resetAll()
+    }
+
     /** The notification still opens the legacy detail activity; it must see the same running session. */
     @Test fun legacyDetailActivityStillSeesTheSessionStartedInCompose() {
         ActivityScenario.launch(ComposeActivity::class.java).use {

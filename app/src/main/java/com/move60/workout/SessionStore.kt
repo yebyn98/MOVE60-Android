@@ -4,6 +4,7 @@ import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.math.ceil
+import com.move60.workout.architecture.timerSnapshot
 
 /** Stages only change on an explicit user action. Active time excludes pauses and may exceed 60 minutes. */
 class SessionStore(private val context: Context, private val data: WorkoutData, private val dateNow: () -> java.time.LocalDate = { data.localToday() }) {
@@ -74,9 +75,21 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
 
     init { load(day) }
     private fun key() = "daily_"+recordDate+"_"+day
+    /**
+     * P1-1: a finished / early-ended session lives only in this single day slot until its Room commit is confirmed.
+     * Before the slot is replaced (new start, reset, day switch, date rollover) its real intervals and completed sets are
+     * copied to the durable outbox, which the idempotent sync retries. Never blocks or throws into the timer flow.
+     */
+    private fun archiveUncommitted() {
+        if (!(finished || endedEarly) || sessionStartedAt <= 0L) return
+        try {
+            com.move60.workout.architecture.PendingSessionOutbox(context)
+                .enqueue(timerSnapshot(SetRecordStore(context)))
+        } catch (_: Throwable) { /* the slot itself is still intact on failure */ }
+    }
     fun taskKey(stage: Int, index: Int) = "$stage-$index"
     fun refreshRoutine() { reloadIfChanged(); controlVersion++; routine = data.routine(day, focus = bodyFocus); save() }
-    fun setDay(next: Int) { reloadIfChanged(); if (next == day) return; save(); load(next.coerceIn(1, 5)); save() }
+    fun setDay(next: Int) { reloadIfChanged(); if (next == day) return; archiveUncommitted(); save(); load(next.coerceIn(1, 5)); save() }
 
     /** Freeze the selected split once activity begins; a finished session can start a fresh plan. */
     fun selectBodyFocus(focus: String): Boolean {
@@ -84,6 +97,7 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
         reloadIfChanged()
         if (!finished && (running || sessionStartedAt > 0L || accumulatedActiveSeconds > 0)) return false
         if (bodyFocus == focus && !finished) return true
+        archiveUncommitted()
         bodyFocus = focus
         routine = data.routine(day, focus = bodyFocus)
         resetFields()
@@ -162,6 +176,7 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
     private fun stageSeconds(s: Int = stage) = routine.stages[s].minutes * 60
     fun reloadIfChanged(): Boolean {
         if (recordDate != dateNow() && !running) {
+            archiveUncommitted()
             recordDate = dateNow()
             load(recordDate.dayOfWeek.value.coerceIn(1,5))
             save()
@@ -229,7 +244,7 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
     }
     fun start() {
         reloadIfChanged()
-        if (finished || endedEarly) resetFields()
+        if (finished || endedEarly) { archiveUncommitted(); resetFields() }
         if (running) return
         controlVersion++
         running = true
@@ -314,7 +329,7 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
         return true
     }
     /** Reset (P-28 A): discards the current session's temporary data. Stored past records are never touched. */
-    fun resetAll() { pause(); resetFields(); save() }
+    fun resetAll() { pause(); archiveUncommitted(); resetFields(); save() }
     fun toggleChecked(key: String, value: Boolean) { reloadIfChanged(); controlVersion++; if (value) checked.add(key) else checked.remove(key); save() }
     fun elapsed(): Int {
         if (running) reconcile()
