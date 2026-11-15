@@ -144,7 +144,7 @@ fun WorkoutDashboard(
                     .semantics { contentDescription = "MOVE60" })
             }
         },
-        bottomBar = { WorkoutDock(state, viewModel, openDetail) }
+        bottomBar = { WorkoutDock(state, viewModel, openDetail, insetBottom = state.running) }
     ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding).testTag("dashboard_list"),
@@ -220,7 +220,7 @@ fun WorkoutDashboard(
 
 /** Fixed bottom dock (Figma "FixedBottomDock"): stage/time/heart summary plus step controls. */
 @Composable
-private fun WorkoutDock(state: WorkoutUiState, viewModel: WorkoutViewModel, onOpenDetail: () -> Unit) {
+private fun WorkoutDock(state: WorkoutUiState, viewModel: WorkoutViewModel, onOpenDetail: () -> Unit, insetBottom: Boolean) {
     val context = LocalContext.current
     // Heart rate is only shown when the watch reported a fresh sample (never an old value).
     val prefs = context.getSharedPreferences("preferences", android.content.Context.MODE_PRIVATE)
@@ -237,7 +237,8 @@ private fun WorkoutDock(state: WorkoutUiState, viewModel: WorkoutViewModel, onOp
         Box(Modifier.fillMaxWidth(progress).height(4.dp).background(MaterialTheme.colorScheme.primary))
     }
     Column(
-        Modifier.navigationBarsPadding()
+        // The tab bar owns the bottom system inset while visible; the dock only adds it when the tab bar is hidden.
+        (if (insetBottom) Modifier.navigationBarsPadding() else Modifier)
             .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -326,13 +327,16 @@ private fun formatSeconds(value: Int): String = "%02d:%02d".format(
 
 /** Figma TopBar: 24dp back arrow (48dp touch target), 24sp bold screen title. */
 @Composable
-internal fun ScreenTopBar(title: String, onBack: () -> Unit, backTag: String? = null) {
-    Row(Modifier.fillMaxWidth().statusBarsPadding().padding(start = 4.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
+internal fun ScreenTopBar(title: String, onBack: (() -> Unit)?, backTag: String? = null) {
+    // Top-level tab screens pass onBack = null: the tab bar is the navigation, so no back arrow is shown.
+    Row(Modifier.fillMaxWidth().statusBarsPadding().padding(start = if (onBack == null) 16.dp else 4.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onBack, modifier = if (backTag != null) Modifier.testTag(backTag) else Modifier) {
-            Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "뒤로 가기")
+        if (onBack != null) {
+            IconButton(onClick = onBack, modifier = if (backTag != null) Modifier.testTag(backTag) else Modifier) {
+                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "뒤로 가기")
+            }
+            Spacer(Modifier.size(4.dp))
         }
-        Spacer(Modifier.size(4.dp))
         Text(title, style = screenTitle, maxLines = 1)
     }
 }
@@ -363,7 +367,7 @@ fun WorkoutCalendar(
                     contentColor = MaterialTheme.colorScheme.secondary)
             }
         },
-        topBar = { ScreenTopBar("운동 달력", onBack) }
+        topBar = { ScreenTopBar("운동 달력", null) }
     ) { inner ->
         LazyColumn(Modifier.fillMaxSize().padding(inner).testTag("calendar_list"),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 16.dp),
@@ -610,7 +614,7 @@ fun WorkoutSettings(
     }
     Scaffold(containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(message) },
-        topBar = { ScreenTopBar("앱 설정", onBack, backTag = "settings_back") }
+        topBar = { ScreenTopBar("앱 설정", null) }
     ) { inner ->
         LazyColumn(Modifier.fillMaxSize().padding(inner).testTag("settings_list"),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp),

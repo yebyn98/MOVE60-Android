@@ -45,7 +45,6 @@ class ComposeArchitectureTest {
         capture("compose-dashboard.png")
         rule.onNodeWithTag("tab_calendar").performClick()
         rule.onNodeWithText("운동 달력").assertIsDisplayed()
-        rule.onNodeWithContentDescription("뒤로 가기").performClick()
         rule.onNodeWithTag("tab_settings").performClick()
         capture("compose-settings.png")
         // Settings is a long LazyColumn: scroll to each section before asserting it is visible.
@@ -55,7 +54,7 @@ class ComposeArchitectureTest {
 
     @Test fun composeSettingsHasEverySettingInThreeGroups() {
         rule.onNodeWithTag("tab_settings").performClick()
-        rule.onNodeWithTag("settings_back").assertIsDisplayed()
+        rule.onNodeWithTag("tab_bar").assertIsDisplayed()
         val list = rule.onNodeWithTag("settings_list")
         list.performScrollToNode(hasText("오늘 컨디션 루틴"))
         rule.onNodeWithText("피곤").assertIsDisplayed()

@@ -64,4 +64,6 @@ no rows with those values were ever written by a shipped build).
 - 도전 탭 1차: `RoutiveDao.endedChallenges/renameActive`, `ChallengeService.rename/active/ended`, `ChallengeViewModel`, `ChallengeScreens.kt`, 라우트 `challenge`, 대시보드 진입 아이콘. JVM 테스트 90건 통과, Gradle 게이트(lintVital·assemble·androidTest assemble) 통과.
 - `ComposeChallengeTest` 추가(생성→진행→포기 확인→지난 도전). **실행·캡처는 CI 에뮬레이터 전용이며 아직 결과 없음 → 시각 검증 미완료.**
 - 대조표: docs/ROUTIVE_FIGMA_GAP_MATRIX.md. 나머지 화면군은 미착수. 실기기 검증·v58 업그레이드 검증 미완료.
+- 2026-11-15 19:49 사용자 전달: 도전 정책 4개 항목(시작일 입력칸, 유산소 시간 목표, 개발 기본값 승인, 탭바/도크 우선순위)은 "모두 확정, 기존 P-12·P-14·P-24·C-20261115-01과 충돌 없음". **항목별 선택값은 전달받지 못해 코드에 반영하지 않음** (현재 구현: 시작일 필드 없음, 유산소 시간 목표 없음, 운동 중 탭바 숨김, 이름 30자).
+- 4탭 하단 바 추가, 상단 중복 아이콘 제거, 탭 화면 뒤로가기 제거, 도크 하단 인셋은 탭바 숨김 시에만 적용.
 

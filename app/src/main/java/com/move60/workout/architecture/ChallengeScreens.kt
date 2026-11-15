@@ -50,7 +50,7 @@ fun ChallengeScreen(onBack: () -> Unit, viewModel: ChallengeViewModel = hiltView
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbar) },
-        topBar = { ScreenTopBar("도전", onBack, backTag = "challenge_back") }
+        topBar = { ScreenTopBar("도전", null) }
     ) { inner ->
         LazyColumn(
             Modifier.fillMaxSize().padding(inner).testTag("challenge_list"),
