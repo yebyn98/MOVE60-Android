@@ -129,7 +129,9 @@ fun WorkoutDashboard(
     // The ViewModel outlives tab switches: reload whenever the home enters composition so a new/ended challenge shows up.
     LaunchedEffect(Unit) { challenges.refresh() }
     val state by viewModel.state.collectAsStateWithLifecycle()
-    LaunchedEffect(state.running) { onRunningChanged(state.running) }
+    // Confirmed policy: while a workout is in progress or paused only the workout dock is shown; the tab bar returns after it ends.
+    val inProgress = state.running || (state.activeSeconds > 0 && !state.finished)
+    LaunchedEffect(inProgress) { onRunningChanged(inProgress) }
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
     val openDetail = { context.startActivity(Intent(context, MainActivity::class.java)) }
@@ -152,7 +154,7 @@ fun WorkoutDashboard(
                     .semantics { contentDescription = "MOVE60" })
             }
         },
-        bottomBar = { WorkoutDock(state, viewModel, openDetail, insetBottom = state.running) }
+        bottomBar = { WorkoutDock(state, viewModel, openDetail, insetBottom = inProgress) }
     ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding).testTag("dashboard_list"),
