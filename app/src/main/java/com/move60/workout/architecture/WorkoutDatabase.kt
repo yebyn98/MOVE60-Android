@@ -3,11 +3,23 @@ package com.move60.workout.architecture
 import androidx.room.Database
 import androidx.room.RoomDatabase
 
+/**
+ * v1: daily_workouts, workout_sets (legacy read-model).
+ * v2: ROUTIVE session/segment/set/adjustment/challenge/draft/import tables, added by
+ * [RoutiveMigrations.MIGRATION_1_2]. Legacy tables are never altered or dropped.
+ */
 @Database(
-    entities = [DailyWorkoutEntity::class, WorkoutSetEntity::class],
-    version = 1,
+    entities = [
+        DailyWorkoutEntity::class, WorkoutSetEntity::class,
+        SessionEntity::class, SessionDaySliceEntity::class, SessionSegmentEntity::class,
+        SessionSetEntity::class, SessionAdjustmentEntity::class,
+        ChallengeEntity::class, ChallengeDayCreditEntity::class,
+        SessionDraftEntity::class, LegacyImportEntity::class
+    ],
+    version = 2,
     exportSchema = true
 )
 abstract class WorkoutDatabase : RoomDatabase() {
     abstract fun workoutDao(): WorkoutDao
+    abstract fun routiveDao(): RoutiveDao
 }

@@ -41,7 +41,9 @@ android {
   buildFeatures { compose true }
   testOptions { unitTests { includeAndroidResources = true } }
   sourceSets {
-    test.assets.srcDirs += files("$projectDir/schemas")
+    // Robolectric reads the merged DEBUG assets (not the test source set), so the exported Room
+    // schemas go in the debug source set only; release builds never ship them.
+    debug.assets.srcDirs += files("$projectDir/schemas")
     androidTest.assets.srcDirs += files("$projectDir/schemas")
   }
 }
@@ -78,6 +80,11 @@ dependencies {
     implementation 'androidx.hilt:hilt-work:1.2.0'
     ksp 'androidx.hilt:hilt-compiler:1.2.0'
     testImplementation 'junit:junit:4.13.2'
+    // Real Room (in-memory + MigrationTestHelper against exported schemas) on the JVM.
+    testImplementation 'org.robolectric:robolectric:4.14.1'
+    testImplementation 'androidx.test:core:1.6.1'
+    testImplementation 'androidx.test.ext:junit:1.2.1'
+    testImplementation 'androidx.room:room-testing:2.6.1'
     androidTestImplementation 'androidx.compose.ui:ui-test-junit4'
     debugImplementation 'androidx.compose.ui:ui-test-manifest'
     implementation 'com.google.android.gms:play-services-wearable:19.0.0'

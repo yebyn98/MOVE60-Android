@@ -23,9 +23,13 @@ object WorkoutProvides {
     @Provides @Singleton
     fun database(@ApplicationContext context: Context): WorkoutDatabase =
         Room.databaseBuilder(context, WorkoutDatabase::class.java, "move60_workouts_room_v1.db")
+            // Keep the shipped file name so existing history is upgraded in place.
+            .addMigrations(RoutiveMigrations.MIGRATION_1_2)
             .build()
 
     @Provides fun dao(database: WorkoutDatabase): WorkoutDao = database.workoutDao()
+    @Provides fun routiveDao(database: WorkoutDatabase): RoutiveDao = database.routiveDao()
+    @Provides @Singleton fun sessionCommitter(database: WorkoutDatabase): SessionCommitter = SessionCommitter(database)
     @Provides @Singleton fun workManager(@ApplicationContext context: Context): WorkManager =
         WorkManager.getInstance(context)
     @Provides @Singleton fun data(@ApplicationContext context: Context): WorkoutData = WorkoutData(context)

@@ -5,6 +5,9 @@ on:
     paths:
       - 'app/src/main/java/com/move60/workout/domain/**'
       - 'app/src/test/java/com/move60/workout/domain/**'
+      - 'app/src/main/java/com/move60/workout/architecture/**'
+      - 'app/src/test/java/com/move60/workout/architecture/**'
+      - 'app/schemas/**'
       - 'app/build.gradle'
       - '.github/workflows/routive-domain-tests.yml'
   workflow_dispatch:

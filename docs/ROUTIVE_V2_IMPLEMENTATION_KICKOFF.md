@@ -41,3 +41,28 @@ The new pure Kotlin RoutinePlanningPolicy domain is not yet wired to the legacy 
 1. Versioned session/active-interval/strength-set/challenge/adjustment tables and legacy import contract, with rollback and user-data preservation tests.
 2. Transactionally committed session snapshots to the evaluator (Draft -> Saved / SaveError -> Retry); same sessionId must be idempotent through process death and retries.
 3. Connect flexible routine/interval plans to the existing timer under a guarded migration, then phone and Watch4 end-to-end validation.
+
+## Third slice — Room v2 schema, safe migration and atomic session commit (2026-11-15)
+
+Implemented in code and covered by JVM tests (real Room via Robolectric, JDK 17/21):
+- `WorkoutDatabase` v1 -> v2, additive only (`RoutiveMigrations.MIGRATION_1_2`, 14 CREATE statements). Legacy
+  `daily_workouts` / `workout_sets` and every SharedPreferences store are untouched. DB file name unchanged
+  (`move60_workouts_room_v1.db`) so shipped installs upgrade in place. No destructive fallback.
+- v1 schema baseline (`app/schemas/.../1.json`, identityHash c93bb39a...) was exported BEFORE any entity change;
+  `2.json` is the Room-generated v2 contract. Migration SQL is copied from it and validated against it.
+- New tables: `sessions`, `session_day_slices`, `session_segments`, `session_sets`, `session_adjustments`
+  (append-only: DAO has no update/delete), `challenges`, `challenge_day_credits`, `session_drafts`, `legacy_import_ledger`.
+- `SessionCommitter`: one Room transaction per finalized session; validity recomputed from `WorkoutRecognitionPolicy`
+  (caller cannot assert it); identical retry = no-op, same id with different content = Conflict (stored data unchanged);
+  failure rolls back everything and keeps the Draft (state FAILED) for retry; SAVING drafts interrupted by process
+  death become UNKNOWN_OUTCOME and retry is safe; stale draft revisions are rejected.
+- Challenge credit is derived only from committed VALID sessions (>=600 s summed per local date, max one credit per
+  challenge per date), independent of ordinary-session validity.
+
+NOT done / NOT verified in this slice:
+- Nothing above is called from the running app yet: `DefaultWorkoutRepository`, `SessionStore`, the legacy timer and
+  all Compose/Wear screens still use the old path. The SessionCommitter is only provided through Hilt.
+- Legacy import (SharedPreferences `move60_set_records_v1`, `move60_workout_history_v1`, Room `daily_workouts`) into
+  the new tables is NOT implemented; the ledger table exists but no importer writes to it yet.
+- Migration was verified with Robolectric's SQLite, not on a physical device or an emulator with real v58 user data.
+- Challenge lifecycle (create/abandon/expire/auto-complete), correction UI and Journey are not implemented.
