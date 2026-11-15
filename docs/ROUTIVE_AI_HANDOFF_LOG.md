@@ -9,6 +9,7 @@ Two sections are kept strictly separate. Policy items are NOT decided by develop
 | Atomic save | `SessionCommitter` (commit, idempotency, conflict, draft retry, interrupted-save recovery) | Implemented, JVM-tested, NOT wired to the app |
 | Time source | Sessions store UTC active intervals (`session_active_intervals`); day slices are derived per session zone (P-20) | Implemented, JVM-tested |
 | Challenge lifecycle | `ChallengeRules` (pure decision) + `ChallengeService` (create / retro credit / refresh / settle / abandon) | Implemented, JVM-tested, NOT wired to the app |
+| Timer bridge | `SessionStore` records real active intervals; `TimerSessionSync` commits a FINISHED timer session (idempotent id) and settles challenges on app foreground; `WorkoutService` triggers the commit when the timer finishes | Implemented, JVM-tested; NOT verified on device/emulator |
 | Legacy data | `daily_workouts` kept as calendar record; `DayHistoryReader` returns legacy and session seconds separately | Implemented, JVM-tested |
 | Legacy import | SharedPreferences `SetRecordStore` import | NOT approved, NOT implemented |
 | Device QA | Phone / Watch4 real-device upgrade from v58 | Not verified |
@@ -37,8 +38,15 @@ first-600s credit freeze, and virtual `LEGACY_DAY_AGGREGATE` sessions are all re
    additional sessions are tested; edits are simulated with raw SQL in tests.
 
 ## D. Remaining risks
-- Nothing above is called from the running app: timer, `DefaultWorkoutRepository`, Compose/Wear screens, and the
-  start/end-session UI still use the old path. AC-01..13 are verified at the data layer only.
+- Timer bridge (new this slice): only sessions the user FINISHED (last stage completed) are committed, from intervals
+  recorded by `SessionStore.reconcile`. Sessions saved by older app versions have no intervals and are skipped (never
+  reconstructed). Early end / reset of a partly done workout is NOT saved to the new store: policy for "end early"
+  saving (E-series) is not defined in the material available to development.
+- The timer has two accounting paths (`SessionStore` and the service's `history_checkpoint_ms` -> `daily_workouts`);
+  both still run. The new store is additive and failures are swallowed so the timer is unaffected, but the
+  interplay is unverified on a real device (multi-instance SessionStore across service/activity).
+- Challenge creation UI, correction UI, Compose/Wear screens and `DefaultWorkoutRepository` are not wired.
+  AC-01..13 are verified at the data layer only.
 - No real-device or emulator verification, and no upgrade test from real v58 user data (Robolectric SQLite only).
 - Midnight settlement relies on lazy re-derivation (`settleDue`/`refreshActive`); the app must call it on start and
   foreground. Not wired yet.

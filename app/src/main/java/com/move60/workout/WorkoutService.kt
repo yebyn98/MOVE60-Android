@@ -307,7 +307,10 @@ class WorkoutService : Service() {
         val now = System.currentTimeMillis()
         reconcile(now)
         if (!snapshot.optBoolean("running", false) || snapshot.optBoolean("finished", false)) {
-            if (snapshot.optBoolean("finished", false)) showComplete()
+            if (snapshot.optBoolean("finished", false)) {
+                showComplete()
+                try { (application as? Move60Application)?.syncTimerSessionAsync() } catch (_: Exception) { /* never block the timer flow */ }
+            }
             stopWork()
             return
         }

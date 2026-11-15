@@ -40,6 +40,16 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
     var stageElapsedSeconds: Int = 0
         private set
     private var activeCheckpointAt: Long = 0L
+    /** Real active stretches [startEpochSec, endEpochSec) recorded by [reconcile]; their sum equals [accumulatedActiveSeconds]
+     *  for sessions recorded by this version. Older stored states have none (never reconstructed or invented). */
+    private val intervals = ArrayList<LongArray>()
+    fun activeIntervals(): List<Pair<Long, Long>> = intervals.map { it[0] to it[1] }
+    private fun recordInterval(startMs: Long, seconds: Int) {
+        if (seconds <= 0) return
+        val start = Math.floorDiv(startMs, 1000L)
+        val last = intervals.lastOrNull()
+        if (last != null && last[1] == start) last[1] = start + seconds else intervals.add(longArrayOf(start, start + seconds))
+    }
     var controlVersion: Long = 0L
         private set
     var restDeadline: Long = 0L
@@ -111,6 +121,9 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
             activeCheckpointAt = if (running) o.optLong("activeCheckpointAt", System.currentTimeMillis()) else 0L
             val tasks = o.optJSONArray("checked") ?: JSONArray()
             repeat(tasks.length()) { checked += tasks.optString(it) }
+            intervals.clear()
+            val stored = o.optJSONArray("intervals") ?: JSONArray()
+            repeat(stored.length()) { i -> stored.optJSONArray(i)?.let { if (it.length() == 2) intervals.add(longArrayOf(it.optLong(0), it.optLong(1))) } }
             val stages = o.optJSONArray("completed") ?: JSONArray()
             repeat(stages.length()) { completed += stages.optInt(it) }
             reconcile()
@@ -126,6 +139,7 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
         finished = false
         sessionStartedAt = 0
         accumulatedActiveSeconds = 0
+        intervals.clear()
         stageElapsedSeconds = 0
         activeCheckpointAt = 0L
         checked.clear()
@@ -172,6 +186,7 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
     fun save() {
         val checkedArray = JSONArray(); checked.sorted().forEach { checkedArray.put(it) }
         val completedArray = JSONArray(); completed.sorted().forEach { completedArray.put(it) }
+        val intervalArray = JSONArray(); intervals.forEach { intervalArray.put(JSONArray().put(it[0]).put(it[1])) }
         val state = JSONObject().put("bodyFocus", bodyFocus ?: "").put("stage", stage).put("remaining", remaining)
             .put("deadlineAt", deadlineAt).put("running", running).put("finished", finished)
             .put("sessionStartedAt", sessionStartedAt).put("activeSeconds", accumulatedActiveSeconds)
@@ -180,6 +195,7 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
             .put("restPaused", restPaused).put("restId", restId)
             .put("checked", checkedArray)
             .put("completed", completedArray)
+            .put("intervals", intervalArray)
         loadedRaw = state.toString()
         preferences.edit().putString("active_date",recordDate.toString()).putInt("active_day", day).putString(key(), loadedRaw).apply()
     }
@@ -188,6 +204,7 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
         if (activeCheckpointAt <= 0L) activeCheckpointAt = now
         val delta = ((now - activeCheckpointAt) / 1000L).coerceAtLeast(0L).toInt()
         if (delta <= 0) return false
+        recordInterval(activeCheckpointAt, delta)
         accumulatedActiveSeconds = (accumulatedActiveSeconds + delta).coerceAtMost(Int.MAX_VALUE)
         stageElapsedSeconds = (stageElapsedSeconds + delta).coerceAtMost(Int.MAX_VALUE)
         activeCheckpointAt += delta * 1000L

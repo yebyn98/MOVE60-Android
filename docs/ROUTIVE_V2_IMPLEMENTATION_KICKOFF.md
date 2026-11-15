@@ -56,5 +56,8 @@ Implemented in code and covered by JVM tests (real Room via Robolectric); AC-01.
   lazily, freezes the terminal snapshot, allows one ACTIVE challenge.
 - `daily_workouts` stays a calendar record; `DayHistoryReader` shows legacy and new seconds separately.
 
-NOT done / NOT verified: app/timer/UI wiring, correction path, SetRecordStore import (unapproved), real-device and
+Timer bridge: `SessionStore` stores real active intervals (additive JSON field); `TimerSessionSync` commits finished sessions and
+settles challenges on foreground (`Move60Application`), triggered by `WorkoutService` on finish. JVM-tested only.
+
+NOT done / NOT verified: UI wiring, device/emulator run of the timer bridge, early-end saving, correction path, SetRecordStore import (unapproved), real-device and
 real-v58 upgrade verification, challenge UI copy.
