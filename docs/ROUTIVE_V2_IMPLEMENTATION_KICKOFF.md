@@ -27,3 +27,17 @@ The new pure Kotlin RoutinePlanningPolicy domain is not yet wired to the legacy 
 - Changed source is in a feature branch for review, not on main.
 - Running Android or Wear OS app, state restoration, existing session database migration, prototype full click E2E, and watch hardware behavior were NOT verified by adding the pure-Kotlin domain layer.
 - PR must pass JVM unit tests, existing build/lint/emulator gates and peer review before merge.
+## Second safe code slice — recognition rules and release CI (2026-11-15)
+
+- Added isolated Kotlin WorkoutRecognitionPolicy and JVM tests: saved session valid at >=60 active seconds OR >=1 truly completed strength set; challenge date credited at >=600 summed active seconds from valid stored sessions, at most once per local date.
+- Idempotent session/day keys prevent double credit from identical stored retries; conflicting saved snapshots fail closed. A session spanning midnight must split actual active-time intervals by local date, never wall time. Pauses, skipped sets, pending drafts and failed saves do not qualify.
+- This policy evaluator is NOT connected to Room, SharedPreferences, the live session, Challenge UI or Wear OS. The name StoredWorkoutDayContribution is a contract for the future database reader, not a persistence implementation.
+- PR runtime smoke checks the release comparison algorithm without demanding a version bump in every development PR. Version verification remains mandatory immediately before manual publish, and the publisher again rejects non-increasing phone/watch versions.
+- Main branch pushes still run existing build/emulator gates but no longer publish updates automatically. A release requires explicit workflow_dispatch on main, passing all existing CI gates and release version checks.
+- No automatic merge, production distribution, database migration or watch hardware verification occurred in this slice.
+
+### Follow-on P0 gate
+
+1. Versioned session/active-interval/strength-set/challenge/adjustment tables and legacy import contract, with rollback and user-data preservation tests.
+2. Transactionally committed session snapshots to the evaluator (Draft -> Saved / SaveError -> Retry); same sessionId must be idempotent through process death and retries.
+3. Connect flexible routine/interval plans to the existing timer under a guarded migration, then phone and Watch4 end-to-end validation.
