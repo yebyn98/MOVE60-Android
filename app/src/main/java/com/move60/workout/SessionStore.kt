@@ -53,6 +53,13 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
         val last = intervals.lastOrNull()
         if (last != null && last[1] == start) last[1] = start + seconds else intervals.add(longArrayOf(start, start + seconds))
     }
+    /**
+     * Stage structure this session started with. Missing in stored JSON = a session from before the 4-stage policy,
+     * which must finish as LEGACY_5 (never converted, reset or dropped). The engine only runs LEGACY_5 so far;
+     * nothing starts a ROUTIVE_4 session yet.
+     */
+    var structure: com.move60.workout.domain.StructureVersion = com.move60.workout.domain.StructureVersion.LEGACY_5
+        private set
     var controlVersion: Long = 0L
         private set
     var restDeadline: Long = 0L
@@ -109,6 +116,7 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
             val o = JSONObject(state)
             bodyFocus = o.optString("bodyFocus").takeIf { it == "upper" || it == "lower" }
             routine = data.routine(day, focus = bodyFocus)
+            structure = com.move60.workout.domain.StructureVersion.fromStored(o.optString("structureVersion").takeIf { it.isNotEmpty() })
             controlVersion = o.optLong("controlVersion")
             restDeadline = o.optLong("restDeadline")
             restPaused = o.optInt("restPaused")
@@ -134,6 +142,7 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
         } catch (e: Exception) { resetFields() }
     }
     private fun resetFields() {
+        structure = com.move60.workout.domain.StructureVersion.LEGACY_5
         clearRest()
         controlVersion++
         stage = 0
@@ -196,7 +205,7 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
             .put("deadlineAt", deadlineAt).put("running", running).put("finished", finished).put("endedEarly", endedEarly)
             .put("sessionStartedAt", sessionStartedAt).put("activeSeconds", accumulatedActiveSeconds)
             .put("stageElapsedSeconds", stageElapsedSeconds).put("activeCheckpointAt", activeCheckpointAt)
-            .put("controlVersion", controlVersion).put("restDeadline", restDeadline)
+            .put("controlVersion", controlVersion).put("structureVersion", structure.name).put("restDeadline", restDeadline)
             .put("restPaused", restPaused).put("restId", restId)
             .put("checked", checkedArray)
             .put("completed", completedArray)
