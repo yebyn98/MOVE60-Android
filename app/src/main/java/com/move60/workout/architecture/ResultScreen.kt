@@ -45,6 +45,7 @@ fun WorkoutResultScreen(onViewRecord: () -> Unit, viewModel: ResultViewModel = h
                         ResultSaveState.SAVING -> "저장 중"
                         ResultSaveState.SAVED -> "저장됨"
                         ResultSaveState.FAILED -> "저장 실패"
+                        ResultSaveState.NOT_STORED -> "저장 안 함"
                     },
                     modifier = Modifier.testTag("result_save_state"),
                     color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold

@@ -49,6 +49,10 @@ data class WorkoutUiState(
     val bodyFocus: String? = null,
     val running: Boolean = false,
     val finished: Boolean = false,
+    /** User-confirmed early end (saved as PARTIAL). */
+    val endedEarly: Boolean = false,
+    /** Seconds of the current stage (elapsed + remaining), for the stage progress bar. */
+    val stageTotalSeconds: Int = 0,
     val stage: Int = 0,
     val stageName: String = "준비운동",
     val remainingSeconds: Int = 0,
@@ -74,6 +78,8 @@ interface WorkoutRepository {
     suspend fun previousStage()
     suspend fun saveSet(exerciseId: String, set: Int, kg: String, reps: String, done: Boolean)
     suspend fun finishWorkout()
+    /** Confirmed early end: keeps real active intervals for a PARTIAL record. Returns false when nothing was performed. */
+    suspend fun endEarly(): Boolean
     fun syncHistoricalData()
 }
 
@@ -130,6 +136,8 @@ class DefaultWorkoutRepository @Inject constructor(
                 bodyFocus = session.bodyFocus,
                 running = session.running,
                 finished = session.finished,
+                endedEarly = session.endedEarly,
+                stageTotalSeconds = session.remaining + session.stageElapsedSeconds,
                 stage = session.stage,
                 stageName = workoutStage.name,
                 remainingSeconds = session.remaining,
@@ -169,7 +177,7 @@ class DefaultWorkoutRepository @Inject constructor(
     override suspend fun nextStage() = mutate {
         session.nextStage()
         publishToService()
-        if (session.finished) syncHistoricalData()
+        if (session.finished) { syncHistoricalData(); commitTimerSession() }
     }
     override suspend fun previousStage() = mutate {
         session.jumpTo(session.stage - 1)
@@ -179,7 +187,22 @@ class DefaultWorkoutRepository @Inject constructor(
         // Explicit final-stage exit, never auto-advance on a countdown.
         if (!session.finished && session.stage == LAST_STAGE) session.nextStage()
         publishToService()
-        if (session.finished) syncHistoricalData()
+        if (session.finished) { syncHistoricalData(); commitTimerSession() }
+    }
+
+    override suspend fun endEarly(): Boolean {
+        var ended = false
+        mutate {
+            ended = session.endEarly()
+            publishToService()
+            if (ended) { syncHistoricalData(); commitTimerSession() }
+        }
+        return ended
+    }
+
+    /** Idempotent commit of the finished/ended timer session (also done on foreground and by the service). */
+    private fun commitTimerSession() {
+        (context.applicationContext as? com.move60.workout.Move60Application)?.syncTimerSessionAsync()
     }
 
     override suspend fun saveSet(

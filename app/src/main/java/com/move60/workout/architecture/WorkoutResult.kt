@@ -3,7 +3,8 @@ package com.move60.workout.architecture
 import java.time.LocalDate
 
 /** Judgement of the workout (P-15 B) is separate from whether the DB write succeeded (E-03 A). */
-enum class ResultSaveState { SAVING, SAVED, FAILED }
+/** NOT_STORED: nothing worth saving (D-01 B: under 1 minute and 0 sets is discarded, not an error). */
+enum class ResultSaveState { SAVING, SAVED, FAILED, NOT_STORED }
 
 data class WorkoutResult(
     val sessionId: String,
@@ -29,13 +30,18 @@ class WorkoutResultReader(
         return runCatching { LocalDate.parse(m.groupValues[1]) to m.groupValues[2].toLong() }.getOrNull()
     }
 
-    suspend fun read(sessionId: String, giveUp: Boolean): WorkoutResult {
+    suspend fun read(sessionId: String, giveUp: Boolean, liveActiveSeconds: Long? = null): WorkoutResult {
         val (date, token) = parse(sessionId)
             ?: return WorkoutResult(sessionId, null, 0, 0, null, ResultSaveState.FAILED)
         val dao = db.routiveDao()
         val session = dao.session(sessionId)
-            ?: return WorkoutResult(sessionId, null, 0, completedSets(token), null,
-                if (giveUp) ResultSaveState.FAILED else ResultSaveState.SAVING)
+            ?: run {
+                val sets = completedSets(token)
+                if (giveUp && liveActiveSeconds != null && liveActiveSeconds < 60 && sets == 0)
+                    return WorkoutResult(sessionId, SessionCompletion.NOT_PERFORMED, liveActiveSeconds, 0, null, ResultSaveState.NOT_STORED)
+                return WorkoutResult(sessionId, null, 0, sets, null,
+                    if (giveUp) ResultSaveState.FAILED else ResultSaveState.SAVING)
+            }
         val line = committerChallengeLine(date)
         return WorkoutResult(
             sessionId, runCatching { SessionCompletion.valueOf(session.completion) }.getOrNull(),

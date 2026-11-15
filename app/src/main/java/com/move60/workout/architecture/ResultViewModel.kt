@@ -20,6 +20,7 @@ class ResultViewModel @Inject constructor(
     savedState: SavedStateHandle,
     db: WorkoutDatabase,
     sets: SetRecordStore,
+    private val timer: com.move60.workout.SessionStore,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
     private val sessionId: String = savedState["sessionId"] ?: ""
@@ -34,7 +35,9 @@ class ResultViewModel @Inject constructor(
         viewModelScope.launch {
             _result.value = _result.value.copy(saveState = ResultSaveState.SAVING)
             repeat(8) { attempt ->
-                val r = reader.read(sessionId, giveUp = attempt == 7)
+                // Only trust the live timer when it still belongs to this exact session.
+                val live = timer.takeIf { sessionId.endsWith("-${it.sessionStartedAt}") }?.accumulatedActiveSeconds?.toLong()
+                val r = reader.read(sessionId, giveUp = attempt == 7, liveActiveSeconds = live)
                 _result.value = r
                 if (r.saveState != ResultSaveState.SAVING) return@launch
                 delay(1_000)

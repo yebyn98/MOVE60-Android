@@ -123,6 +123,7 @@ fun WorkoutDashboard(
     onRunningChanged: (Boolean) -> Unit = {},
     onOpenChallenge: () -> Unit = {},
     onWorkoutFinished: (sessionId: String) -> Unit = {},
+    onOpenWorkout: () -> Unit = {},
     viewModel: WorkoutViewModel = hiltViewModel(),
     challenges: ChallengeViewModel = hiltViewModel()
 ) {
@@ -131,16 +132,16 @@ fun WorkoutDashboard(
     LaunchedEffect(Unit) { challenges.refresh() }
     val state by viewModel.state.collectAsStateWithLifecycle()
     // Confirmed policy: while a workout is in progress or paused only the workout dock is shown; the tab bar returns after it ends.
-    val inProgress = state.running || (state.activeSeconds > 0 && !state.finished)
+    val inProgress = state.running || (state.activeSeconds > 0 && !state.finished && !state.endedEarly)
     LaunchedEffect(inProgress) { onRunningChanged(inProgress) }
     // Same id TimerSessionSync commits under, so the result screen can find the stored session.
-    LaunchedEffect(state.finished, state.sessionId) {
-        if (state.finished && state.sessionId > 0 && state.recordDate.isNotEmpty())
+    LaunchedEffect(state.finished, state.endedEarly, state.sessionId) {
+        if ((state.finished || state.endedEarly) && state.sessionId > 0 && state.recordDate.isNotEmpty())
             onWorkoutFinished("timer-${state.recordDate}-d${state.day}-${state.sessionId}")
     }
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
-    val openDetail = { context.startActivity(Intent(context, MainActivity::class.java)) }
+    val openDetail = onOpenWorkout
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
             if (event is WorkoutUiEvent.Message) snackbar.showSnackbar(event.message)
@@ -308,7 +309,7 @@ private fun WorkoutDock(state: WorkoutUiState, viewModel: WorkoutViewModel, onOp
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (started) Move60Button(
                 modifier = Modifier.weight(1f), primary = false, minHeight = 48,
-                enabled = state.stage > 0 && !state.finished,
+                enabled = state.stage > 0 && !state.finished && !state.endedEarly,
                 contentPadding = PaddingValues(horizontal = 8.dp),
                 onClick = viewModel::previous
             ) {
@@ -330,14 +331,14 @@ private fun WorkoutDock(state: WorkoutUiState, viewModel: WorkoutViewModel, onOp
                     contentDescription = null, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.size(6.dp))
                 Text(when {
-                    state.finished -> "새 운동 시작"
+                    state.finished || state.endedEarly -> "새 운동 시작"
                     state.running -> "일시정지"
                     else -> "운동 시작"
                 }, maxLines = 1)
             }
             if (started) Move60Button(
                 modifier = Modifier.weight(1f), primary = false, minHeight = 48,
-                enabled = !state.finished,
+                enabled = !state.finished && !state.endedEarly,
                 contentPadding = PaddingValues(horizontal = 8.dp),
                 onClick = viewModel::next
             ) {
@@ -352,7 +353,7 @@ private fun WorkoutDock(state: WorkoutUiState, viewModel: WorkoutViewModel, onOp
     }
 }
 
-private fun formatSeconds(value: Int): String = "%02d:%02d".format(
+internal fun formatSeconds(value: Int): String = "%02d:%02d".format(
     Locale.KOREA, value.coerceAtLeast(0) / 60, value.coerceAtLeast(0) % 60
 )
 

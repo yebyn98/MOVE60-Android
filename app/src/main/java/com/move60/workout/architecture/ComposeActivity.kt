@@ -86,6 +86,13 @@ fun Move60ComposeApp(showIntro: Boolean = false, openCalendar: Boolean = false, 
     var introVisible by rememberSaveable { mutableStateOf(showIntro) }
     var workoutRunning by rememberSaveable { mutableStateOf(false) }
     val prefs = androidx.compose.ui.platform.LocalContext.current.getSharedPreferences("move60_result_seen_v1", android.content.Context.MODE_PRIVATE)
+    val openResult: (String) -> Unit = { id ->
+        // Show the result once per finished/ended session (never again after it was viewed).
+        if (prefs.getString("last_result_seen", null) != id) {
+            prefs.edit().putString("last_result_seen", id).apply()
+            nav.navigate("result/$id") { popUpTo("dashboard"); launchSingleTop = true }
+        }
+    }
     val route = nav.currentBackStackEntryAsState().value?.destination?.route
     androidx.compose.runtime.LaunchedEffect(openResultId) {
         // Deep link used by tests and by re-opening the last result; never required for the normal flow.
@@ -101,16 +108,13 @@ fun Move60ComposeApp(showIntro: Boolean = false, openCalendar: Boolean = false, 
                 ) {
                     composable("dashboard") { WorkoutDashboard(
                         onRunningChanged = { workoutRunning = it },
-                        onWorkoutFinished = { id ->
-                            // Show the result once per finished session (never again after it was viewed).
-                            val seen = prefs.getString("last_result_seen", null)
-                            if (seen != id) {
-                                prefs.edit().putString("last_result_seen", id).apply()
-                                nav.navigate("result/$id") { launchSingleTop = true }
-                            }
-                        },
+                        onWorkoutFinished = openResult,
+                        onOpenWorkout = { nav.navigate("workout") { launchSingleTop = true } },
                         onOpenChallenge = { nav.navigate("challenge") { popUpTo("dashboard") { saveState = true }; launchSingleTop = true; restoreState = true } }
                     ) }
+                    composable("workout") {
+                        WorkoutProgressScreen(onBack = { nav.popBackStack() }, onResult = openResult)
+                    }
                     composable("result/{sessionId}") {
                         WorkoutResultScreen(onViewRecord = {
                             nav.navigate("calendar") { popUpTo("dashboard") { saveState = true }; launchSingleTop = true; restoreState = true }
@@ -122,7 +126,7 @@ fun Move60ComposeApp(showIntro: Boolean = false, openCalendar: Boolean = false, 
                 }
                 // Provisional rule (pending policy confirmation): hide the tab bar while a workout is running
                 // so it never competes with the workout dock.
-                if (!(workoutRunning && route == "dashboard")) {
+                if (route != "workout" && !(workoutRunning && route == "dashboard")) {
                     Move60TabBar(route) { tab ->
                         nav.navigate(tab.route) {
                             popUpTo("dashboard") { saveState = true }

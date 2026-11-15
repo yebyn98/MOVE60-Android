@@ -46,6 +46,8 @@ class WorkoutViewModel @Inject constructor(
     fun previous() = perform { repository.previousStage() }
     fun next() = perform { repository.nextStage() }
     fun finish() = perform { repository.finishWorkout() }
+    /** Only called from the confirm dialog. */
+    fun endEarly() = perform { repository.endEarly() }
     fun saveSet(id: String, set: Int, kg: String, reps: String, checked: Boolean) =
         perform { repository.saveSet(id, set, kg, reps, checked) }
 
