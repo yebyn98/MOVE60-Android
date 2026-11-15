@@ -13,6 +13,12 @@ import javax.inject.Inject
 import kotlinx.coroutines.launch
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.compose.ui.Modifier
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -77,24 +83,31 @@ class ComposeActivity : ComponentActivity() {
 fun Move60ComposeApp(showIntro: Boolean = false, openCalendar: Boolean = false) {
     val nav = rememberNavController()
     var introVisible by rememberSaveable { mutableStateOf(showIntro) }
+    var workoutRunning by rememberSaveable { mutableStateOf(false) }
+    val route = nav.currentBackStackEntryAsState().value?.destination?.route
     Move60ComposeTheme {
         Box {
-            NavHost(navController = nav, startDestination = if (openCalendar) "calendar" else "dashboard") {
-                composable("dashboard") {
-                    WorkoutDashboard(
-                        onCalendar = { nav.navigate("calendar") },
-                        onChallenge = { nav.navigate("challenge") },
-                        onSettings = { nav.navigate("settings") }
-                    )
+            Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                NavHost(
+                    navController = nav,
+                    startDestination = if (openCalendar) "calendar" else "dashboard",
+                    modifier = Modifier.weight(1f)
+                ) {
+                    composable("dashboard") { WorkoutDashboard(onRunningChanged = { workoutRunning = it }) }
+                    composable("challenge") { ChallengeScreen(onBack = { nav.popBackStack() }) }
+                    composable("calendar") { WorkoutCalendar(onBack = { nav.popBackStack() }) }
+                    composable("settings") { WorkoutSettings(onBack = { nav.popBackStack() }) }
                 }
-                composable("calendar") {
-                    WorkoutCalendar(onBack = { nav.popBackStack() })
-                }
-                composable("challenge") {
-                    ChallengeScreen(onBack = { nav.popBackStack() })
-                }
-                composable("settings") {
-                    WorkoutSettings(onBack = { nav.popBackStack() })
+                // Provisional rule (pending policy confirmation): hide the tab bar while a workout is running
+                // so it never competes with the workout dock.
+                if (!(workoutRunning && route == "dashboard")) {
+                    Move60TabBar(route) { tab ->
+                        nav.navigate(tab.route) {
+                            popUpTo("dashboard") { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
                 }
             }
             if (introVisible) Move60Splash(onFinished = { introVisible = false })

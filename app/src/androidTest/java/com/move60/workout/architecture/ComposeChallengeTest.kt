@@ -43,7 +43,7 @@ class ComposeChallengeTest {
     }
 
     @Test fun createRenameAndAbandonWithConfirmation() {
-        rule.onNodeWithTag("compose_challenge_icon").performClick()
+        rule.onNodeWithTag("tab_challenge").performClick()
         rule.waitUntil(5_000) {
             rule.onAllNodes(hasTestTag("challenge_create")).fetchSemanticsNodes().isNotEmpty() ||
                 rule.onAllNodes(hasTestTag("challenge_active")).fetchSemanticsNodes().isNotEmpty()

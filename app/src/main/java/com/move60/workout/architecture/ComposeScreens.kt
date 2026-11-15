@@ -34,6 +34,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.RadioButton
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.semantics.Role
@@ -116,12 +117,11 @@ private val muted: Color get() = Color(Move60Theme.Colors.textMuted)
 
 @Composable
 fun WorkoutDashboard(
-    onCalendar: () -> Unit,
-    onSettings: () -> Unit,
-    onChallenge: () -> Unit = {},
+    onRunningChanged: (Boolean) -> Unit = {},
     viewModel: WorkoutViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    LaunchedEffect(state.running) { onRunningChanged(state.running) }
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
     val openDetail = { context.startActivity(Intent(context, MainActivity::class.java)) }
@@ -142,20 +142,6 @@ fun WorkoutDashboard(
             ) {
                 Move60LogoMark(Modifier.size(52.dp).testTag("home_logo")
                     .semantics { contentDescription = "MOVE60" })
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    IconButton(onClick = onChallenge, modifier = Modifier.testTag("compose_challenge_icon")) {
-                        Icon(Icons.Outlined.EmojiEvents, contentDescription = "도전",
-                            tint = MaterialTheme.colorScheme.primary)
-                    }
-                    IconButton(onClick = onCalendar, modifier = Modifier.testTag("compose_calendar_icon")) {
-                        Icon(Icons.Outlined.Today, contentDescription = "운동 달력",
-                            tint = MaterialTheme.colorScheme.primary)
-                    }
-                    IconButton(onClick = onSettings, modifier = Modifier.testTag("compose_settings_icon")) {
-                        Icon(Icons.Outlined.Settings, contentDescription = "앱 설정",
-                            tint = MaterialTheme.colorScheme.primary)
-                    }
-                }
             }
         },
         bottomBar = { WorkoutDock(state, viewModel, openDetail) }
@@ -867,5 +853,42 @@ private fun RatioLegend(name: String, minutes: Int, color: Color) {
             Text(name, color = secondary, style = MaterialTheme.typography.bodySmall)
         }
         Text("${minutes}분", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+    }
+}
+
+
+/** Top-level destinations of the 4-tab bar (Figma GNB). */
+enum class Move60Tab(val route: String, val label: String, val tag: String) {
+    TODAY("dashboard", "오늘", "tab_today"),
+    CHALLENGE("challenge", "도전", "tab_challenge"),
+    RECORD("calendar", "기록", "tab_calendar"),
+    MY("settings", "마이", "tab_settings")
+}
+
+/** Material 3 bottom navigation: 48dp+ targets, labels always shown, safe-area aware. */
+@Composable
+fun Move60TabBar(currentRoute: String?, onSelect: (Move60Tab) -> Unit) {
+    androidx.compose.material3.NavigationBar(
+        modifier = Modifier.testTag("tab_bar"),
+        containerColor = MaterialTheme.colorScheme.surface
+    ) {
+        Move60Tab.values().forEach { tab ->
+            NavigationBarItem(
+                selected = currentRoute == tab.route,
+                onClick = { onSelect(tab) },
+                modifier = Modifier.testTag(tab.tag),
+                icon = {
+                    Icon(
+                        when (tab) {
+                            Move60Tab.TODAY -> Icons.Outlined.PlayArrow
+                            Move60Tab.CHALLENGE -> Icons.Outlined.EmojiEvents
+                            Move60Tab.RECORD -> Icons.Outlined.Today
+                            Move60Tab.MY -> Icons.Outlined.Settings
+                        }, contentDescription = null
+                    )
+                },
+                label = { Text(tab.label) }
+            )
+        }
     }
 }

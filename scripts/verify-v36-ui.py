@@ -44,7 +44,9 @@ assert "phone_current_guide" in main and "phone_rest" in main, "Figma: detail = 
 assert "fun buildSetTable" in main and "phone_current_exercise" in main and "buildSetTable(task)" in main.split("fun showDetails")[1], "Set entry: current-exercise card + exercise popup"
 for feature in ("운동 알림 진단", "notificationDiagnostics(", "updateManager.check(true)", "peekAvailability", "settings_ratio", "오늘 컨디션 루틴", "칼로리 계산 체중"):
     assert feature in compose, f"Compose settings lost: {feature}"
-assert 'Icon(Icons.Outlined.Today' in compose and 'Icon(Icons.Outlined.Settings' in compose
+# 4-tab bar replaced the top-bar icons (no duplicated controls): every tab keeps an icon and a visible label.
+assert 'Icons.Outlined.Today' in compose and 'Icons.Outlined.Settings' in compose and 'Icons.Outlined.EmojiEvents' in compose
+assert 'fun Move60TabBar' in compose and 'label = { Text(tab.label) }' in compose and 'compose_calendar_icon' not in compose
 assert "동작 영상" not in compose
 assert "PermissionController.createRequestPermissionResultContract()" in consent
 assert "granted.containsAll(HealthConnectGateway.readPermissions)" in consent
