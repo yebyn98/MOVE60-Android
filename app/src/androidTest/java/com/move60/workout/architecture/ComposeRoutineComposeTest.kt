@@ -14,7 +14,7 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -41,6 +41,10 @@ class ComposeRoutineComposeTest {
     private fun tagStartsWith(prefix: String) = SemanticsMatcher("tag starts with $prefix") {
         it.config.getOrNull(SemanticsProperties.TestTag)?.startsWith(prefix) == true
     }
+    /** Items of a LazyColumn are not composed until scrolled to, so scroll the list (not the node) to the tag first. */
+    private fun scrolled(tag: String) = rule.onNodeWithTag(tag).also { _ ->
+        rule.onNodeWithTag("routine_compose").performScrollToNode(hasTestTag(tag))
+    }
     private fun waitTag(tag: String) = rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag(tag)).fetchSemanticsNodes().isNotEmpty() }
 
     @Test fun composeRoutineRequiresOneExerciseAndSavesWithUnknownTimes() {
@@ -53,7 +57,7 @@ class ComposeRoutineComposeTest {
         rule.onNodeWithTag("routine_target_label").assertIsDisplayed()
         capture("compose-routine-empty.png")
 
-        rule.onNodeWithTag("routine_stage_STRENGTH").performScrollTo().performClick()
+        scrolled("routine_stage_STRENGTH").performClick()
         waitTag("routine_picker")
         rule.onAllNodes(tagStartsWith("routine_option_")).onFirst().performClick()
         captureScreen("compose-routine-picker.png")
@@ -63,14 +67,14 @@ class ComposeRoutineComposeTest {
         // One exercise, all times unknown: confirmable (E-02 B).
         rule.onNodeWithTag("routine_confirm").assertIsEnabled()
         // A known time that exceeds the target is rejected without saving.
-        rule.onNodeWithTag("routine_target").performScrollTo().performTextInput("10")
-        rule.onNodeWithTag("routine_minutes_CARDIO").performScrollTo().performTextInput("30")
+        scrolled("routine_target").performTextInput("10")
+        scrolled("routine_minutes_CARDIO").performTextInput("30")
         rule.onNodeWithTag("routine_confirm").performClick()
         waitTag("routine_error")
-        rule.onNodeWithTag("routine_error").performScrollTo().assertIsDisplayed()
+        scrolled("routine_error").assertIsDisplayed()
         capture("compose-routine-error.png")
         // Fix the target: appending "0" makes it 100 minutes, above the known 30 (other stages unknown), so it saves.
-        rule.onNodeWithTag("routine_target").performScrollTo().performTextInput("0")
+        scrolled("routine_target").performTextInput("0")
         rule.onNodeWithTag("routine_confirm").performClick()
         waitTag("routine_saved")
         rule.onNodeWithTag("routine_saved").assertIsDisplayed()
