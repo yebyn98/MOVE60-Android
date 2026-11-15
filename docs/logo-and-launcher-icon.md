@@ -1,8 +1,8 @@
 # MOVE60 logo, launcher icon and first-screen intro
 
 **Logo: 60-tick plate + dumbbell.** An outer ring, 60 minute ticks (all 60 lit, matching the Figma logo) and a
-dumbbell in the heart color. Colors are design tokens (`primary` #00E676, `outline` #303030,
-`heart` #FF6B81, plate `surface` #121212). Chosen from the Figma logo exploration board.
+dumbbell in the heart color. Colors are design tokens (`primary` #ABC5B1, `outline` #3D4D42,
+`heart` #FF6B81, plate `surface` #1B2720). Chosen from the Figma logo exploration board.
 
 ## Where it lives
 - Launcher icon (phone + watch): adaptive icon, `mipmap-anydpi-v26/ic_launcher(.xml|_round.xml)`

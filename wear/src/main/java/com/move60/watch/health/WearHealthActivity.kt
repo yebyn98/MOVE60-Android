@@ -197,9 +197,9 @@ class WearHealthActivity : ComponentActivity(), DataClient.OnDataChangedListener
     }
 }
 
-private val brand = Color(0xFF00E676)
-private val secondary = Color(0xFFB0B0B0)
-private val surface = Color(0xFF121212)
+private val brand = Color(com.move60.watch.Move60Theme.Colors.primary)
+private val secondary = Color(com.move60.watch.Move60Theme.Colors.textMedium)
+private val surface = Color(com.move60.watch.Move60Theme.Colors.surface)
 private val foreground = Color.White
 
 @Composable
@@ -309,7 +309,7 @@ private fun HealthCard(content: @Composable () -> Unit) {
 private fun RingMeter(value: Float) {
     Canvas(Modifier.size(52.dp)) {
         val width = 5.dp.toPx()
-        drawArc(Color(0xFF303030), -90f, 360f, false,
+        drawArc(Color(com.move60.watch.Move60Theme.Colors.outline), -90f, 360f, false,
             style = Stroke(width = width, cap = StrokeCap.Round))
         if (value > 0f) drawArc(brand, -90f, 360f * value.coerceIn(0f, 1f), false,
             style = Stroke(width = width, cap = StrokeCap.Round))

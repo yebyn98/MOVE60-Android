@@ -230,7 +230,7 @@ class WorkoutService : Service() {
         val pending = PendingIntent.getActivity(this, 0, open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         return Notification.Builder(this, channel)
             .setSmallIcon(R.drawable.ic_fitness)
-            .setColor(Color.rgb(180, 245, 110))
+            .setColor(Move60Theme.Colors.primary)
             .setContentIntent(pending)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setOnlyAlertOnce(true)
