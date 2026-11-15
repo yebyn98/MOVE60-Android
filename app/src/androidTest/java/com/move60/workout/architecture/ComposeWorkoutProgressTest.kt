@@ -156,10 +156,12 @@ class ComposeWorkoutProgressTest {
      */
     @Test fun newWorkoutStartedBeforeCommitKeepsTheEarlierSessionAndStoresIt() {
         val outbox = PendingSessionOutbox(context)
-        outbox.pending().forEach { outbox.remove(outbox.sessionId(it)) }
         val store = com.move60.workout.SessionStore(context, com.move60.workout.WorkoutData(context))
         try {
-            store.reloadIfChanged(); store.resetAll(); store.start()
+            // A previous test may have left an ended session in the slot; resetting it correctly buffers it. Start from an empty outbox afterwards.
+            store.reloadIfChanged(); store.resetAll()
+            outbox.pending().forEach { outbox.remove(outbox.sessionId(it)) }
+            store.start()
             com.move60.workout.SetRecordStore(context).write(store.day, "chestPress", 1,
                 com.move60.workout.SetRecordStore.Record("40", "10", "5", true), store.recordDate, store.sessionStartedAt)
             store.reconcile(System.currentTimeMillis() + 120_000L)
