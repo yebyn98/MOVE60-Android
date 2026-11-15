@@ -16,6 +16,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
@@ -73,8 +74,8 @@ class ComposeRoutineComposeTest {
         waitTag("routine_error")
         rule.onNodeWithTag("routine_error").assertIsDisplayed()
         capture("compose-routine-error.png")
-        // Fix the target: appending "0" makes it 100 minutes, above the known 30 (other stages unknown), so it saves.
-        scrolled("routine_target").performTextInput("0")
+        // Fix the target: set it to 100 minutes, above the known 30 (other stages unknown), so it saves.
+        scrolled("routine_target").performTextReplacement("100")
         rule.onNodeWithTag("routine_confirm").performClick()
         // Wait for either outcome and always keep the real screen, so a failure shows what the user would see.
         rule.waitUntil(8_000) {
