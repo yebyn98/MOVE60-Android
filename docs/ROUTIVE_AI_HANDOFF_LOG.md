@@ -109,3 +109,10 @@ no rows with those values were ever written by a shipped build).
 - 발견·수정: (1) 시간 오류 문구가 목록 맨 아래라 스크롤 전에는 안 보임 → 확정 버튼 위로 이동(화면 결함). (2) 기존 `PhoneFeaturesTest.movingToAnotherItemKeepsActiveTime`가 요일 의존(월·수 루틴은 유산소 1~2개 vs 테스트 ≥3 요구)이라 월요일(KST) CI에서 실패 → 요일을 화요일로 고정(검증 약화 아님).
 - Figma 41과의 차이(미해결): Figma는 단계 행이 `>` 이동 행이고 시간 입력이 없는데, 구현은 단계 카드에 계획시간 입력란이 포함됨. 탭바는 Figma와 동일하게 유지. 보유 기구는 61·62 미구현으로 빈 상태.
 - 남은 것: 저장 루틴 목록·편집·시작(4단계 엔진 필요), 16 추천 상세, 17 동작 안내(영상 없음), 실패 Draft 영속.
+
+### G. ChatGPT 인수인계 Phase 1 (2026-11-16)
+- **P0-1 재현 확인(코드):** `TimerSessionSync.bundleOrNull`이 `completedStrengthSets=0`·빈 세트 목록으로 저장 → 59초+완료 세트 1개가 D-01 B로 폐기될 수 있었음.
+- **수정:** `SetRecordStore.completedSetsForSession(token)`(해당 운동의 완료·유효 세트만, 종목 ID·세트 번호 파싱) → `TimerSnapshot.completedSets` → `SessionSetEntity(COMPLETED)` + `completedStrengthSets`. `Move60Application.syncTimerSessionAsync`가 SetRecordStore를 전달. 중복 저장은 기존 커밋 멱등성(AlreadyCommitted)으로 보호.
+- **JVM 검증(SessionSetPersistenceTest 6):** 59초+세트1=저장·유효, 59초+세트0=폐기, PARTIAL(조기 종료)도 세트 보존, 반복 동기화 시 중복 없음, 다른 운동 세트·미완료·무효 세트 제외, 실행 중 세션 스냅샷에 실제 세트 포함.
+- **한계:** (1) 세트 편집은 운동 종료 전까지만 가능하다는 전제. 이전 빌드가 세트 0개로 이미 커밋한 세션과 같은 ID로 다시 커밋하면 Conflict로 보고됨(Room v2는 미출시로 판단, 실제 사용자 데이터 없음 — 출시 이력 확인 필요). (2) 에뮬레이터/실기기 end-to-end(Compose에서 세트 완료 → 종료 → 결과 화면 세트 수) 아직 미검증. (3) P1-1(저장 완료 전 새 세션 시작 시 구간 손실) 미착수.
+- **41 정책 확정 반영:** 단계 시간 별도 입력 제거, 종목별 시간(null 허용·커스텀 값 그대로 보존)에서 단계 합계 산출. 한 종목이라도 시간 미정이면 단계 시간 미정. `RoutinePlanService.save(routineId, name, target, exercises)`로 시그니처 변경. 유산소 내부 구간 합산은 아직 구간 모델이 없어 종목 단위 시간만 지원.

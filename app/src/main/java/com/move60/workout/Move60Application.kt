@@ -51,7 +51,7 @@ class Move60Application : Application(), Configuration.Provider {
         scope.launch {
             try {
                 val sync = TimerSessionSync(committer) { ZoneId.systemDefault().id }
-                val snapshot = SessionStore(this@Move60Application, WorkoutData(this@Move60Application)).timerSnapshot()
+                val snapshot = SessionStore(this@Move60Application, WorkoutData(this@Move60Application)).timerSnapshot(com.move60.workout.SetRecordStore(this@Move60Application))
                 if (settle) sync.onForeground(snapshot) else sync.syncFinished(snapshot)
             } catch (_: Throwable) { /* retried on next foreground */ }
         }

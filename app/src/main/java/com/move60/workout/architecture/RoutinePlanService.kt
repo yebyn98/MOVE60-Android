@@ -30,8 +30,12 @@ sealed interface RoutinePlanResult {
 class RoutinePlanService(private val db: WorkoutDatabase, private val clock: () -> Long = System::currentTimeMillis) {
     private val dao get() = db.routiveDao()
 
+    /**
+     * Stage times are NOT entered: each stage's plan is derived from its exercises' planned times (Figma 41 final policy).
+     * A stage is known only when it has exercises and every one of them has a time; otherwise it stays null (never 0).
+     */
     suspend fun save(
-        routineId: String, name: String, targetSeconds: Long?, planned: Map<StageKind, Long?>,
+        routineId: String, name: String, targetSeconds: Long?,
         exercises: Map<StageKind, List<RoutineExerciseInput>>
     ): RoutinePlanResult {
         val trimmed = name.trim()
@@ -42,16 +46,19 @@ class RoutinePlanService(private val db: WorkoutDatabase, private val clock: () 
         if (exercises.values.flatten().any { it.id.isBlank() || it.name.isBlank() || (it.plannedSeconds != null && it.plannedSeconds <= 0L) })
             return RoutinePlanResult.Rejected("invalid exercise")
         val stages = WorkoutStructures.stages(StructureVersion.ROUTIVE_4)
-        // E-02 B: unknown times do not block saving, but known times must pass the shared duration policy.
-        val evaluation = RoutineDurationPolicy.evaluate(
-            stages.map { PlannedExercise(it.kind.name, planned[it.kind]) }, targetSeconds)
+        // E-02 B: unknown times do not block saving, but the known sum must pass the shared duration policy.
+        // Every exercise is one entry (unique key), so the same exercise in two stages is never merged or double counted.
+        val entries = stages.flatMapIndexed { si, st ->
+            exercises[st.kind].orEmpty().mapIndexed { oi, e -> PlannedExercise("$si:$oi:${e.id}", e.plannedSeconds) }
+        }
+        val evaluation = RoutineDurationPolicy.evaluate(entries, targetSeconds)
         if (!evaluation.canConfirm) return RoutinePlanResult.Rejected("invalid plan time", evaluation.issue)
         return try {
             db.withTransaction {
                 if (dao.routinePlan(routineId) != null) return@withTransaction RoutinePlanResult.Rejected("routine already exists")
                 val now = clock()
                 dao.insertRoutinePlan(RoutinePlanEntity(routineId, trimmed, StructureVersion.ROUTIVE_4.name, targetSeconds, now, now))
-                dao.insertRouteStages(stages.mapIndexed { i, s -> RoutineStagePlanEntity(routineId, i, s.kind.name, planned[s.kind]) })
+                dao.insertRouteStages(stages.mapIndexed { i, s -> RoutineStagePlanEntity(routineId, i, s.kind.name, derivedStageSeconds(exercises[s.kind].orEmpty())) })
                 dao.insertRoutineExercises(stages.flatMapIndexed { si, st ->
                     exercises[st.kind].orEmpty().mapIndexed { oi, e -> RoutineExerciseEntity(routineId, si, oi, e.id, e.name, e.plannedSeconds) }
                 })
@@ -59,6 +66,9 @@ class RoutinePlanService(private val db: WorkoutDatabase, private val clock: () 
             }
         } catch (t: Throwable) { RoutinePlanResult.Failed(t) }
     }
+
+    private fun derivedStageSeconds(items: List<RoutineExerciseInput>): Long? =
+        if (items.isEmpty() || items.any { it.plannedSeconds == null }) null else items.sumOf { it.plannedSeconds!! }
 
     suspend fun load(routineId: String): SavedRoutinePlan? {
         val plan = dao.routinePlan(routineId) ?: return null

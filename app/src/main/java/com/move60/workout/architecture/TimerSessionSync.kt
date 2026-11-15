@@ -11,11 +11,16 @@ data class TimerSnapshot(
     val finished: Boolean,
     val accumulatedSeconds: Int,
     val intervals: List<Pair<Long, Long>>,
-    val endedEarly: Boolean = false
+    val endedEarly: Boolean = false,
+    /** Sets the user actually completed in this workout (real exercise id, weight and reps from SetRecordStore). */
+    val completedSets: List<TimerSet> = emptyList()
 )
 
-fun SessionStore.timerSnapshot() = TimerSnapshot(
-    recordDate, day, sessionStartedAt, finished, accumulatedActiveSeconds, activeIntervals(), endedEarly
+data class TimerSet(val exerciseId: String, val setNumber: Int, val weightKg: String, val repetitions: String)
+
+fun SessionStore.timerSnapshot(setStore: com.move60.workout.SetRecordStore? = null) = TimerSnapshot(
+    recordDate, day, sessionStartedAt, finished, accumulatedActiveSeconds, activeIntervals(), endedEarly,
+    setStore?.completedSetsForSession(sessionStartedAt).orEmpty().map { TimerSet(it.exerciseId, it.setNumber, it.kg, it.reps) }
 )
 
 sealed interface SyncOutcome {
@@ -42,9 +47,12 @@ class TimerSessionSync(private val committer: SessionCommitter, private val zone
         val rows = s.intervals.mapIndexed { i, (a, b) -> SessionActiveIntervalEntity(id, i, a, b) }
         val session = SessionEntity(
             id, null, zoneId(), s.intervals.first().first * 1000L, s.intervals.last().second * 1000L,
-            (if (s.finished) SessionCompletion.COMPLETED else SessionCompletion.PARTIAL).name, s.accumulatedSeconds.toLong(), 0, false, null, 0L
+            (if (s.finished) SessionCompletion.COMPLETED else SessionCompletion.PARTIAL).name, s.accumulatedSeconds.toLong(),
+            s.completedSets.size, false, null, 0L
         )
-        return SessionBundle(session, rows, emptyList(), emptyList())
+        // Only COMPLETED sets are stored; the committer recomputes validity (>=60 s OR >=1 completed set, P-26 B).
+        val sets = s.completedSets.map { SessionSetEntity(id, it.exerciseId, it.setNumber, SetState.COMPLETED.name, it.weightKg, it.repetitions, null) }
+        return SessionBundle(session, rows, sets, emptyList())
     }
 
     suspend fun syncFinished(s: TimerSnapshot): SyncOutcome {

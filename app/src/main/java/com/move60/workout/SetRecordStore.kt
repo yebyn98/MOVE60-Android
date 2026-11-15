@@ -46,6 +46,21 @@ class SetRecordStore(context: Context) {
         }.values.map { decode(it as? String) }.filter { it.completed && it.valid }
     }
 
+    data class CompletedSet(val exerciseId: String, val setNumber: Int, val kg: String, val reps: String)
+    /**
+     * Completed, valid sets of ONE workout (identified by its session token), with the exercise id and set number
+     * parsed from the storage key. Never mixes other workouts of the same date. Ordered for stable comparison.
+     */
+    fun completedSetsForSession(token: Long): List<CompletedSet> {
+        if (token <= 0L) return emptyList()
+        return prefs.all.mapNotNull { (key, value) ->
+            val parts = key.split(':')
+            if (parts.size != 6 || parts[0] != "set" || parts[3] != token.toString()) return@mapNotNull null
+            val number = parts[5].toIntOrNull() ?: return@mapNotNull null
+            val record = decode(value as? String)
+            if (!record.completed || !record.valid) null else CompletedSet(parts[4], number, record.kg, record.reps)
+        }.sortedWith(compareBy({ it.exerciseId }, { it.setNumber }))
+    }
     fun beginSession(day: Int, token: Long) {
         if (token <= 0L) return
         val prefix = "set:${today()}:$day:0:"

@@ -69,7 +69,8 @@ class ComposeRoutineComposeTest {
         rule.onNodeWithTag("routine_confirm").assertIsEnabled()
         // A known time that exceeds the target is rejected without saving.
         scrolled("routine_target").performTextInput("10")
-        scrolled("routine_minutes_CARDIO").performTextInput("30")
+        scrolled(rule.onAllNodes(tagStartsWith("routine_minutes_STRENGTH_")).fetchSemanticsNodes().first().config
+            .getOrNull(SemanticsProperties.TestTag)!!).performTextInput("30")      // per-exercise time (stage time is derived)
         rule.onNodeWithTag("routine_confirm").performClick()
         waitTag("routine_error")
         rule.onNodeWithTag("routine_error").assertIsDisplayed()

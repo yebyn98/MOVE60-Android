@@ -5,8 +5,6 @@ import androidx.lifecycle.viewModelScope
 import com.move60.workout.WorkoutData
 import com.move60.workout.domain.PlanValidationIssue
 import com.move60.workout.domain.StageKind
-import com.move60.workout.domain.StructureVersion
-import com.move60.workout.domain.WorkoutStructures
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.UUID
 import javax.inject.Inject
@@ -22,14 +20,24 @@ data class RoutineComposeUiState(
     val name: String = "내 루틴",
     /** Raw text of the optional total target in minutes; blank = unknown (never 0). */
     val targetMinutes: String = "",
-    val stageMinutes: Map<StageKind, String> = emptyMap(),
+    /** Raw minutes text per chosen exercise, keyed "STAGE:exerciseId". Blank = unknown (null), never 0. */
+    val exerciseMinutes: Map<String, String> = emptyMap(),
     val selected: Map<StageKind, List<RoutineExerciseInput>> = emptyMap(),
     val save: ComposeSaveState = ComposeSaveState.EDITING,
     val error: String? = null
 ) {
     val exerciseCount: Int get() = selected.values.sumOf { it.size }
+    /** Stage plan derived from its exercises: known only when every exercise has a valid time (no separate stage input). */
+    fun derivedStageMinutes(kind: StageKind): Long? {
+        val items = selected[kind].orEmpty()
+        if (items.isEmpty()) return null
+        val secs = items.map { minutesToSeconds(exerciseMinutes[exKey(kind, it.id)].orEmpty()).getOrNull() ?: return null }
+        return secs.sum() / 60
+    }
     val canConfirm: Boolean get() = exerciseCount >= 1 && name.isNotBlank() && save != ComposeSaveState.SAVING && save != ComposeSaveState.SAVED
 }
+
+internal fun exKey(kind: StageKind, id: String) = "${kind.name}:$id"
 
 /** Maps a minutes text field to seconds. Blank -> null (unknown). Returns Result.failure for non-positive/garbage input. */
 internal fun minutesToSeconds(text: String): Result<Long?> {
@@ -67,8 +75,8 @@ class RoutineComposeViewModel @Inject constructor(
 
     fun setName(v: String) = _state.update { it.copy(name = v.take(RoutinePlanService.MAX_NAME), error = null) }
     fun setTarget(v: String) = _state.update { it.copy(targetMinutes = v.filter(Char::isDigit).take(4), error = null) }
-    fun setStageMinutes(kind: StageKind, v: String) =
-        _state.update { it.copy(stageMinutes = it.stageMinutes + (kind to v.filter(Char::isDigit).take(4)), error = null) }
+    fun setExerciseMinutes(kind: StageKind, id: String, v: String) =
+        _state.update { it.copy(exerciseMinutes = it.exerciseMinutes + (exKey(kind, id) to v.filter(Char::isDigit).take(4)), error = null) }
     fun setSelection(kind: StageKind, items: List<RoutineExerciseInput>) =
         _state.update { it.copy(selected = it.selected + (kind to items), error = null) }
 
@@ -76,13 +84,15 @@ class RoutineComposeViewModel @Inject constructor(
         val s = _state.value
         if (!s.canConfirm) return
         val target = minutesToSeconds(s.targetMinutes).getOrElse { return fail("목표 시간: ${it.message}") }
-        val planned = HashMap<StageKind, Long?>()
-        for (kind in WorkoutStructures.stages(StructureVersion.ROUTIVE_4).map { it.kind }) {
-            planned[kind] = minutesToSeconds(s.stageMinutes[kind].orEmpty()).getOrElse { return fail("계획시간: ${it.message}") }
+        val withTimes = HashMap<StageKind, List<RoutineExerciseInput>>()
+        for ((kind, items) in s.selected) {
+            withTimes[kind] = items.map { e ->
+                e.copy(plannedSeconds = minutesToSeconds(s.exerciseMinutes[exKey(kind, e.id)].orEmpty()).getOrElse { return fail("${e.name} 계획시간: ${it.message}") })
+            }
         }
         _state.update { it.copy(save = ComposeSaveState.SAVING, error = null) }
         viewModelScope.launch {
-            when (val r = service.save(UUID.randomUUID().toString(), s.name, target, planned, s.selected.filterValues { it.isNotEmpty() })) {
+            when (val r = service.save(UUID.randomUUID().toString(), s.name, target, withTimes.filterValues { it.isNotEmpty() })) {
                 is RoutinePlanResult.Saved -> _state.update { it.copy(save = ComposeSaveState.SAVED) }
                 is RoutinePlanResult.Rejected -> _state.update { it.copy(save = ComposeSaveState.EDITING, error = rejectMessage(r)) }
                 is RoutinePlanResult.Failed -> _state.update { it.copy(save = ComposeSaveState.FAILED, error = "저장하지 못했어요. 입력한 내용은 그대로 두었어요. 다시 시도해 주세요.") }

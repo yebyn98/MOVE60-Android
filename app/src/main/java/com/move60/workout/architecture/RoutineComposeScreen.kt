@@ -90,7 +90,7 @@ fun RoutineComposeScreen(onBack: () -> Unit, viewModel: RoutineComposeViewModel 
                     }
                     Text(if (state.exerciseCount == 0) "운동 항목 0개 · 구성 필요" else "운동 항목 ${state.exerciseCount}개 구성됨",
                         color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                    Text("시간을 모르면 비워 두어도 돼요. 입력한 단계 시간은 목표에 맞춰야 해요.", style = MaterialTheme.typography.bodySmall,
+                    Text("종목 시간을 모르면 비워 두어도 돼요. 입력한 시간의 합이 목표를 넘으면 안 돼요.", style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
@@ -117,12 +117,21 @@ fun RoutineComposeScreen(onBack: () -> Unit, viewModel: RoutineComposeViewModel 
                 val chosen = state.selected[kind].orEmpty()
                 Move60Card(Modifier.clickable { picking = kind }.testTag("routine_stage_${kind.name}")) {
                     Text(if (chosen.isEmpty()) "${kind.title()} 추가" else "${kind.title()} ${chosen.size}개", style = MaterialTheme.typography.titleMedium)
-                    Text(if (chosen.isEmpty()) kind.hint() else chosen.joinToString(" · ") { it.name },
+                    Text(if (chosen.isEmpty()) kind.hint() else "탭해서 종목 바꾸기",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    OutlinedTextField(state.stageMinutes[kind].orEmpty(), { viewModel.setStageMinutes(kind, it) }, singleLine = true,
-                        label = { Text(if (kind == StageKind.STRENGTH) "참고 시간(분) · 세트 완료 기준" else "계획시간(분) · 비우면 미정") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth().testTag("routine_minutes_${kind.name}"))
+                    chosen.forEach { e ->
+                        OutlinedTextField(state.exerciseMinutes[exKey(kind, e.id)].orEmpty(), { viewModel.setExerciseMinutes(kind, e.id, it) }, singleLine = true,
+                            label = { Text(if (kind == StageKind.STRENGTH) "${e.name} · 참고 시간(분)" else "${e.name} · 시간(분) · 비우면 미정") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth().testTag("routine_minutes_${kind.name}_${e.id}"))
+                    }
+                    if (chosen.isNotEmpty()) {
+                        // Derived from the exercises above; there is no separate stage-time input.
+                        val total = state.derivedStageMinutes(kind)
+                        Text(if (total != null) "단계 합계 ${total}분" else "단계 시간 미정",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.testTag("routine_stage_total_${kind.name}"))
+                    }
                 }
             }
         }
