@@ -46,8 +46,19 @@ class ComposeWorkoutProgressTest {
         val store = com.move60.workout.SessionStore(context, com.move60.workout.WorkoutData(context))
         store.reloadIfChanged()
         if (store.running || store.elapsed() > 0 || store.stage != 0) store.resetAll()
-        rule.waitUntil(15_000) {
-            rule.onAllNodes(hasTestTag("dock_play") and androidx.compose.ui.test.hasText("운동 시작")).fetchSemanticsNodes().isNotEmpty()
+        // The process-wide repository may still hold the previous test's ended session; opening the app then shows its
+        // result screen first. Go back to the overview like a user would.
+        val end = System.currentTimeMillis() + 15_000
+        fun idle() = rule.onAllNodes(hasTestTag("dock_play") and androidx.compose.ui.test.hasText("운동 시작")).fetchSemanticsNodes().isNotEmpty()
+        while (System.currentTimeMillis() < end && !idle()) {
+            if (rule.onAllNodes(hasTestTag("result_screen")).fetchSemanticsNodes().isNotEmpty())
+                instrumentation.uiAutomation.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK)
+            Thread.sleep(500)
+            rule.waitForIdle()
+        }
+        if (!idle()) {
+            captureScreen("ensure-idle-overview-failed.png")      // evidence for the next investigation
+            throw AssertionError("idle overview (dock_play '운동 시작') did not appear within 15 s")
         }
     }
 
