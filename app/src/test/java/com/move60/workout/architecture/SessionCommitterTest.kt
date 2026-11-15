@@ -19,51 +19,75 @@ import org.robolectric.annotation.Config
 class SessionCommitterTest {
     private lateinit var db: WorkoutDatabase
     private lateinit var committer: SessionCommitter
-    private var now = 1_000L
+    private var nowMs = T.ms("2026-11-10", 12)
     private val dao get() = db.routiveDao()
+    private val day = "2026-11-10"
+    private fun start(h: Int = 10, m: Int = 0) = T.at(day, h, m)
 
     @Before fun open() {
         db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), WorkoutDatabase::class.java)
             .allowMainThreadQueries().build()
-        committer = SessionCommitter(db) { ++now }
+        committer = SessionCommitter(db) { nowMs }
     }
     @After fun close() { db.close() }
 
-    private fun session(id: String, active: Long, sets: Int = 0, legacyToken: Long? = null, completion: SessionCompletion = SessionCompletion.COMPLETED) =
-        SessionEntity(id, SessionSource.LIVE.name, legacyToken, "Asia/Seoul", 0L, 1L, completion.name, active, sets, false, null, 0L)
-    private fun bundle(id: String, active: Long, date: String = "2026-11-10", sets: Int = 0, legacyToken: Long? = null,
-                       segments: List<SessionSegmentEntity> = emptyList()): SessionBundle {
-        val setRows = (1..sets).map { SessionSetEntity(id, "bench", it, SetState.COMPLETED.name, "40", "10", 5L) }
-        return SessionBundle(session(id, active, sets, legacyToken), listOf(SessionDaySliceEntity(id, date, active)), setRows, segments)
-    }
-    private fun segment(id: String, order: Int, secs: Long = 30L, planned: Long? = null) =
-        SessionSegmentEntity(id, order, SegmentKind.CARDIO_WORK.name, planned, secs, "cycle", """{"watts":"120"}""")
-    private fun challenge(id: String = "c1", start: String = "2026-11-01", end: String = "2026-11-30") =
-        ChallengeEntity(id, "challenge", start, end, 10, ChallengeStatus.ACTIVE.name, 1L, null, null)
+    private fun bundle(id: String, seconds: Long, sets: Int = 0, legacyToken: Long? = null, segments: List<SessionSegmentEntity> = emptyList()) =
+        sessionBundle(id, listOf(T.run(start(), seconds)), sets = sets, legacyToken = legacyToken, segments = segments)
+    private fun segment(id: String, order: Int, secs: Long = 30L) =
+        SessionSegmentEntity(id, order, SegmentKind.CARDIO_WORK.name, null, secs, "cycle", """{"watts":"120"}""")
 
-    // ---- validity & recognition ----
-    @Test fun sessionValidityFollowsPolicy() = runBlocking {
-        committer.commit(bundle("s59", 59))
-        committer.commit(bundle("s60", 60))
-        committer.commit(bundle("s59set", 59, sets = 1))
-        assertEquals(false, dao.session("s59")!!.validSession)
+    // ---- validity & D-01 B (AC-12) ----
+    @Test fun validityFollowsPolicyAndBelowThresholdIsDiscardedNotStored() = runBlocking {
+        assertTrue(committer.commit(bundle("s59", 59)) is CommitResult.DiscardedBelowThreshold)
+        assertTrue(committer.commit(bundle("s60", 60)) is CommitResult.Committed)
+        assertTrue(committer.commit(bundle("s59set", 59, sets = 1)) is CommitResult.Committed)
+        assertNull("no permanent summary for a below-threshold session", dao.session("s59"))
+        assertEquals(0, dao.intervals("s59").size)
         assertEquals(true, dao.session("s60")!!.validSession)
         assertEquals(true, dao.session("s59set")!!.validSession)
     }
 
-    @Test fun callerCannotAssertValidity() = runBlocking {
-        val b = bundle("liar", 10)
-        committer.commit(b.copy(session = b.session.copy(validSession = true)))
-        assertEquals(false, dao.session("liar")!!.validSession)
+    @Test fun ac12_finalizingA59sSessionDiscardsEverythingButCancelKeepsTheDraft() = runBlocking {
+        val short = bundle("short", 59, segments = listOf(segment("short", 0), segment("short", 1)))
+        committer.saveDraft("end-confirmed", "SESSION", "{\"a\":1}", null)
+        committer.saveDraft("end-cancelled", "SESSION", "{\"a\":2}", null)
+
+        // Cancel: the app never calls commit -> the temporary data stays.
+        assertEquals("{\"a\":2}", dao.draft("end-cancelled")!!.payloadJson)
+
+        // Confirm: raw segments AND the permanent summary are discarded, the Draft is consumed.
+        val result = committer.commit(short, draftId = "end-confirmed")
+        assertTrue("got $result", result is CommitResult.DiscardedBelowThreshold)
+        assertNull(dao.session("short")); assertEquals(0, dao.segments("short").size); assertEquals(0, dao.slices("short").size)
+        assertNull(dao.draft("end-confirmed"))
+        assertEquals("cancel path untouched", "{\"a\":2}", dao.draft("end-cancelled")!!.payloadJson)
+        assertEquals(0, dao.sessionSecondsOn(day))        // nothing shows on the ordinary calendar either
     }
 
-    @Test fun rawSegmentsOfBelowThresholdSessionAreNotStoredButSummaryIs() = runBlocking {
-        val result = committer.commit(bundle("short", 45, segments = listOf(segment("short", 0), segment("short", 1))))
-        assertTrue(result is CommitResult.Committed)
-        assertEquals(0, dao.segments("short").size)
-        assertEquals(45L, dao.session("short")!!.totalActiveSeconds)
+    @Test fun callerCannotAssertValidity() = runBlocking {
+        val b = bundle("liar", 10)
+        val result = committer.commit(b.copy(session = b.session.copy(validSession = true)))
+        assertTrue(result is CommitResult.DiscardedBelowThreshold)
+        assertNull(dao.session("liar"))
+    }
+
+    @Test fun rawSegmentsAreStoredForValidSessions() = runBlocking {
         committer.commit(bundle("long", 120, segments = listOf(segment("long", 0), segment("long", 1))))
         assertEquals(2, dao.segments("long").size)
+    }
+
+    // ---- derived day slices (P-20) ----
+    @Test fun midnightCrossingSessionIsSlicedFromRealIntervals() = runBlocking {
+        val b = sessionBundle("night", listOf(T.run(T.at("2026-11-10", 23, 50), 1200)))   // 23:50 -> 00:10 KST
+        committer.commit(b)
+        assertEquals(listOf("2026-11-10" to 600L, "2026-11-11" to 600L), dao.slices("night").map { it.date to it.activeSecondsOnDate })
+    }
+
+    @Test fun pausesAreNotCounted() = runBlocking {
+        val b = sessionBundle("paused", listOf(T.run(start(), 300), T.run(start(10, 30), 300)))   // 25-minute pause in between
+        committer.commit(b)
+        assertEquals(600L, dao.session("paused")!!.totalActiveSeconds)
+        assertEquals(2, dao.intervals("paused").size)
     }
 
     // ---- idempotency / conflict ----
@@ -74,14 +98,12 @@ class SessionCommitterTest {
         assertTrue(committer.commit(b) is CommitResult.AlreadyCommitted)
         assertTrue(committer.commit(b) is CommitResult.AlreadyCommitted)
         assertEquals(first, dao.session("dup"))
-        assertEquals(1, dao.slices("dup").size)
-        assertEquals(2, dao.sets("dup").size)
+        assertEquals(1, dao.slices("dup").size); assertEquals(2, dao.sets("dup").size); assertEquals(1, dao.intervals("dup").size)
     }
 
     @Test fun sameIdDifferentContentIsConflictAndStoredDataUnchanged() = runBlocking {
         committer.commit(bundle("x", 300))
-        val result = committer.commit(bundle("x", 301))
-        assertTrue(result is CommitResult.Conflict)
+        assertTrue(committer.commit(bundle("x", 301)) is CommitResult.Conflict)
         assertEquals(300L, dao.session("x")!!.totalActiveSeconds)
         assertEquals(300L, dao.slices("x").single().activeSecondsOnDate)
     }
@@ -89,11 +111,15 @@ class SessionCommitterTest {
     // ---- validation rejects, nothing stored ----
     @Test fun invalidBundlesAreRejectedAndNothingIsStored() = runBlocking {
         val base = bundle("bad", 100, sets = 1)
+        val iv = base.intervals.single()
         val cases = mapOf(
-            RejectReason.SLICE_SUM_MISMATCH to base.copy(slices = listOf(SessionDaySliceEntity("bad", "2026-11-10", 99))),
+            RejectReason.INTERVAL_SUM_MISMATCH to base.copy(session = base.session.copy(totalActiveSeconds = 99)),
+            RejectReason.INVALID_INTERVAL to base.copy(intervals = listOf(iv.copy(endEpochSec = iv.startEpochSec))),
+            RejectReason.INTERVAL_OVERLAP to base.copy(
+                intervals = listOf(iv, iv.copy(orderIndex = 1, startEpochSec = iv.startEpochSec + 10, endEpochSec = iv.startEpochSec + 110)),
+                session = base.session.copy(totalActiveSeconds = 200)),
+            RejectReason.DUPLICATE_INTERVAL to base.copy(intervals = listOf(iv, iv), session = base.session.copy(totalActiveSeconds = 200)),
             RejectReason.COMPLETED_SET_COUNT_MISMATCH to base.copy(session = base.session.copy(completedStrengthSets = 2)),
-            RejectReason.DUPLICATE_DAY_SLICE to base.copy(slices = listOf(SessionDaySliceEntity("bad", "2026-11-10", 50), SessionDaySliceEntity("bad", "2026-11-10", 50))),
-            RejectReason.INVALID_DATE to base.copy(slices = listOf(SessionDaySliceEntity("bad", "2026-13-40", 100))),
             RejectReason.INVALID_SET to base.copy(sets = listOf(SessionSetEntity("bad", "bench", 1, SetState.COMPLETED.name, "40", "0", 5L))),
             RejectReason.DUPLICATE_SET to base.copy(sets = base.sets + base.sets),
             RejectReason.INVALID_SEGMENT to base.copy(segments = listOf(segment("bad", 0, secs = 0))),
@@ -101,8 +127,7 @@ class SessionCommitterTest {
             RejectReason.NEGATIVE_VALUE to base.copy(session = base.session.copy(totalActiveSeconds = -1)),
             RejectReason.BLANK_SESSION_ID to base.copy(session = base.session.copy(sessionId = " ")),
             RejectReason.INVALID_ZONE to base.copy(session = base.session.copy(zoneId = "Mars/Base")),
-            RejectReason.CHILD_SESSION_ID_MISMATCH to base.copy(sets = listOf(SessionSetEntity("other", "bench", 1, SetState.COMPLETED.name, "40", "10", 5L))),
-            RejectReason.LEGACY_AGGREGATE_MUST_BE_UNKNOWN to base.copy(session = base.session.copy(source = SessionSource.LEGACY_DAY_AGGREGATE.name))
+            RejectReason.CHILD_SESSION_ID_MISMATCH to base.copy(sets = listOf(SessionSetEntity("other", "bench", 1, SetState.COMPLETED.name, "40", "10", 5L)))
         )
         for ((reason, bad) in cases) {
             val r = committer.commit(bad)
@@ -112,65 +137,23 @@ class SessionCommitterTest {
     }
 
     @Test fun skippedSetsAreStoredButNeverCountAsCompleted() = runBlocking {
-        val b = bundle("skip", 30, sets = 0).copy(sets = listOf(SessionSetEntity("skip", "squat", 1, SetState.SKIPPED.name, "", "", null)))
+        val b = bundle("skip", 90).let { it.copy(sets = listOf(SessionSetEntity("skip", "squat", 1, SetState.SKIPPED.name, "", "", null))) }
         assertTrue(committer.commit(b) is CommitResult.Committed)
         assertEquals(0, dao.session("skip")!!.completedStrengthSets)
-        assertEquals(false, dao.session("skip")!!.validSession)   // 30s and no COMPLETED set
+        assertEquals(SetState.SKIPPED.name, dao.sets("skip").single().state)
     }
 
-    // ---- challenge credit (separate rule from session validity) ----
-    @Test fun challengeDayNeeds600SummedSecondsFromValidSessionsMaxOnePerDate() = runBlocking {
-        dao.insertChallenge(challenge())
-        assertEquals(emptyList<String>(), (committer.commit(bundle("a", 300)) as CommitResult.Committed).creditedChallenges)
-        assertEquals(0, dao.credits("c1").size)
-        assertEquals(listOf("c1"), (committer.commit(bundle("b", 300)) as CommitResult.Committed).creditedChallenges)
-        committer.commit(bundle("c", 900))
-        assertEquals(1, dao.credits("c1").size)          // never more than one day per date
-        assertEquals(600L, dao.credits("c1").single().qualifyingActiveSeconds)
-        committer.commit(bundle("d", 600, date = "2026-11-11"))
-        assertEquals(listOf("2026-11-10", "2026-11-11"), dao.credits("c1").map { it.date })
-    }
-
-    @Test fun belowThresholdSessionsDoNotContributeToChallengeSum() = runBlocking {
-        dao.insertChallenge(challenge())
-        committer.commit(bundle("tiny", 59))                       // invalid (59s, no set)
-        val r = committer.commit(bundle("rest", 541)) as CommitResult.Committed   // 59 + 541 = 600 only if the invalid one counted
-        assertEquals(emptyList<String>(), r.creditedChallenges)
-        assertEquals(0, dao.credits("c1").size)
-    }
-
-    @Test fun challengeOutsideItsPeriodOrNotActiveGetsNoCredit() = runBlocking {
-        dao.insertChallenge(challenge("past", "2026-10-01", "2026-10-31"))
-        dao.insertChallenge(challenge("done").copy(status = ChallengeStatus.ABANDONED.name))
-        val r = committer.commit(bundle("s", 700)) as CommitResult.Committed
-        assertEquals(emptyList<String>(), r.creditedChallenges)
-    }
-
-    @Test fun midnightCrossingSessionIsCreditedPerDateFromActiveSlices() = runBlocking {
-        dao.insertChallenge(challenge())
-        val id = "night"
-        val b = SessionBundle(session(id, 1_200),
-            listOf(SessionDaySliceEntity(id, "2026-11-10", 700), SessionDaySliceEntity(id, "2026-11-11", 500)))
-        committer.commit(b)
-        assertEquals(listOf("2026-11-10"), dao.credits("c1").map { it.date })   // 700>=600 credited; 500 not
-        assertEquals(700L, dao.credits("c1").single().qualifyingActiveSeconds)
-    }
-
-    // ---- failure, draft preservation and retry ----
+    // ---- failure, draft preservation and retry (E-03) ----
     @Test fun failedCommitRollsBackKeepsDraftAndRetrySucceeds() = runBlocking {
         committer.commit(bundle("first", 100, legacyToken = 777L))
         assertEquals(DraftWriteResult.Saved(1L), committer.saveDraft("d1", "SESSION", "{\"n\":1}", null))
-        // Same legacyToken violates the unique index AFTER the session row is the second writer -> write fails.
-        val failing = bundle("second", 200, sets = 1, legacyToken = 777L)
+        val failing = sessionBundle("second", listOf(T.run(T.at(day, 14), 200)), sets = 1, legacyToken = 777L)
         val result = committer.commit(failing, draftId = "d1")
         assertTrue("got $result", result is CommitResult.Failed)
         assertNull("no partial rows", dao.session("second"))
-        assertEquals(0, dao.slices("second").size)
-        assertEquals(0, dao.sets("second").size)
+        assertEquals(0, dao.intervals("second").size); assertEquals(0, dao.slices("second").size); assertEquals(0, dao.sets("second").size)
         val kept = dao.draft("d1")!!
-        assertEquals(DraftState.FAILED.name, kept.state)
-        assertEquals("WRITE_FAILED", kept.lastErrorCode)
-        assertEquals("{\"n\":1}", kept.payloadJson)
+        assertEquals(DraftState.FAILED.name, kept.state); assertEquals("WRITE_FAILED", kept.lastErrorCode); assertEquals("{\"n\":1}", kept.payloadJson)
 
         val retry = committer.commit(failing.copy(session = failing.session.copy(legacyToken = 778L)), draftId = "d1")
         assertTrue("got $retry", retry is CommitResult.Committed)
@@ -192,7 +175,6 @@ class SessionCommitterTest {
         assertEquals("UNKNOWN_OUTCOME", dao.draft("d3")!!.lastErrorCode)
         val b = bundle("recovered", 200)
         assertTrue(committer.commit(b, "d3") is CommitResult.Committed)
-        // Outcome was unknown: retry of an already-stored session must not duplicate.
         committer.saveDraft("d4", "SESSION", "{}", null)
         assertTrue(committer.commit(b, "d4") is CommitResult.AlreadyCommitted)
         assertNull(dao.draft("d4"))
@@ -213,7 +195,7 @@ class SessionCommitterTest {
         db.workoutDao().upsertSet(WorkoutSetEntity("k", "2026-11-04", 1L, "bench", 1, "40", "10", true))
         committer.commit(bundle("new", 700))
         assertEquals(3540L, db.workoutDao().day("2026-11-04")!!.activeSeconds)
-        assertEquals(1, db.workoutDao().observeSetsOnceForTest(1L))
+        assertEquals(1, db.workoutDao().observeSets(1L).first().size)
     }
 
     @Test fun adjustmentsAreAppendOnlyAndOrdered() = runBlocking {
@@ -221,8 +203,6 @@ class SessionCommitterTest {
         dao.appendAdjustment(SessionAdjustmentEntity(sessionId = "adj", createdAtEpochMs = 1, field = "activeSeconds", oldValue = "300", newValue = "280", reason = "typo"))
         dao.appendAdjustment(SessionAdjustmentEntity(sessionId = "adj", createdAtEpochMs = 2, field = "activeSeconds", oldValue = "280", newValue = "290", reason = null))
         assertEquals(listOf("280", "290"), dao.adjustments("adj").map { it.newValue })
-        assertEquals(300L, dao.session("adj")!!.totalActiveSeconds)       // original snapshot kept; history is separate
+        assertEquals(300L, dao.session("adj")!!.totalActiveSeconds)
     }
-
-    private suspend fun WorkoutDao.observeSetsOnceForTest(sessionId: Long) = observeSets(sessionId).first().size
 }

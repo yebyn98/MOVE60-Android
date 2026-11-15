@@ -1,31 +1,39 @@
 package com.move60.workout.architecture
 
 import androidx.room.withTransaction
-import com.move60.workout.domain.StoredWorkoutDayContribution
+import com.move60.workout.domain.ActiveInterval
+import com.move60.workout.domain.ChallengeRules
 import com.move60.workout.domain.WorkoutRecognitionPolicy
-import java.time.LocalDate
 import java.time.ZoneId
 
-/** Everything that makes up one finalized session. Built only from measured/confirmed values. */
+/**
+ * Everything that makes up one finalized session. Per-date slices are NOT supplied: they are derived from the
+ * UTC [intervals] in the session's own zone, so a caller can never state a date split that disagrees with time.
+ */
 data class SessionBundle(
     val session: SessionEntity,
-    val slices: List<SessionDaySliceEntity>,
+    val intervals: List<SessionActiveIntervalEntity>,
     val sets: List<SessionSetEntity> = emptyList(),
     val segments: List<SessionSegmentEntity> = emptyList()
 )
 
 enum class RejectReason {
-    BLANK_SESSION_ID, UNKNOWN_ENUM_VALUE, INVALID_ZONE, NEGATIVE_VALUE, INVALID_DATE, DUPLICATE_DAY_SLICE,
-    SLICE_SUM_MISMATCH, SLICE_SUM_OVERFLOW, DUPLICATE_SET, INVALID_SET, COMPLETED_SET_COUNT_MISMATCH,
-    DUPLICATE_SEGMENT, INVALID_SEGMENT, INVALID_LEGACY_TOKEN, LEGACY_AGGREGATE_MUST_BE_UNKNOWN,
-    CHILD_SESSION_ID_MISMATCH
+    BLANK_SESSION_ID, UNKNOWN_ENUM_VALUE, INVALID_ZONE, NEGATIVE_VALUE, INVALID_INTERVAL, DUPLICATE_INTERVAL,
+    INTERVAL_OVERLAP, INTERVAL_SUM_OVERFLOW, INTERVAL_SUM_MISMATCH, DUPLICATE_SET, INVALID_SET,
+    COMPLETED_SET_COUNT_MISMATCH, DUPLICATE_SEGMENT, INVALID_SEGMENT, INVALID_LEGACY_TOKEN, CHILD_SESSION_ID_MISMATCH
 }
 
 sealed interface CommitResult {
-    /** Newly stored. [creditedChallenges] lists challenge IDs that gained a credited day. */
-    data class Committed(val sessionId: String, val creditedChallenges: List<String>) : CommitResult
+    /** Newly stored. [touchedChallenges] are ACTIVE challenges whose day aggregates were refreshed. */
+    data class Committed(val sessionId: String, val touchedChallenges: List<String>) : CommitResult
     /** Identical snapshot was already stored; nothing changed (idempotent retry). */
     data class AlreadyCommitted(val sessionId: String) : CommitResult
+    /**
+     * Below the validity threshold at finalization (<60 active seconds and no completed strength set): NOTHING is
+     * stored (no raw segments, no permanent summary) and the Draft is consumed (D-01 B, P-26, P-28 A).
+     * Cancelling instead of finalizing never reaches [commit], so the Draft is kept.
+     */
+    data class DiscardedBelowThreshold(val sessionId: String) : CommitResult
     /** Same sessionId but different content. Stored data was NOT changed. */
     data class Conflict(val sessionId: String) : CommitResult
     data class Rejected(val reason: RejectReason, val detail: String) : CommitResult
@@ -45,32 +53,29 @@ object SessionBundleValidator {
         fun reject(reason: RejectReason, detail: String) = CommitResult.Rejected(reason, detail)
 
         if (s.sessionId.isBlank()) return reject(RejectReason.BLANK_SESSION_ID, "sessionId")
-        if (enumOrNull<SessionSource>(s.source) == null) return reject(RejectReason.UNKNOWN_ENUM_VALUE, "source=${s.source}")
-        val completion = enumOrNull<SessionCompletion>(s.completion)
-            ?: return reject(RejectReason.UNKNOWN_ENUM_VALUE, "completion=${s.completion}")
+        if (enumOrNull<SessionCompletion>(s.completion) == null) return reject(RejectReason.UNKNOWN_ENUM_VALUE, "completion=${s.completion}")
         if (runCatching { ZoneId.of(s.zoneId) }.isFailure) return reject(RejectReason.INVALID_ZONE, s.zoneId)
         if (s.legacyToken != null && s.legacyToken <= 0L) return reject(RejectReason.INVALID_LEGACY_TOKEN, "${s.legacyToken}")
-        if (s.source == SessionSource.LEGACY_DAY_AGGREGATE.name && completion != SessionCompletion.UNKNOWN) {
-            return reject(RejectReason.LEGACY_AGGREGATE_MUST_BE_UNKNOWN, "a day aggregate cannot claim completion")
-        }
         if (s.totalActiveSeconds < 0L || s.completedStrengthSets < 0) return reject(RejectReason.NEGATIVE_VALUE, "session totals")
 
-        if (bundle.slices.any { it.sessionId != s.sessionId } || bundle.sets.any { it.sessionId != s.sessionId } ||
+        if (bundle.intervals.any { it.sessionId != s.sessionId } || bundle.sets.any { it.sessionId != s.sessionId } ||
             bundle.segments.any { it.sessionId != s.sessionId }
         ) return reject(RejectReason.CHILD_SESSION_ID_MISMATCH, "child rows must reference ${s.sessionId}")
 
-        // Day slices: unique valid dates, non-negative, exact sum (never wall-clock based).
-        val dates = HashSet<String>()
+        // Active intervals: ordered, positive, non-overlapping, and summing exactly to the measured active time.
         var sum = 0L
-        for (slice in bundle.slices) {
-            if (runCatching { LocalDate.parse(slice.date) }.isFailure) return reject(RejectReason.INVALID_DATE, slice.date)
-            if (!dates.add(slice.date)) return reject(RejectReason.DUPLICATE_DAY_SLICE, slice.date)
-            if (slice.activeSecondsOnDate < 0L) return reject(RejectReason.NEGATIVE_VALUE, "slice ${slice.date}")
-            sum = try { Math.addExact(sum, slice.activeSecondsOnDate) } catch (_: ArithmeticException) {
-                return reject(RejectReason.SLICE_SUM_OVERFLOW, "slice sum")
+        var previousEnd = Long.MIN_VALUE
+        val intervalOrders = HashSet<Int>()
+        for (iv in bundle.intervals.sortedBy { it.orderIndex }) {
+            if (iv.orderIndex < 0 || !intervalOrders.add(iv.orderIndex)) return reject(RejectReason.DUPLICATE_INTERVAL, "order=${iv.orderIndex}")
+            if (iv.endEpochSec <= iv.startEpochSec) return reject(RejectReason.INVALID_INTERVAL, "interval ${iv.orderIndex}")
+            if (iv.startEpochSec < previousEnd) return reject(RejectReason.INTERVAL_OVERLAP, "interval ${iv.orderIndex}")
+            previousEnd = iv.endEpochSec
+            sum = try { Math.addExact(sum, iv.endEpochSec - iv.startEpochSec) } catch (_: ArithmeticException) {
+                return reject(RejectReason.INTERVAL_SUM_OVERFLOW, "interval sum")
             }
         }
-        if (sum != s.totalActiveSeconds) return reject(RejectReason.SLICE_SUM_MISMATCH, "slices=$sum total=${s.totalActiveSeconds}")
+        if (sum != s.totalActiveSeconds) return reject(RejectReason.INTERVAL_SUM_MISMATCH, "intervals=$sum total=${s.totalActiveSeconds}")
 
         // Sets: only COMPLETED or SKIPPED rows exist; completed count must match the snapshot.
         val setKeys = HashSet<Pair<String, Int>>()
@@ -114,13 +119,14 @@ object SessionBundleValidator {
  *  - Stored data changes only after the transaction is acknowledged; failure keeps the draft
  *  - the same sessionId is idempotent: identical retry = no-op, different content = Conflict
  *  - validity is recomputed here from `WorkoutRecognitionPolicy` (callers cannot assert it)
- *  - challenge credit (>=600s summed over VALID stored sessions, max one per date) is derived
- *    from committed rows, separately from ordinary-session validity
- *  - raw segments of a below-threshold session are not stored (D-01 B); its summary row is kept
- *    with validSession=false and never counts toward anything.
+ *  - a below-threshold session is DISCARDED: no segments and no permanent summary are stored (D-01 B)
+ *  - before storing, challenges whose end boundary has already passed are settled first, so a session saved
+ *    late never changes an already ended challenge (P-24); afterwards the touched days of every still-ACTIVE
+ *    challenge are re-computed from stored data (P-21), which is why a retry can never credit a day twice
  */
 class SessionCommitter(private val db: WorkoutDatabase, private val clock: () -> Long = System::currentTimeMillis) {
     private val dao get() = db.routiveDao()
+    val challenges: ChallengeService = ChallengeService(db, clock)
 
     suspend fun saveDraft(draftId: String, kind: String, payloadJson: String, expectedRevision: Long?): DraftWriteResult =
         db.withTransaction {
@@ -150,20 +156,28 @@ class SessionCommitter(private val db: WorkoutDatabase, private val clock: () ->
         if (draftId != null) runCatching { dao.setDraftState(draftId, DraftState.SAVING.name, null, clock()) }
         return try {
             val result = db.withTransaction {
-                val existing = dao.session(normalized.session.sessionId)
+                val id = normalized.bundle.session.sessionId
+                val existing = dao.session(id)
                 if (existing != null) {
                     val same = sameContent(existing, normalized)
                     if (draftId != null && same) dao.deleteDraft(draftId)
-                    return@withTransaction if (same) CommitResult.AlreadyCommitted(existing.sessionId)
-                    else CommitResult.Conflict(existing.sessionId)
+                    return@withTransaction if (same) CommitResult.AlreadyCommitted(id) else CommitResult.Conflict(id)
                 }
-                dao.insertSession(normalized.session)
-                dao.insertSlices(normalized.slices)
-                if (normalized.sets.isNotEmpty()) dao.insertSets(normalized.sets)
-                if (normalized.segments.isNotEmpty()) dao.insertSegments(normalized.segments)
-                val credited = if (normalized.session.validSession) creditChallenges(normalized) else emptyList()
+                if (!normalized.valid) {
+                    if (draftId != null) dao.deleteDraft(draftId)      // finalized and discarded: the Draft is consumed
+                    return@withTransaction CommitResult.DiscardedBelowThreshold(id)
+                }
+                val nowMs = clock()
+                challenges.settleAllActive(nowMs)                      // late saves must not alter ended challenges
+                val b = normalized.bundle
+                dao.insertSession(b.session)
+                if (b.intervals.isNotEmpty()) dao.insertIntervals(b.intervals)
+                if (normalized.slices.isNotEmpty()) dao.insertSlices(normalized.slices)
+                if (b.sets.isNotEmpty()) dao.insertSets(b.sets)
+                if (b.segments.isNotEmpty()) dao.insertSegments(b.segments)
+                val touched = challenges.onSessionStored(b.intervals.map { ActiveInterval(it.startEpochSec, it.endEpochSec) }, nowMs)
                 if (draftId != null) dao.deleteDraft(draftId)
-                CommitResult.Committed(normalized.session.sessionId, credited)
+                CommitResult.Committed(id, touched)
             }
             if (draftId != null && result is CommitResult.Conflict) {
                 runCatching { dao.setDraftState(draftId, DraftState.FAILED.name, "CONFLICT", clock()) }
@@ -179,43 +193,33 @@ class SessionCommitter(private val db: WorkoutDatabase, private val clock: () ->
         }
     }
 
-    private fun normalize(bundle: SessionBundle): SessionBundle {
+    private class Normalized(val bundle: SessionBundle, val valid: Boolean, val slices: List<SessionDaySliceEntity>)
+
+    private fun normalize(bundle: SessionBundle): Normalized {
         val s = bundle.session
         val valid = WorkoutRecognitionPolicy.validSession(s.totalActiveSeconds, s.completedStrengthSets)
-        return bundle.copy(
-            session = s.copy(validSession = valid, committedAtEpochMs = clock()),
-            slices = bundle.slices.sortedBy { it.date },
-            sets = bundle.sets.sortedWith(compareBy({ it.exerciseId }, { it.setNumber })),
-            segments = if (valid) bundle.segments.sortedBy { it.orderIndex } else emptyList()
+        val intervals = bundle.intervals.sortedBy { it.orderIndex }
+        val slices = ChallengeRules
+            .sliceByDate(intervals.map { ActiveInterval(it.startEpochSec, it.endEpochSec) }, ZoneId.of(s.zoneId))
+            .map { (date, seconds) -> SessionDaySliceEntity(s.sessionId, date.toString(), seconds) }
+        return Normalized(
+            bundle.copy(
+                session = s.copy(validSession = valid, committedAtEpochMs = clock()),
+                intervals = intervals,
+                sets = bundle.sets.sortedWith(compareBy({ it.exerciseId }, { it.setNumber })),
+                segments = bundle.segments.sortedBy { it.orderIndex }
+            ),
+            valid, slices
         )
     }
 
-    private suspend fun sameContent(existing: SessionEntity, incoming: SessionBundle): Boolean =
-        existing.copy(committedAtEpochMs = 0L) == incoming.session.copy(committedAtEpochMs = 0L) &&
+    private suspend fun sameContent(existing: SessionEntity, incoming: Normalized): Boolean {
+        val b = incoming.bundle
+        return incoming.valid &&
+            existing.copy(committedAtEpochMs = 0L) == b.session.copy(committedAtEpochMs = 0L) &&
+            dao.intervals(existing.sessionId) == b.intervals &&
             dao.slices(existing.sessionId) == incoming.slices &&
-            dao.sets(existing.sessionId) == incoming.sets &&
-            dao.segments(existing.sessionId) == incoming.segments
-
-    private suspend fun creditChallenges(bundle: SessionBundle): List<String> {
-        val credited = ArrayList<String>()
-        for (slice in bundle.slices) {
-            if (slice.activeSecondsOnDate <= 0L) continue
-            val active = dao.activeChallengesCovering(slice.date)
-            if (active.isEmpty()) continue
-            val date = LocalDate.parse(slice.date)
-            val contributions = dao.validContributionsOn(slice.date).map {
-                StoredWorkoutDayContribution(it.sessionId, LocalDate.parse(it.date), it.activeSecondsOnDate, it.totalActiveSeconds, it.completedStrengthSets)
-            }
-            val decision = WorkoutRecognitionPolicy.evaluateChallengeDay(date, contributions)
-            if (!decision.credited) continue
-            for (challenge in active) {
-                // INSERT OR IGNORE on (challengeId, date): at most one credited day per challenge per date.
-                val inserted = dao.insertCreditIfAbsent(
-                    ChallengeDayCreditEntity(challenge.challengeId, slice.date, decision.qualifyingActiveSeconds, decision.validSessionCount, clock())
-                )
-                if (inserted != -1L) credited += challenge.challengeId
-            }
-        }
-        return credited.distinct()
+            dao.sets(existing.sessionId) == b.sets &&
+            dao.segments(existing.sessionId) == b.segments
     }
 }

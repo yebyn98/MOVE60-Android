@@ -42,27 +42,19 @@ The new pure Kotlin RoutinePlanningPolicy domain is not yet wired to the legacy 
 2. Transactionally committed session snapshots to the evaluator (Draft -> Saved / SaveError -> Retry); same sessionId must be idempotent through process death and retries.
 3. Connect flexible routine/interval plans to the existing timer under a guarded migration, then phone and Watch4 end-to-end validation.
 
-## Third slice — Room v2 schema, safe migration and atomic session commit (2026-11-15)
+## Third slice — Room v2 schema, safe migration, atomic commit and challenge lifecycle (2026-11-15)
 
-Implemented in code and covered by JVM tests (real Room via Robolectric, JDK 17/21):
-- `WorkoutDatabase` v1 -> v2, additive only (`RoutiveMigrations.MIGRATION_1_2`, 14 CREATE statements). Legacy
-  `daily_workouts` / `workout_sets` and every SharedPreferences store are untouched. DB file name unchanged
-  (`move60_workouts_room_v1.db`) so shipped installs upgrade in place. No destructive fallback.
-- v1 schema baseline (`app/schemas/.../1.json`, identityHash c93bb39a...) was exported BEFORE any entity change;
-  `2.json` is the Room-generated v2 contract. Migration SQL is copied from it and validated against it.
-- New tables: `sessions`, `session_day_slices`, `session_segments`, `session_sets`, `session_adjustments`
-  (append-only: DAO has no update/delete), `challenges`, `challenge_day_credits`, `session_drafts`, `legacy_import_ledger`.
-- `SessionCommitter`: one Room transaction per finalized session; validity recomputed from `WorkoutRecognitionPolicy`
-  (caller cannot assert it); identical retry = no-op, same id with different content = Conflict (stored data unchanged);
-  failure rolls back everything and keeps the Draft (state FAILED) for retry; SAVING drafts interrupted by process
-  death become UNKNOWN_OUTCOME and retry is safe; stale draft revisions are rejected.
-- Challenge credit is derived only from committed VALID sessions (>=600 s summed per local date, max one credit per
-  challenge per date), independent of ordinary-session validity.
+Updated for the approved policies C-20261115-01..04 (see `ROUTIVE_AI_HANDOFF_LOG.md` for the reflection table).
+Implemented in code and covered by JVM tests (real Room via Robolectric); AC-01..13 have named tests:
+- `WorkoutDatabase` v1 -> v2, additive only (`RoutiveMigrations.MIGRATION_1_2`, 15 CREATE statements, 11 tables).
+  Legacy `daily_workouts` / `workout_sets` and SharedPreferences stores are untouched. DB file name unchanged
+  (`move60_workouts_room_v1.db`); no destructive fallback. `1.json` baseline + Room-generated `2.json`.
+- Sessions keep UTC active intervals as the time source of truth; per-date slices are derived by session zone.
+  Below-threshold sessions (<60 s and 0 completed strength sets) are discarded at finalization (segments and summary).
+- `ChallengeRules` (pure) decides ACTIVE / COMPLETE / EXPIRED; COMPLETE wins; expiry at endDate+1 00:00 in the
+  challenge's fixed IANA zone. `ChallengeService` retro-credits the start day, recomputes ACTIVE day totals, settles
+  lazily, freezes the terminal snapshot, allows one ACTIVE challenge.
+- `daily_workouts` stays a calendar record; `DayHistoryReader` shows legacy and new seconds separately.
 
-NOT done / NOT verified in this slice:
-- Nothing above is called from the running app yet: `DefaultWorkoutRepository`, `SessionStore`, the legacy timer and
-  all Compose/Wear screens still use the old path. The SessionCommitter is only provided through Hilt.
-- Legacy import (SharedPreferences `move60_set_records_v1`, `move60_workout_history_v1`, Room `daily_workouts`) into
-  the new tables is NOT implemented; the ledger table exists but no importer writes to it yet.
-- Migration was verified with Robolectric's SQLite, not on a physical device or an emulator with real v58 user data.
-- Challenge lifecycle (create/abandon/expire/auto-complete), correction UI and Journey are not implemented.
+NOT done / NOT verified: app/timer/UI wiring, correction path, SetRecordStore import (unapproved), real-device and
+real-v58 upgrade verification, challenge UI copy.

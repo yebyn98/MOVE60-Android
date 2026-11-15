@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 2,
-    "identityHash": "37caca2ef76967ccd47750ca528e88b9",
+    "identityHash": "ff0d69e3457e855bd912a7f862c8fc30",
     "entities": [
       {
         "tableName": "daily_workouts",
@@ -106,17 +106,11 @@
       },
       {
         "tableName": "sessions",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`sessionId` TEXT NOT NULL, `source` TEXT NOT NULL, `legacyToken` INTEGER, `zoneId` TEXT NOT NULL, `startedAtEpochMs` INTEGER, `endedAtEpochMs` INTEGER, `completion` TEXT NOT NULL, `totalActiveSeconds` INTEGER NOT NULL, `completedStrengthSets` INTEGER NOT NULL, `validSession` INTEGER NOT NULL, `planSnapshotJson` TEXT, `committedAtEpochMs` INTEGER NOT NULL, PRIMARY KEY(`sessionId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`sessionId` TEXT NOT NULL, `legacyToken` INTEGER, `zoneId` TEXT NOT NULL, `startedAtEpochMs` INTEGER, `endedAtEpochMs` INTEGER, `completion` TEXT NOT NULL, `totalActiveSeconds` INTEGER NOT NULL, `completedStrengthSets` INTEGER NOT NULL, `validSession` INTEGER NOT NULL, `planSnapshotJson` TEXT, `committedAtEpochMs` INTEGER NOT NULL, PRIMARY KEY(`sessionId`))",
         "fields": [
           {
             "fieldPath": "sessionId",
             "columnName": "sessionId",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "source",
-            "columnName": "source",
             "affinity": "TEXT",
             "notNull": true
           },
@@ -196,18 +190,79 @@
             ],
             "orders": [],
             "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_sessions_legacyToken` ON `${TABLE_NAME}` (`legacyToken`)"
-          },
-          {
-            "name": "index_sessions_source",
-            "unique": false,
-            "columnNames": [
-              "source"
-            ],
-            "orders": [],
-            "createSql": "CREATE INDEX IF NOT EXISTS `index_sessions_source` ON `${TABLE_NAME}` (`source`)"
           }
         ],
         "foreignKeys": []
+      },
+      {
+        "tableName": "session_active_intervals",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`sessionId` TEXT NOT NULL, `orderIndex` INTEGER NOT NULL, `startEpochSec` INTEGER NOT NULL, `endEpochSec` INTEGER NOT NULL, PRIMARY KEY(`sessionId`, `orderIndex`), FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`sessionId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "sessionId",
+            "columnName": "sessionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "orderIndex",
+            "columnName": "orderIndex",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startEpochSec",
+            "columnName": "startEpochSec",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "endEpochSec",
+            "columnName": "endEpochSec",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "sessionId",
+            "orderIndex"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_session_active_intervals_startEpochSec",
+            "unique": false,
+            "columnNames": [
+              "startEpochSec"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_session_active_intervals_startEpochSec` ON `${TABLE_NAME}` (`startEpochSec`)"
+          },
+          {
+            "name": "index_session_active_intervals_endEpochSec",
+            "unique": false,
+            "columnNames": [
+              "endEpochSec"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_session_active_intervals_endEpochSec` ON `${TABLE_NAME}` (`endEpochSec`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "sessions",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "sessionId"
+            ],
+            "referencedColumns": [
+              "sessionId"
+            ]
+          }
+        ]
       },
       {
         "tableName": "session_day_slices",
@@ -483,7 +538,7 @@
       },
       {
         "tableName": "challenges",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`challengeId` TEXT NOT NULL, `name` TEXT NOT NULL, `startDate` TEXT NOT NULL, `endDate` TEXT NOT NULL, `targetDays` INTEGER NOT NULL, `status` TEXT NOT NULL, `createdAtEpochMs` INTEGER NOT NULL, `endedAtEpochMs` INTEGER, `endSnapshotJson` TEXT, PRIMARY KEY(`challengeId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`challengeId` TEXT NOT NULL, `name` TEXT NOT NULL, `startDate` TEXT NOT NULL, `endDate` TEXT NOT NULL, `timeZoneId` TEXT NOT NULL, `targetDays` INTEGER NOT NULL, `status` TEXT NOT NULL, `createdAtEpochMs` INTEGER NOT NULL, `endedAtEpochMs` INTEGER, `endSnapshotJson` TEXT, PRIMARY KEY(`challengeId`))",
         "fields": [
           {
             "fieldPath": "challengeId",
@@ -506,6 +561,12 @@
           {
             "fieldPath": "endDate",
             "columnName": "endDate",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timeZoneId",
+            "columnName": "timeZoneId",
             "affinity": "TEXT",
             "notNull": true
           },
@@ -561,7 +622,7 @@
       },
       {
         "tableName": "challenge_day_credits",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`challengeId` TEXT NOT NULL, `date` TEXT NOT NULL, `qualifyingActiveSeconds` INTEGER NOT NULL, `validSessionCount` INTEGER NOT NULL, `creditedAtEpochMs` INTEGER NOT NULL, PRIMARY KEY(`challengeId`, `date`), FOREIGN KEY(`challengeId`) REFERENCES `challenges`(`challengeId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`challengeId` TEXT NOT NULL, `date` TEXT NOT NULL, `activeSeconds` INTEGER NOT NULL, `validSessionCount` INTEGER NOT NULL, `credited` INTEGER NOT NULL, `updatedAtEpochMs` INTEGER NOT NULL, PRIMARY KEY(`challengeId`, `date`), FOREIGN KEY(`challengeId`) REFERENCES `challenges`(`challengeId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "challengeId",
@@ -576,8 +637,8 @@
             "notNull": true
           },
           {
-            "fieldPath": "qualifyingActiveSeconds",
-            "columnName": "qualifyingActiveSeconds",
+            "fieldPath": "activeSeconds",
+            "columnName": "activeSeconds",
             "affinity": "INTEGER",
             "notNull": true
           },
@@ -588,8 +649,14 @@
             "notNull": true
           },
           {
-            "fieldPath": "creditedAtEpochMs",
-            "columnName": "creditedAtEpochMs",
+            "fieldPath": "credited",
+            "columnName": "credited",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAtEpochMs",
+            "columnName": "updatedAtEpochMs",
             "affinity": "INTEGER",
             "notNull": true
           }
@@ -671,51 +738,12 @@
         },
         "indices": [],
         "foreignKeys": []
-      },
-      {
-        "tableName": "legacy_import_ledger",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`source` TEXT NOT NULL, `sourceKey` TEXT NOT NULL, `targetSessionId` TEXT NOT NULL, `importedAtEpochMs` INTEGER NOT NULL, PRIMARY KEY(`source`, `sourceKey`))",
-        "fields": [
-          {
-            "fieldPath": "source",
-            "columnName": "source",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "sourceKey",
-            "columnName": "sourceKey",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "targetSessionId",
-            "columnName": "targetSessionId",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "importedAtEpochMs",
-            "columnName": "importedAtEpochMs",
-            "affinity": "INTEGER",
-            "notNull": true
-          }
-        ],
-        "primaryKey": {
-          "autoGenerate": false,
-          "columnNames": [
-            "source",
-            "sourceKey"
-          ]
-        },
-        "indices": [],
-        "foreignKeys": []
       }
     ],
     "views": [],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '37caca2ef76967ccd47750ca528e88b9')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'ff0d69e3457e855bd912a7f862c8fc30')"
     ]
   }
 }

@@ -6,35 +6,51 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Upsert
 
-/** Row used to feed `WorkoutRecognitionPolicy.evaluateChallengeDay` from committed data only. */
-data class StoredDayContributionRow(
+/** One stored active interval of a VALID session, joined with the session facts the policy needs. */
+data class StoredIntervalRow(
     val sessionId: String,
-    val date: String,
-    val activeSecondsOnDate: Long,
+    val startEpochSec: Long,
+    val endEpochSec: Long,
     val totalActiveSeconds: Long,
     val completedStrengthSets: Int
 )
 
 /**
- * Low-level access for the v2 tables. Multi-row atomicity is provided by
- * [SessionCommitter] via a single Room transaction, not by this interface.
+ * Low-level access for the v2 tables. Multi-row atomicity is provided by [SessionCommitter] /
+ * [ChallengeService] via a single Room transaction, not by this interface.
  * Correction history deliberately has NO update or delete method (append-only).
  */
 @Dao
 interface RoutiveDao {
-    // --- sessions (committed only) ---
+    // --- sessions (committed, valid only) ---
     @Insert(onConflict = OnConflictStrategy.ABORT) suspend fun insertSession(session: SessionEntity)
+    @Insert(onConflict = OnConflictStrategy.ABORT) suspend fun insertIntervals(intervals: List<SessionActiveIntervalEntity>)
     @Insert(onConflict = OnConflictStrategy.ABORT) suspend fun insertSlices(slices: List<SessionDaySliceEntity>)
     @Insert(onConflict = OnConflictStrategy.ABORT) suspend fun insertSegments(segments: List<SessionSegmentEntity>)
     @Insert(onConflict = OnConflictStrategy.ABORT) suspend fun insertSets(sets: List<SessionSetEntity>)
 
     @Query("SELECT * FROM sessions WHERE sessionId = :sessionId") suspend fun session(sessionId: String): SessionEntity?
+    @Query("SELECT * FROM session_active_intervals WHERE sessionId = :sessionId ORDER BY orderIndex")
+    suspend fun intervals(sessionId: String): List<SessionActiveIntervalEntity>
     @Query("SELECT * FROM session_day_slices WHERE sessionId = :sessionId ORDER BY date")
     suspend fun slices(sessionId: String): List<SessionDaySliceEntity>
     @Query("SELECT * FROM session_segments WHERE sessionId = :sessionId ORDER BY orderIndex")
     suspend fun segments(sessionId: String): List<SessionSegmentEntity>
     @Query("SELECT * FROM session_sets WHERE sessionId = :sessionId ORDER BY exerciseId, setNumber")
     suspend fun sets(sessionId: String): List<SessionSetEntity>
+    /** New-engine active seconds on a session-zone date. Kept separate from legacy `daily_workouts` (never summed). */
+    @Query("SELECT COALESCE(SUM(activeSecondsOnDate), 0) FROM session_day_slices WHERE date = :date")
+    suspend fun sessionSecondsOn(date: String): Long
+
+    /** Valid sessions' intervals overlapping [windowStart, windowEnd) UTC epoch seconds. */
+    @Query(
+        "SELECT i.sessionId AS sessionId, i.startEpochSec AS startEpochSec, i.endEpochSec AS endEpochSec, " +
+            "s.totalActiveSeconds AS totalActiveSeconds, s.completedStrengthSets AS completedStrengthSets " +
+            "FROM session_active_intervals i JOIN sessions s ON s.sessionId = i.sessionId " +
+            "WHERE s.validSession = 1 AND i.startEpochSec < :windowEnd AND i.endEpochSec > :windowStart " +
+            "ORDER BY i.sessionId, i.orderIndex"
+    )
+    suspend fun validIntervalsOverlapping(windowStart: Long, windowEnd: Long): List<StoredIntervalRow>
 
     // --- append-only correction history ---
     @Insert(onConflict = OnConflictStrategy.ABORT) suspend fun appendAdjustment(adjustment: SessionAdjustmentEntity): Long
@@ -44,20 +60,19 @@ interface RoutiveDao {
     // --- challenges ---
     @Insert(onConflict = OnConflictStrategy.ABORT) suspend fun insertChallenge(challenge: ChallengeEntity)
     @Query("SELECT * FROM challenges WHERE challengeId = :challengeId") suspend fun challenge(challengeId: String): ChallengeEntity?
-    @Query("SELECT * FROM challenges WHERE status = 'ACTIVE' AND startDate <= :date AND endDate >= :date")
-    suspend fun activeChallengesCovering(date: String): List<ChallengeEntity>
-    @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insertCreditIfAbsent(credit: ChallengeDayCreditEntity): Long
+    @Query("SELECT * FROM challenges WHERE status = 'ACTIVE' ORDER BY createdAtEpochMs")
+    suspend fun activeChallenges(): List<ChallengeEntity>
+    /** Only an ACTIVE challenge can end; COMPLETE / EXPIRED / ABANDONED are final (returns 0 rows otherwise). */
+    @Query(
+        "UPDATE challenges SET status = :status, endedAtEpochMs = :endedAt, endSnapshotJson = :snapshot " +
+            "WHERE challengeId = :challengeId AND status = 'ACTIVE'"
+    )
+    suspend fun finishChallenge(challengeId: String, status: String, endedAt: Long, snapshot: String): Int
+    @Upsert suspend fun upsertCredit(credit: ChallengeDayCreditEntity)
     @Query("SELECT * FROM challenge_day_credits WHERE challengeId = :challengeId ORDER BY date")
     suspend fun credits(challengeId: String): List<ChallengeDayCreditEntity>
-
-    /** Valid, committed sessions' per-date contribution. Invalid sessions never feed challenge credit. */
-    @Query(
-        "SELECT d.sessionId AS sessionId, d.date AS date, d.activeSecondsOnDate AS activeSecondsOnDate, " +
-            "s.totalActiveSeconds AS totalActiveSeconds, s.completedStrengthSets AS completedStrengthSets " +
-            "FROM session_day_slices d JOIN sessions s ON s.sessionId = d.sessionId " +
-            "WHERE d.date = :date AND s.validSession = 1 ORDER BY d.sessionId"
-    )
-    suspend fun validContributionsOn(date: String): List<StoredDayContributionRow>
+    @Query("SELECT * FROM challenge_day_credits WHERE challengeId = :challengeId AND date = :date")
+    suspend fun credit(challengeId: String, date: String): ChallengeDayCreditEntity?
 
     // --- drafts ---
     @Upsert suspend fun putDraft(draft: SessionDraftEntity)
@@ -73,7 +88,4 @@ interface RoutiveDao {
     suspend fun setDraftState(draftId: String, state: String, code: String?, now: Long): Int
     @Query("UPDATE session_drafts SET state = 'FAILED', lastErrorCode = 'UNKNOWN_OUTCOME', updatedAtEpochMs = :now WHERE state = 'SAVING'")
     suspend fun failInterruptedSaves(now: Long): Int
-
-    // --- legacy import ledger ---
-    @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun recordImport(entry: LegacyImportEntity): Long
 }

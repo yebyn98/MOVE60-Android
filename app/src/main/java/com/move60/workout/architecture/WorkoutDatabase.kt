@@ -5,16 +5,16 @@ import androidx.room.RoomDatabase
 
 /**
  * v1: daily_workouts, workout_sets (legacy read-model).
- * v2: ROUTIVE session/segment/set/adjustment/challenge/draft/import tables, added by
+ * v2: ROUTIVE session/interval/segment/set/adjustment/challenge/draft tables (unreleased), added by
  * [RoutiveMigrations.MIGRATION_1_2]. Legacy tables are never altered or dropped.
  */
 @Database(
     entities = [
         DailyWorkoutEntity::class, WorkoutSetEntity::class,
-        SessionEntity::class, SessionDaySliceEntity::class, SessionSegmentEntity::class,
+        SessionEntity::class, SessionActiveIntervalEntity::class, SessionDaySliceEntity::class, SessionSegmentEntity::class,
         SessionSetEntity::class, SessionAdjustmentEntity::class,
         ChallengeEntity::class, ChallengeDayCreditEntity::class,
-        SessionDraftEntity::class, LegacyImportEntity::class
+        SessionDraftEntity::class
     ],
     version = 2,
     exportSchema = true

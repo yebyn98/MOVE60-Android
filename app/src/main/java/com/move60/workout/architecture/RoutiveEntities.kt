@@ -6,26 +6,27 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /*
- * ROUTIVE v2 persistence contract (Room schema v2). ADDITIVE ONLY: the legacy
- * `daily_workouts` / `workout_sets` tables and the SharedPreferences stores are not
- * modified, so existing history, settings and upgrade paths stay intact.
+ * ROUTIVE v2 persistence contract (Room schema v2, not yet released). ADDITIVE ONLY: the legacy
+ * `daily_workouts` / `workout_sets` tables and the SharedPreferences stores are not modified, so
+ * existing history, settings and upgrade paths stay intact. Legacy day totals are NOT converted into
+ * sessions (C-20261115-04); they stay the old calendar record and never feed challenge credit.
  *
  * Only COMMITTED (acknowledged) data lives in the tables below. In-progress edits live in
  * [SessionDraftEntity] and never change stored data until a save is acknowledged (E-03 A).
- * Dates are ISO local dates in the session's own [SessionEntity.zoneId] (P-25); a session
- * that crosses midnight has one [SessionDaySliceEntity] per date (P-20).
+ * A below-threshold session is never stored at all (D-01 B / P-26 / P-28).
+ * The source of truth for time is [SessionActiveIntervalEntity] (UTC). Per-date slices in the
+ * session's zone are derived from it for the calendar (P-20); challenge days are derived from the
+ * intervals in the CHALLENGE's own fixed zone (P-25), never from another zone's slices.
  */
 
 /** A finalized exercise session snapshot (P-24). Plan values are kept apart from measured ones (P-21). */
 @Entity(
     tableName = "sessions",
-    indices = [Index(value = ["legacyToken"], unique = true), Index(value = ["source"])]
+    indices = [Index(value = ["legacyToken"], unique = true)]
 )
 data class SessionEntity(
     @PrimaryKey val sessionId: String,
-    /** [SessionSource] name. */
-    val source: String,
-    /** Legacy `SessionStore.sessionStartedAt` token when this session came from the 60-minute engine. */
+    /** The running engine's `SessionStore.sessionStartedAt` token, to correlate with the old engine while both exist. */
     val legacyToken: Long?,
     val zoneId: String,
     val startedAtEpochMs: Long?,
@@ -34,14 +35,28 @@ data class SessionEntity(
     val completion: String,
     val totalActiveSeconds: Long,
     val completedStrengthSets: Int,
-    /** Snapshot of `WorkoutRecognitionPolicy.validSession` at commit time. NOT challenge credit. */
+    /** `WorkoutRecognitionPolicy.validSession` at commit time; always true for a stored session. NOT challenge credit. */
     val validSession: Boolean,
     /** Planned values at start, kept separately from measured values. Null when no plan existed. */
     val planSnapshotJson: String?,
     val committedAtEpochMs: Long
 )
 
-/** Active seconds of a session attributed to one local date (idempotency key: sessionId + date). */
+/** Measured active stretch in UTC epoch seconds. Their lengths sum to `totalActiveSeconds`; pauses are excluded. */
+@Entity(
+    tableName = "session_active_intervals",
+    primaryKeys = ["sessionId", "orderIndex"],
+    foreignKeys = [ForeignKey(SessionEntity::class, ["sessionId"], ["sessionId"], onDelete = ForeignKey.CASCADE)],
+    indices = [Index(value = ["startEpochSec"]), Index(value = ["endEpochSec"])]
+)
+data class SessionActiveIntervalEntity(
+    val sessionId: String,
+    val orderIndex: Int,
+    val startEpochSec: Long,
+    val endEpochSec: Long
+)
+
+/** Active seconds attributed to one local date of the SESSION's zone (derived for the calendar; P-20). */
 @Entity(
     tableName = "session_day_slices",
     primaryKeys = ["sessionId", "date"],
@@ -110,8 +125,13 @@ data class SessionAdjustmentEntity(
 data class ChallengeEntity(
     @PrimaryKey val challengeId: String,
     val name: String,
+    /** First day (inclusive), ISO local date in [timeZoneId]. */
     val startDate: String,
+    /** Last day (INCLUSIVE). Expiry is judged at endDate + 1 day 00:00 in [timeZoneId] (C-20261115-03). */
     val endDate: String,
+    /** IANA zone captured at creation. Never follows the device afterwards (P-25). */
+    val timeZoneId: String,
+    /** CUMULATIVE credited days, not consecutive (C-20261115-02). */
     val targetDays: Int,
     /** [ChallengeStatus] name. */
     val status: String,
@@ -120,7 +140,12 @@ data class ChallengeEntity(
     val endSnapshotJson: String?
 )
 
-/** One credited challenge day (max one per challenge per date). Derived only from committed sessions. */
+/**
+ * Re-computable read model of one challenge date (P-21). While the challenge is ACTIVE it is rebuilt from the
+ * committed valid sessions every time a related session is saved/corrected, so [activeSeconds] always shows the
+ * latest total and a day is credited at most once ([credited] = total >= 600 s). It is frozen when the challenge
+ * ends; the end snapshot in [ChallengeEntity.endSnapshotJson] is what the terminal state reports (P-24).
+ */
 @Entity(
     tableName = "challenge_day_credits",
     primaryKeys = ["challengeId", "date"],
@@ -129,9 +154,10 @@ data class ChallengeEntity(
 data class ChallengeDayCreditEntity(
     val challengeId: String,
     val date: String,
-    val qualifyingActiveSeconds: Long,
+    val activeSeconds: Long,
     val validSessionCount: Int,
-    val creditedAtEpochMs: Long
+    val credited: Boolean,
+    val updatedAtEpochMs: Long
 )
 
 /** Uncommitted edit buffer. A failed save keeps the draft; Stored data is untouched until ACK. */
@@ -148,16 +174,6 @@ data class SessionDraftEntity(
     val updatedAtEpochMs: Long
 )
 
-/** Idempotency ledger for importing legacy data exactly once per source record. */
-@Entity(tableName = "legacy_import_ledger", primaryKeys = ["source", "sourceKey"])
-data class LegacyImportEntity(
-    val source: String,
-    val sourceKey: String,
-    val targetSessionId: String,
-    val importedAtEpochMs: Long
-)
-
-enum class SessionSource { LIVE, LEGACY_SESSION, LEGACY_DAY_AGGREGATE }
 enum class SessionCompletion { COMPLETED, PARTIAL, STOPPED, UNKNOWN }
 enum class SegmentKind { WARMUP, STRENGTH, CARDIO_WORK, CARDIO_RECOVERY, CARDIO_STEADY, COOLDOWN }
 enum class SetState { COMPLETED, SKIPPED }

@@ -70,7 +70,7 @@ class RoutiveMigrationTest {
         helper.runMigrationsAndValidate(dbName, 2, true, RoutiveMigrations.MIGRATION_1_2).use { db ->
             assertEquals("legacy rows must be unchanged", before, legacyRows(db))
             for (table in listOf("sessions", "session_day_slices", "session_segments", "session_sets",
-                "session_adjustments", "challenges", "challenge_day_credits", "session_drafts", "legacy_import_ledger")) {
+                "session_adjustments", "challenges", "challenge_day_credits", "session_drafts", "session_active_intervals")) {
                 db.query("SELECT COUNT(*) FROM `$table`").use { c -> assertTrue(c.moveToFirst()); assertEquals("$table starts empty", 0, c.getInt(0)) }
             }
         }
