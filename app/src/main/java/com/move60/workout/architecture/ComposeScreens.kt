@@ -126,6 +126,8 @@ fun WorkoutDashboard(
     challenges: ChallengeViewModel = hiltViewModel()
 ) {
     val challengeState by challenges.state.collectAsStateWithLifecycle()
+    // The ViewModel outlives tab switches: reload whenever the home enters composition so a new/ended challenge shows up.
+    LaunchedEffect(Unit) { challenges.refresh() }
     val state by viewModel.state.collectAsStateWithLifecycle()
     LaunchedEffect(state.running) { onRunningChanged(state.running) }
     val snackbar = remember { SnackbarHostState() }
