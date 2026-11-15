@@ -108,12 +108,12 @@ private fun ActiveChallenge(card: ChallengeCard, viewModel: ChallengeViewModel) 
         onDismissRequest = { confirmAbandon = false },
         modifier = Modifier.testTag("challenge_abandon_dialog"),
         title = { Text("도전을 포기할까요?") },
-        text = { Text("지금까지의 기록(${card.creditedDays}일)은 지난 도전에 남고, 포기한 도전은 되돌릴 수 없어요.") },
+        text = { Text("포기한 도전은 지난 도전에 남고, 운동 기록은 유지돼요. 포기는 되돌릴 수 없어요.") },
         confirmButton = {
             TextButton(onClick = { confirmAbandon = false; viewModel.abandon(card.id) },
-                modifier = Modifier.testTag("challenge_abandon_confirm")) { Text("포기하기") }
+                modifier = Modifier.testTag("challenge_abandon_confirm")) { Text("도전 포기") }
         },
-        dismissButton = { TextButton(onClick = { confirmAbandon = false }) { Text("계속하기") } }
+        dismissButton = { TextButton(onClick = { confirmAbandon = false }) { Text("취소") } }
     )
 }
 
