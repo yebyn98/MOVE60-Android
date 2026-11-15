@@ -85,20 +85,28 @@ class PendingSessionOutboxTest {
         assertEquals(0, outbox.size())
     }
 
-    @Test fun failedCommitKeepsTheEntryAndALaterRetrySucceedsWithoutDuplicates() = runBlocking {
+    @Test fun unconfirmedOutcomeKeepsTheOnlyCopyAndNeverOverwritesStoredData() = runBlocking {
         val (s, before) = endedEarly(120, withSet = true)
+        // The same session id is already stored with different content (e.g. written by an older build without sets).
+        assertTrue(sync.syncFinished(before.copy(completedSets = emptyList())) is SyncOutcome.Committed)
         s.start()
-        val broken = Room.inMemoryDatabaseBuilder(context, WorkoutDatabase::class.java).allowMainThreadQueries().build()
-        val brokenSync = TimerSessionSync(SessionCommitter(broken) { 5_000L }) { "Asia/Seoul" }
-        broken.close()
-        assertTrue(brokenSync.drain(outbox).single() is SyncOutcome.Failed)
-        assertEquals("a failed write must not drop the only copy", 1, outbox.size())
+        assertEquals(1, outbox.size())
+        val outcome = sync.drain(outbox).single()
+        assertTrue("different content under the same id is a conflict, not an overwrite: $outcome", outcome is SyncOutcome.Failed)
+        assertEquals("the only copy must not be dropped", 1, outbox.size())
         assertEquals(1, outbox.attempts(sync.sessionId(before)))
+        assertEquals("stored data stays exactly as it was", 0, dao.sets(sync.sessionId(before)).size)
+        sync.drain(outbox)
+        assertEquals("bookkeeping counts every retry", 2, outbox.attempts(sync.sessionId(before)))
+        assertEquals(1, outbox.size())
+    }
 
-        assertTrue(sync.drain(outbox).single() is SyncOutcome.Committed)
-        assertTrue("retry after success is a no-op", sync.drain(outbox).isEmpty())
-        assertEquals(1, dao.sets(sync.sessionId(before)).size)
-        assertEquals(0, outbox.size())
+    @Test fun unverifiableEntryIsKeptInsteadOfBeingInventedOrDropped() = runBlocking {
+        val bad = TimerSnapshot(java.time.LocalDate.parse("2026-11-15"), 3, 1_000L, true, 999, listOf(100L to 160L))
+        assertTrue(outbox.enqueue(bad))
+        assertTrue(sync.drain(outbox).single() is SyncOutcome.Skipped)
+        assertEquals(1, outbox.size())
+        assertNull(dao.session(sync.sessionId(bad)))
     }
 
     @Test fun alreadyCommittedSessionIsClearedWithoutChangingStoredData() = runBlocking {
