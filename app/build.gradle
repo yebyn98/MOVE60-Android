@@ -39,7 +39,13 @@ android {
   }
   kotlinOptions { jvmTarget = '17' }
   buildFeatures { compose true }
+  testOptions { unitTests { includeAndroidResources = true } }
+  sourceSets {
+    test.assets.srcDirs += files("$projectDir/schemas")
+    androidTest.assets.srcDirs += files("$projectDir/schemas")
+  }
 }
+ksp { arg('room.schemaLocation', "$projectDir/schemas".toString()) }
 
 dependencies {
     // Keep versions compatible with the existing compileSdk 35 and AGP 8.7.3.

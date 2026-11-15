@@ -6,7 +6,7 @@ import androidx.room.RoomDatabase
 @Database(
     entities = [DailyWorkoutEntity::class, WorkoutSetEntity::class],
     version = 1,
-    exportSchema = false
+    exportSchema = true
 )
 abstract class WorkoutDatabase : RoomDatabase() {
     abstract fun workoutDao(): WorkoutDao
