@@ -122,6 +122,7 @@ private val muted: Color get() = Color(Move60Theme.Colors.textMuted)
 fun WorkoutDashboard(
     onRunningChanged: (Boolean) -> Unit = {},
     onOpenChallenge: () -> Unit = {},
+    onWorkoutFinished: (sessionId: String) -> Unit = {},
     viewModel: WorkoutViewModel = hiltViewModel(),
     challenges: ChallengeViewModel = hiltViewModel()
 ) {
@@ -132,6 +133,11 @@ fun WorkoutDashboard(
     // Confirmed policy: while a workout is in progress or paused only the workout dock is shown; the tab bar returns after it ends.
     val inProgress = state.running || (state.activeSeconds > 0 && !state.finished)
     LaunchedEffect(inProgress) { onRunningChanged(inProgress) }
+    // Same id TimerSessionSync commits under, so the result screen can find the stored session.
+    LaunchedEffect(state.finished, state.sessionId) {
+        if (state.finished && state.sessionId > 0 && state.recordDate.isNotEmpty())
+            onWorkoutFinished("timer-${state.recordDate}-d${state.day}-${state.sessionId}")
+    }
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
     val openDetail = { context.startActivity(Intent(context, MainActivity::class.java)) }

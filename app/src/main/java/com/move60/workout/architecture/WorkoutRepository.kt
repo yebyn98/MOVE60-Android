@@ -43,6 +43,8 @@ data class WorkoutTaskUi(
 data class WorkoutUiState(
     val day: Int = 1,
     val date: String = "",
+    /** Date the timer session is recorded under (the commit id uses this, not "today"). */
+    val recordDate: String = "",
     val sessionId: Long = 0,
     val bodyFocus: String? = null,
     val running: Boolean = false,
@@ -123,6 +125,7 @@ class DefaultWorkoutRepository @Inject constructor(
             _state.value = WorkoutUiState(
                 day = session.day,
                 date = today.toString(),
+                recordDate = session.recordDate.toString(),
                 sessionId = session.sessionStartedAt,
                 bodyFocus = session.bodyFocus,
                 running = session.running,

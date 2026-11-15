@@ -70,7 +70,8 @@ class ComposeActivity : ComponentActivity() {
         }
         setContent { Move60ComposeApp(
             showIntro = savedInstanceState == null && !animationsDisabled() && !intent.getBooleanExtra("move60_open_calendar", false),
-            openCalendar = intent.getBooleanExtra("move60_open_calendar", false)
+            openCalendar = intent.getBooleanExtra("move60_open_calendar", false),
+            openResultId = intent.getStringExtra("move60_open_result")
         ) }
     }
 
@@ -80,11 +81,16 @@ class ComposeActivity : ComponentActivity() {
 }
 
 @Composable
-fun Move60ComposeApp(showIntro: Boolean = false, openCalendar: Boolean = false) {
+fun Move60ComposeApp(showIntro: Boolean = false, openCalendar: Boolean = false, openResultId: String? = null) {
     val nav = rememberNavController()
     var introVisible by rememberSaveable { mutableStateOf(showIntro) }
     var workoutRunning by rememberSaveable { mutableStateOf(false) }
+    val prefs = androidx.compose.ui.platform.LocalContext.current.getSharedPreferences("move60_result_seen_v1", android.content.Context.MODE_PRIVATE)
     val route = nav.currentBackStackEntryAsState().value?.destination?.route
+    androidx.compose.runtime.LaunchedEffect(openResultId) {
+        // Deep link used by tests and by re-opening the last result; never required for the normal flow.
+        if (openResultId != null) nav.navigate("result/$openResultId") { launchSingleTop = true }
+    }
     Move60ComposeTheme {
         Box {
             Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -95,8 +101,21 @@ fun Move60ComposeApp(showIntro: Boolean = false, openCalendar: Boolean = false) 
                 ) {
                     composable("dashboard") { WorkoutDashboard(
                         onRunningChanged = { workoutRunning = it },
+                        onWorkoutFinished = { id ->
+                            // Show the result once per finished session (never again after it was viewed).
+                            val seen = prefs.getString("last_result_seen", null)
+                            if (seen != id) {
+                                prefs.edit().putString("last_result_seen", id).apply()
+                                nav.navigate("result/$id") { launchSingleTop = true }
+                            }
+                        },
                         onOpenChallenge = { nav.navigate("challenge") { popUpTo("dashboard") { saveState = true }; launchSingleTop = true; restoreState = true } }
                     ) }
+                    composable("result/{sessionId}") {
+                        WorkoutResultScreen(onViewRecord = {
+                            nav.navigate("calendar") { popUpTo("dashboard") { saveState = true }; launchSingleTop = true; restoreState = true }
+                        })
+                    }
                     composable("challenge") { ChallengeScreen(onBack = { nav.popBackStack() }) }
                     composable("calendar") { WorkoutCalendar(onBack = { nav.popBackStack() }) }
                     composable("settings") { WorkoutSettings(onBack = { nav.popBackStack() }) }
