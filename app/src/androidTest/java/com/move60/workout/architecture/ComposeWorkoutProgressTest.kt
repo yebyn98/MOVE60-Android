@@ -150,46 +150,50 @@ class ComposeWorkoutProgressTest {
     }
 
     /**
-     * P1-1: an early-ended session whose commit was never confirmed must not be lost when a new workout starts. It is
-     * copied to the outbox before the timer slot is replaced and then stored by the idempotent sync.
+     * P1-1 on a real device/emulator (real SharedPreferences and Room, no UI): an early-ended session whose commit was
+     * never confirmed must not be lost when a new workout starts. No activity is launched on purpose: opening the app
+     * would commit the ended session on foreground, which hides exactly the case being tested.
      */
     @Test fun newWorkoutStartedBeforeCommitKeepsTheEarlierSessionAndStoresIt() {
         val outbox = PendingSessionOutbox(context)
         outbox.pending().forEach { outbox.remove(outbox.sessionId(it)) }
-        val earlier = com.move60.workout.SessionStore(context, com.move60.workout.WorkoutData(context))
-        earlier.reloadIfChanged(); earlier.resetAll(); earlier.start()
-        com.move60.workout.SetRecordStore(context).write(earlier.day, "chestPress", 1,
-            com.move60.workout.SetRecordStore.Record("40", "10", "5", true), earlier.recordDate, earlier.sessionStartedAt)
-        earlier.reconcile(System.currentTimeMillis() + 120_000L)
-        org.junit.Assert.assertTrue(earlier.endEarly())          // ended, but nothing has been committed here
-        val expected = earlier.timerSnapshot(com.move60.workout.SetRecordStore(context))
-        val expectedId = outbox.sessionId(expected)
-        org.junit.Assert.assertTrue("fixture: real intervals must exist", expected.intervals.isNotEmpty())
-
-        ActivityScenario.launch(ComposeActivity::class.java).use {
-            rule.waitUntil(15_000) { rule.onAllNodes(hasTestTag("dock_play")).fetchSemanticsNodes().isNotEmpty() }
-            rule.onNodeWithTag("dock_play").performClick()         // starts a new workout over the ended one
-            rule.waitUntil(8_000) { rule.onAllNodes(hasTestTag("workout_progress")).fetchSemanticsNodes().isNotEmpty() }
-        }
-        val app = context.applicationContext as com.move60.workout.Move60Application
-        app.syncTimerSessionAsync()                                // same call the foreground hook makes
-        val db = androidx.room.Room.databaseBuilder(context, WorkoutDatabase::class.java, "move60_workouts_room_v1.db").build()
+        val store = com.move60.workout.SessionStore(context, com.move60.workout.WorkoutData(context))
         try {
-            val deadline = System.currentTimeMillis() + 20_000
-            var stored: SessionEntity? = null
-            while (System.currentTimeMillis() < deadline && stored == null) {
-                stored = kotlinx.coroutines.runBlocking { db.routiveDao().session(expectedId) }
-                if (stored == null) Thread.sleep(500)
-            }
-            org.junit.Assert.assertNotNull("earlier session must be stored after the new workout started", stored)
-            org.junit.Assert.assertEquals("PARTIAL", stored!!.completion)
-            org.junit.Assert.assertEquals(expected.accumulatedSeconds.toLong(), stored.totalActiveSeconds)
-            org.junit.Assert.assertEquals(1, kotlinx.coroutines.runBlocking { db.routiveDao().sets(expectedId) }.size)
-        } finally { db.close() }
-        val drainDeadline = System.currentTimeMillis() + 10_000
-        while (outbox.size() > 0 && System.currentTimeMillis() < drainDeadline) Thread.sleep(250)
-        org.junit.Assert.assertEquals("confirmed commit empties the outbox", 0, outbox.size())
-        com.move60.workout.SessionStore(context, com.move60.workout.WorkoutData(context)).resetAll()
+            store.reloadIfChanged(); store.resetAll(); store.start()
+            com.move60.workout.SetRecordStore(context).write(store.day, "chestPress", 1,
+                com.move60.workout.SetRecordStore.Record("40", "10", "5", true), store.recordDate, store.sessionStartedAt)
+            store.reconcile(System.currentTimeMillis() + 120_000L)
+            org.junit.Assert.assertTrue(store.endEarly())          // ended, nothing committed
+            val expected = store.timerSnapshot(com.move60.workout.SetRecordStore(context))
+            val expectedId = outbox.sessionId(expected)
+            org.junit.Assert.assertTrue("fixture: real intervals must exist", expected.intervals.isNotEmpty())
+            org.junit.Assert.assertEquals("nothing is buffered while the slot still holds the session", 0, outbox.size())
+
+            store.start()                                          // the new workout overwrites the single slot
+            org.junit.Assert.assertNotEquals(expected.startedAtEpochMs, store.sessionStartedAt)
+            org.junit.Assert.assertEquals("the earlier session was copied before being replaced", 1, outbox.size())
+
+            (context.applicationContext as com.move60.workout.Move60Application).syncTimerSessionAsync()
+            val db = androidx.room.Room.databaseBuilder(context, WorkoutDatabase::class.java, "move60_workouts_room_v1.db").build()
+            try {
+                val deadline = System.currentTimeMillis() + 20_000
+                var stored: SessionEntity? = null
+                while (System.currentTimeMillis() < deadline && stored == null) {
+                    stored = kotlinx.coroutines.runBlocking { db.routiveDao().session(expectedId) }
+                    if (stored == null) Thread.sleep(500)
+                }
+                org.junit.Assert.assertNotNull("earlier session must be stored after the new workout started", stored)
+                org.junit.Assert.assertEquals("PARTIAL", stored!!.completion)
+                org.junit.Assert.assertEquals(expected.accumulatedSeconds.toLong(), stored.totalActiveSeconds)
+                org.junit.Assert.assertEquals(1, kotlinx.coroutines.runBlocking { db.routiveDao().sets(expectedId) }.size)
+            } finally { db.close() }
+            val drainDeadline = System.currentTimeMillis() + 10_000
+            while (outbox.size() > 0 && System.currentTimeMillis() < drainDeadline) Thread.sleep(250)
+            org.junit.Assert.assertEquals("confirmed commit empties the outbox", 0, outbox.size())
+        } finally {
+            store.resetAll()                                       // never leave a running session for the next test
+            context.stopService(Intent(context, WorkoutService::class.java))
+        }
     }
 
     /** The notification still opens the legacy detail activity; it must see the same running session. */
