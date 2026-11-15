@@ -133,3 +133,10 @@ no rows with those values were ever written by a shipped build).
 - **검증 스크립트 변경(약화 아님):** `verify-compose-architecture.py`의 `0..LAST_STAGE`/`stage >= LAST_STAGE` 문자열 확인을 구조 기반 `0..lastStageIndex`/`stage >= lastStageIndex` + `isStrengthStage`/`engineSupported` 존재 확인으로 교체하고, 앱 소스에 `stage == 2`/`!= 2`/`== LAST_STAGE` 리터럴이 남으면 실패하는 확인을 **추가**함(HistoryViewModel 제외).
 - **테스트:** JVM `StageSemanticsTest` 4(구조별 근력/마지막 인덱스, 레거시 단계 의미 유지, ROUTIVE_4 슬롯은 4단계 의미로 읽히고 진행·재작성되지 않음, 종료된 ROUTIVE_4 슬롯 교체 가능). 로컬 SDK 없음 → Gradle은 CI에서만 확인. 실기기 미검증.
 - **남은 5단계 가정(Phase 3·4):** (1) `HistoryViewModel`의 `entry.stage == 2` — StageLog 행에 구조 정보가 없어 레거시 기록으로만 해석 가능, 4단계 기록 도입 시 StageLog에 structure 필요. (2) `WorkoutService/WidgetModel`의 `phasesKeyForStage`, 단계 이름 배열, `stageSeconds` — 5단계 루틴 데이터 키(phases0/phases/phases3/phases4) 기반. (3) `WatchStatePublisher`·Wear의 `STAGE_COUNT = 5`, `LAST_STAGE`, 타일 진행률, "연결대기". (4) `WorkoutData`의 5단계 루틴 모델·유산소①② 슬라이더(`setCardioSplit`, RangeSlider). 모두 ROUTIVE_4 루틴/엔진 구현과 함께 교체 필요.
+
+### J. Phase 3 1단계: ROUTIVE_4 순수 진행 모델 (2026-11-16, 구현 완료·CI 확인 대기, 엔진 연결 미착수)
+- **범위:** `domain/FourStageProgress`(Android·시계 무의존). 저장 루틴의 단계 계획 시간(`StageTimePlan`)으로 4단계(준비운동→근력→유산소→마무리) 진행 상태를 계산. **아직 `SessionStore`/화면/서비스에 연결하지 않았고, 새 세션은 여전히 LEGACY_5로 시작함.** 사용자 눈에 보이는 변화 없음.
+- **정책 반영:** 계획 시간 null은 0·기본값이 되지 않고 남은 시간도 null("미정"); 근력은 세트 완료 기준이며 계획 시간이 지나도 강제 종료 안 함; 비근력 단계는 계획 시간 도달 시 "도달"(PLAN_REACHED) 표시만, 시간 미정이면 수동(MANUAL); **어떤 전환도 자동 아님**(다음·건너뛰기·이전·조기 종료는 모두 사용자 동작); 단계별 실제 경과 시간은 이전/건너뛰기 후에도 보존; 유산소 내부 구간은 단계를 만들지 않음; 4단계 형태가 아닌 계획(5단계·순서 불일치)은 거부.
+- **내가 둔 가정(ChatGPT 확인 필요):** (1) 마지막 단계(마무리)를 건너뛰면 완료가 아니라 **조기 종료(PARTIAL)**로 처리. (2) 건너뛴 단계로 "이전"으로 돌아가면 건너뜀 표시 해제. (3) 근력 세트가 모두 끝나도 단계는 자동으로 넘어가지 않고 사용자가 "다음"을 눌러야 함(기존 "카운트다운으로 자동 진행 금지" 원칙 유지). 확정 정책과 충돌하는 부분이 있으면 알려주세요.
+- **테스트:** JVM `FourStageProgressTest` 9. Gradle은 CI에서만 확인.
+- **다음(2단계):** 세션 시작 경로(저장 루틴 선택 → ROUTIVE_4 슬롯 생성, `engineSupported` 확장), 근력 세트·휴식, 배경/프로세스 복구, 화면의 4단계 표시와 ①② 슬라이더 제거, 알림·위젯·워치 동기화. 루틴이 없을 때의 시작 화면은 ChatGPT 정책 검토 필요.
