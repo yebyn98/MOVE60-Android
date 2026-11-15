@@ -44,6 +44,8 @@ sealed interface AbandonResult {
 class ChallengeService(private val db: WorkoutDatabase, private val clock: () -> Long) {
     private val dao get() = db.routiveDao()
 
+    companion object { const val MAX_NAME = 30 }
+
     suspend fun create(requested: ChallengeEntity): ChallengeResult = try {
         db.withTransaction { createInTransaction(requested) }
     } catch (error: Throwable) {
@@ -66,6 +68,17 @@ class ChallengeService(private val db: WorkoutDatabase, private val clock: () ->
         )
         if (rows == 1) AbandonResult.Abandoned(challengeId) else AbandonResult.AlreadyEnded(dao.challenge(challengeId)!!.status)
     }
+
+    /** Rename an ACTIVE challenge only (1..[MAX_NAME] chars after trim). Ended challenges are never changed. */
+    suspend fun rename(challengeId: String, name: String): Boolean {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty() || trimmed.length > MAX_NAME) return false
+        return db.withTransaction { dao.renameActive(challengeId, trimmed) == 1 }
+    }
+
+    suspend fun active(): ChallengeEntity? = dao.activeChallenges().firstOrNull()
+    suspend fun ended(): List<ChallengeEntity> = dao.endedChallenges()
+    suspend fun credits(challengeId: String): List<ChallengeDayCreditEntity> = dao.credits(challengeId)
 
     /** Re-derive every ACTIVE challenge from stored data (e.g. after a correction) and settle due ones. */
     suspend fun refreshActive(): Int = db.withTransaction {

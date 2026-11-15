@@ -83,11 +83,15 @@ fun Move60ComposeApp(showIntro: Boolean = false, openCalendar: Boolean = false) 
                 composable("dashboard") {
                     WorkoutDashboard(
                         onCalendar = { nav.navigate("calendar") },
+                        onChallenge = { nav.navigate("challenge") },
                         onSettings = { nav.navigate("settings") }
                     )
                 }
                 composable("calendar") {
                     WorkoutCalendar(onBack = { nav.popBackStack() })
+                }
+                composable("challenge") {
+                    ChallengeScreen(onBack = { nav.popBackStack() })
                 }
                 composable("settings") {
                     WorkoutSettings(onBack = { nav.popBackStack() })

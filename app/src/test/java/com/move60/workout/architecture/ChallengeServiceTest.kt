@@ -288,4 +288,26 @@ class ChallengeServiceTest {
         assertEquals(true, dao.credit("c1", "2026-11-15")!!.credited)
         assertEquals(660L, dao.credit("c1", "2026-11-15")!!.activeSeconds)
     }
+
+    @Test fun renameWorksOnlyWhileActiveAndValidatesLength() = runBlocking {
+        at("2026-11-15", 8); service.create(challengeOf(start = "2026-11-15", end = "2026-11-21"))
+        assertTrue(service.rename("c1", "  새 이름  "))
+        assertEquals("새 이름", dao.challenge("c1")!!.name)
+        assertEquals(false, service.rename("c1", "   "))
+        assertEquals(false, service.rename("c1", "a".repeat(ChallengeService.MAX_NAME + 1)))
+        assertEquals("새 이름", dao.challenge("c1")!!.name)
+        service.abandon("c1", confirmed = true)
+        assertEquals(false, service.rename("c1", "종료 후 변경"))      // ended snapshot stays frozen
+        assertEquals("새 이름", dao.challenge("c1")!!.name)
+    }
+
+    @Test fun activeAndEndedListsSeparateTheChallenges() = runBlocking {
+        at("2026-11-15", 8); service.create(challengeOf(id = "old", start = "2026-11-15", end = "2026-11-21"))
+        assertEquals("old", service.active()!!.challengeId); assertTrue(service.ended().isEmpty())
+        at("2026-11-15", 9); service.abandon("old", confirmed = true)
+        assertNull(service.active()); assertEquals(listOf("old"), service.ended().map { it.challengeId })
+        assertEquals("ABANDONED", service.ended().single().status)
+        assertEquals(ChallengeResult.Created("new", 0), service.create(challengeOf(id = "new", start = "2026-11-15", end = "2026-11-21")))
+        assertEquals("new", service.active()!!.challengeId)
+    }
 }

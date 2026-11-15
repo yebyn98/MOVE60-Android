@@ -69,6 +69,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.EmojiEvents
 import androidx.compose.material.icons.outlined.Today
 import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.ChevronRight
@@ -117,6 +118,7 @@ private val muted: Color get() = Color(Move60Theme.Colors.textMuted)
 fun WorkoutDashboard(
     onCalendar: () -> Unit,
     onSettings: () -> Unit,
+    onChallenge: () -> Unit = {},
     viewModel: WorkoutViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -141,6 +143,10 @@ fun WorkoutDashboard(
                 Move60LogoMark(Modifier.size(52.dp).testTag("home_logo")
                     .semantics { contentDescription = "MOVE60" })
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    IconButton(onClick = onChallenge, modifier = Modifier.testTag("compose_challenge_icon")) {
+                        Icon(Icons.Outlined.EmojiEvents, contentDescription = "도전",
+                            tint = MaterialTheme.colorScheme.primary)
+                    }
                     IconButton(onClick = onCalendar, modifier = Modifier.testTag("compose_calendar_icon")) {
                         Icon(Icons.Outlined.Today, contentDescription = "운동 달력",
                             tint = MaterialTheme.colorScheme.primary)
@@ -334,7 +340,7 @@ private fun formatSeconds(value: Int): String = "%02d:%02d".format(
 
 /** Figma TopBar: 24dp back arrow (48dp touch target), 24sp bold screen title. */
 @Composable
-private fun ScreenTopBar(title: String, onBack: () -> Unit, backTag: String? = null) {
+internal fun ScreenTopBar(title: String, onBack: () -> Unit, backTag: String? = null) {
     Row(Modifier.fillMaxWidth().statusBarsPadding().padding(start = 4.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = onBack, modifier = if (backTag != null) Modifier.testTag(backTag) else Modifier) {

@@ -68,6 +68,11 @@ interface RoutiveDao {
             "WHERE challengeId = :challengeId AND status = 'ACTIVE'"
     )
     suspend fun finishChallenge(challengeId: String, status: String, endedAt: Long, snapshot: String): Int
+    @Query("SELECT * FROM challenges WHERE status != 'ACTIVE' ORDER BY endedAtEpochMs DESC")
+    suspend fun endedChallenges(): List<ChallengeEntity>
+    /** Rename is allowed only while ACTIVE; ended challenges keep their frozen snapshot (returns 0 rows otherwise). */
+    @Query("UPDATE challenges SET name = :name WHERE challengeId = :challengeId AND status = 'ACTIVE'")
+    suspend fun renameActive(challengeId: String, name: String): Int
     @Upsert suspend fun upsertCredit(credit: ChallengeDayCreditEntity)
     @Query("SELECT * FROM challenge_day_credits WHERE challengeId = :challengeId ORDER BY date")
     suspend fun credits(challengeId: String): List<ChallengeDayCreditEntity>

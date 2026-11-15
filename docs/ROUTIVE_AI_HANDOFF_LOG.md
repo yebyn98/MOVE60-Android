@@ -58,3 +58,10 @@ no rows with those values were ever written by a shipped build).
 - SetRecordStore (SharedPreferences) import is not approved; those records remain only in the old store.
 - Figma FINAL screens (09/27/33/34/39/40/68) and the recommended UX copy are not implemented.
 - This work is not release-ready and must not be reported as complete.
+
+## E. 2026-11-15 Figma 전체 화면 개발 착수 (단계별)
+- Phase 0: 색상 토큰을 ROUTIVE 팔레트로 이관(tokens.json v2, 앱/워치 Move60Theme·colors.xml, 로고 생성기·문서, 하드코딩 색 제거). verify 스크립트 3종 + verify-plan 통과.
+- 도전 탭 1차: `RoutiveDao.endedChallenges/renameActive`, `ChallengeService.rename/active/ended`, `ChallengeViewModel`, `ChallengeScreens.kt`, 라우트 `challenge`, 대시보드 진입 아이콘. JVM 테스트 90건 통과, Gradle 게이트(lintVital·assemble·androidTest assemble) 통과.
+- `ComposeChallengeTest` 추가(생성→진행→포기 확인→지난 도전). **실행·캡처는 CI 에뮬레이터 전용이며 아직 결과 없음 → 시각 검증 미완료.**
+- 대조표: docs/ROUTIVE_FIGMA_GAP_MATRIX.md. 나머지 화면군은 미착수. 실기기 검증·v58 업그레이드 검증 미완료.
+
