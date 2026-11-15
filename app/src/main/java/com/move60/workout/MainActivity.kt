@@ -279,7 +279,7 @@ class MainActivity : Activity() {
         info.addView(dockStage)
         info.addView(dockTime)
         state.addView(info, LinearLayout.LayoutParams(0, -2, 1f))
-        dockHeartRate = label("♥ 연결대기", 12, true, Theme.Colors.heart).apply {
+        dockHeartRate = label("♥ " + com.move60.workout.domain.HeartRateFreshness.WAITING_LABEL, 12, true, Theme.Colors.heart).apply {
             contentDescription = "하단 실시간 심박수"
             gravity = Gravity.CENTER
             includeFontPadding = false
@@ -349,7 +349,7 @@ class MainActivity : Activity() {
         timerCueTitle = label("", 18, true)
         timerCueDetail = label("", 12, false, textSecondary)
         timerValue = label("", 26, true)
-        heartRateValue = label("연결대기", 12, true)
+        heartRateValue = label(com.move60.workout.domain.HeartRateFreshness.WAITING_LABEL, 12, true)
         timeMeta = label("", 12, false, textSecondary)
         progress = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             progressTintList = android.content.res.ColorStateList.valueOf(mint)
@@ -967,7 +967,7 @@ class MainActivity : Activity() {
         val heart = getSharedPreferences("preferences", MODE_PRIVATE).getInt("watch_heart_rate", 0)
         val heartAt = getSharedPreferences("preferences", MODE_PRIVATE).getLong("watch_heart_rate_at", 0L)
         val heartAge = System.currentTimeMillis() - heartAt
-        heartRateValue.text = if (heart in 30..240 && heartAge in 0L..10_000L) "${heart} bpm" else "연결대기"
+        heartRateValue.text = com.move60.workout.domain.HeartRateFreshness.display(heart, heartAge)
         dockHeartRate.text = "♥ ${heartRateValue.text}"
         val phase = session.phase()
         if (phase == null) {

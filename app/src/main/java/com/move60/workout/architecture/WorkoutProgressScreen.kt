@@ -154,7 +154,7 @@ private fun HeartRow() {
     val prefs = context.getSharedPreferences("preferences", android.content.Context.MODE_PRIVATE)
     val heart = prefs.getInt("watch_heart_rate", 0)
     val age = System.currentTimeMillis() - prefs.getLong("watch_heart_rate_at", 0L)
-    val text = if (heart in 30..240 && age in 0L..10_000L) "$heart BPM · 측정 중" else "-- BPM · 수신 대기"
+    val text = if (com.move60.workout.domain.HeartRateFreshness.isFresh(heart, age)) "$heart BPM · 측정 중" else "-- BPM · ${com.move60.workout.domain.HeartRateFreshness.WAITING_LABEL}"
     Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.small)
         .padding(12.dp).testTag("workout_heart"), verticalAlignment = Alignment.CenterVertically) {
         Text("♥ $text", color = MaterialTheme.colorScheme.tertiary)

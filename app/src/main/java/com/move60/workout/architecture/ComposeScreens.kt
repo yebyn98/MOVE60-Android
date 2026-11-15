@@ -258,7 +258,7 @@ private fun WorkoutDock(state: WorkoutUiState, viewModel: WorkoutViewModel, onOp
     val prefs = context.getSharedPreferences("preferences", android.content.Context.MODE_PRIVATE)
     val heart = prefs.getInt("watch_heart_rate", 0)
     val heartAge = System.currentTimeMillis() - prefs.getLong("watch_heart_rate_at", 0L)
-    val heartText = if (heart in 30..240 && heartAge in 0L..10_000L) "$heart bpm" else "연결대기"
+    val heartText = com.move60.workout.domain.HeartRateFreshness.display(heart, heartAge)
     val lastStage = (state.stageNames.size - 1).coerceAtLeast(0)
     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).testTag("workout_dock")) {
     // Today's progress lives on the dock's top edge (replaces the former "운동 현황" card).
