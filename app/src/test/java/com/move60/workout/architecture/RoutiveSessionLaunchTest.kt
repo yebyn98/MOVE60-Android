@@ -130,4 +130,10 @@ class RoutiveSessionLaunchTest {
         assertTrue(routiveNotificationText(base.copy(rest = RestState("legPress", 90L, 30L))).body.startsWith("진행 중 · 휴식 01:00 · 이 단계"))
         assertTrue(routiveNotificationText(base.copy(rest = RestState("legPress", 90L, 90L))).body.startsWith("진행 중 · 휴식 끝 · "))
     }
+
+    @Test fun restNeverFollowsTheLastTargetSet() {
+        assertTrue(restFollowsSet(3, 1)); assertTrue(restFollowsSet(3, 2))
+        assertFalse(restFollowsSet(3, 3)); assertFalse("extra set beyond target", restFollowsSet(3, 4))
+        assertTrue("unknown target cannot tell", restFollowsSet(null, 5))
+    }
 }

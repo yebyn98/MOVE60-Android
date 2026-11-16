@@ -52,6 +52,15 @@ class PendingSessionOutbox(context: Context) {
     /** Sessions whose commit hit a conflict (same id, different content). They stay here untouched, are never merged automatically. */
     fun conflicts(): List<TimerSnapshot> = pending().filter { lastError(sessionId(it)) == CONFLICT }
 
+    /**
+     * The user chose to discard a conflicting copy. Only an entry that is still marked as a conflict can be removed here,
+     * and only this outbox entry: the saved record in Room is never touched.
+     */
+    fun discardConflict(sessionId: String): Boolean {
+        if (lastError(sessionId) != CONFLICT) return false
+        return prefs.edit().remove(sessionId).commit()
+    }
+
     fun lastError(sessionId: String): String? =
         try { JSONObject(prefs.getString(sessionId, "{}") ?: "{}").optString("lastError").takeIf { it.isNotEmpty() } } catch (_: Exception) { null }
 

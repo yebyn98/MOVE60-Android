@@ -85,6 +85,9 @@ internal fun buildRoutiveUi(
     )
 }
 
+/** Rest only sits between sets: none after the exercise's last target set. An unknown target cannot tell, so rest runs. */
+internal fun restFollowsSet(targetSets: Int?, completedSetNumber: Int): Boolean = targetSets == null || completedSetNumber < targetSets
+
 @HiltViewModel
 class RoutiveSessionViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -106,7 +109,7 @@ class RoutiveSessionViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             while (isActive) {
-                try { publish(store.reconcile()) } catch (c: CancellationException) { throw c } catch (_: Exception) { /* keep last state */ }
+                try { if (store.consumeRestCue()) RoutiveCue.vibrateOnce(context); publish(store.reconcile()) } catch (c: CancellationException) { throw c } catch (_: Exception) { /* keep last state */ }
                 delay(1000)
             }
         }
@@ -127,8 +130,10 @@ class RoutiveSessionViewModel @Inject constructor(
         val next = (sets.completedSetsForSession(s.startedAtEpochMs).filter { it.exerciseId == exerciseId }.maxOfOrNull { it.setNumber } ?: 0) + 1
         sets.write(s.day, exerciseId, next, SetRecordStore.Record(kg, reps, "5", true), s.recordDate, s.startedAtEpochMs)
         // Rest starts only when the user chose a rest time for this exercise; nothing is assumed otherwise.
-        val rest = stageExercises[StageKind.STRENGTH].orEmpty().firstOrNull { it.id == exerciseId }?.restSeconds
-        if (rest != null) store.startRest(exerciseId, rest) else store.skipRest()
+        // Rest only sits between sets: none after the exercise's last target set (unknown target = cannot tell, rest runs).
+        val exercise = stageExercises[StageKind.STRENGTH].orEmpty().firstOrNull { it.id == exerciseId }
+        val rest = exercise?.restSeconds
+        if (rest != null && restFollowsSet(exercise.targetSets, next)) store.startRest(exerciseId, rest) else store.skipRest()
         viewModelScope.launch { publish(store.active()) }
     }
 

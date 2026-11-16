@@ -304,4 +304,23 @@ class RoutiveSessionStoreTest {
         }
         assertNull(store().active()!!.rest)
     }
+
+    @Test fun theEndOfRestCueFiresExactlyOnceAndSurvivesARestart() {
+        val st = store(); inStrength(st)
+        st.startRest("legPress", 30L)
+        t += 10_000; assertFalse("still resting", st.consumeRestCue())
+        t += 25_000; assertTrue("rest just ended", st.consumeRestCue())
+        assertFalse("never twice (screen and service share it)", st.consumeRestCue())
+        assertFalse("a restarted process does not repeat it", store().consumeRestCue())
+        assertTrue(store().active()!!.rest!!.cued)
+        st.skipRest(); st.startRest("legPress", 30L)
+        t += 31_000; assertTrue("the next rest gets its own cue", st.consumeRestCue())
+    }
+
+    @Test fun noCueWhilePausedAndNoCueWithoutRest() {
+        val st = store(); inStrength(st)
+        assertFalse(st.consumeRestCue())
+        st.startRest("legPress", 20L); t += 5_000; st.pause(); t += 600_000
+        assertFalse("a paused rest does not finish", st.consumeRestCue())
+    }
 }

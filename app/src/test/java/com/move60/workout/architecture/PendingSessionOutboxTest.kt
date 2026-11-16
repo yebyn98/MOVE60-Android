@@ -156,4 +156,24 @@ class PendingSessionOutboxTest {
         assertEquals(1, outbox.size()); assertEquals(1, outbox.conflicts().size)
         assertEquals("the stored record keeps its original content", before, dao.session(outbox.sessionId(snap))!!.totalActiveSeconds)
     }
+
+    @Test fun discardingAConflictRemovesOnlyThatBufferedCopyAndNeverTheSavedRecord() = runBlocking {
+        val (_, snap) = endedEarly(90, withSet = false)
+        outbox.enqueue(snap); sync.drain(outbox)
+        val before = dao.session(outbox.sessionId(snap))!!.totalActiveSeconds
+        val different = snap.copy(accumulatedSeconds = snap.accumulatedSeconds + 30, intervals = snap.intervals.map { it.first to it.second + 30 })
+        outbox.enqueue(different); sync.drain(outbox)
+        val id = outbox.sessionId(different)
+        assertTrue(outbox.discardConflict(id))
+        assertTrue(outbox.pending().isEmpty()); assertTrue(outbox.conflicts().isEmpty())
+        assertEquals("the saved record is untouched", before, dao.session(id)!!.totalActiveSeconds)
+        assertFalse("discarding something that is not a conflict is refused", outbox.discardConflict(id))
+    }
+
+    @Test fun anEntryThatIsNotAConflictCannotBeDiscardedThroughTheConflictPath() {
+        val (_, snap) = endedEarly(90, withSet = false)
+        outbox.enqueue(snap); outbox.markFailed(outbox.sessionId(snap), "write failed")
+        assertFalse(outbox.discardConflict(outbox.sessionId(snap)))
+        assertEquals(1, outbox.size())
+    }
 }

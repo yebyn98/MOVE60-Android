@@ -80,6 +80,7 @@ class RoutiveSessionService : Service() {
         handler.removeCallbacks(tick)
         val s = try { store.reconcile() } catch (_: Exception) { null }
         if (s == null || s.over) { stop(); return }
+        try { if (store.consumeRestCue()) RoutiveCue.vibrateOnce(this) } catch (_: Exception) { }
         val notification = build(s)
         if (!foreground) {
             try {

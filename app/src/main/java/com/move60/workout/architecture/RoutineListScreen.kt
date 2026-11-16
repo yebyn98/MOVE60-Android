@@ -75,9 +75,9 @@ fun RoutineListScreen(
                 }
                 state.load == RoutineListLoad.READY && state.items.isEmpty() -> item {
                     Move60Card(Modifier.testTag("routine_list_empty")) {
-                        Text("저장한 루틴이 없어요.", style = MaterialTheme.typography.titleMedium)
-                        Text("운동과 계획시간을 직접 골라 첫 루틴을 만들어 보세요.", color = secondary, style = MaterialTheme.typography.bodySmall)
-                        Move60Button(onClick = onCompose, modifier = Modifier.fillMaxWidth().testTag("routine_empty_cta")) { Text("첫 루틴 만들기") }
+                        Text("아직 만든 운동 루틴이 없어요", style = MaterialTheme.typography.titleMedium)
+                        Text("운동을 추가하고 나만의 루틴을 만들어 보세요.", color = secondary, style = MaterialTheme.typography.bodySmall)
+                        Move60Button(onClick = onCompose, modifier = Modifier.fillMaxWidth().testTag("routine_empty_cta")) { Text("루틴 만들기") }
                     }
                 }
                 else -> items(state.items, key = { it.routineId }) { item ->

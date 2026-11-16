@@ -87,6 +87,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -392,8 +393,11 @@ fun WorkoutCalendar(
     val selected by viewModel.selected.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    var conflicts by remember { mutableStateOf(viewModel.conflictCount()) }
-    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) { conflicts = viewModel.conflictCount(); onPauseOrDispose { } }
+    var conflictItems by remember { mutableStateOf(viewModel.conflicts()) }
+    val conflicts = conflictItems.size
+    var showConflicts by rememberSaveable { mutableStateOf(false) }
+    var discardId by rememberSaveable { mutableStateOf<String?>(null) }
+    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) { conflictItems = viewModel.conflicts(); onPauseOrDispose { } }
     // Tapping a day selects it; a day without a record also shows a short toast (every tap, not only the first).
     val onDayClick: (java.time.LocalDate) -> Unit = { date ->
         viewModel.select(date)
@@ -401,6 +405,38 @@ fun WorkoutCalendar(
             snackbar.currentSnackbarData?.dismiss()
             snackbar.showSnackbar("운동한 기록이 없습니다.", duration = SnackbarDuration.Short)
         }
+    }
+    if (showConflicts) AlertDialog(
+        onDismissRequest = { showConflicts = false },
+        modifier = Modifier.testTag("calendar_conflict_dialog"),
+        title = { Text("확인이 필요한 기록") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("저장된 기록과 내용이 달라서 저장하지 않은 기록이에요. 운동 기록이나 도전 실적에는 포함되지 않아요.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                conflictItems.forEach { c ->
+                    Column(Modifier.fillMaxWidth().testTag("calendar_conflict_item_${c.id}")) {
+                        Text("${c.date} · ${c.activeSeconds / 60}분 ${c.activeSeconds % 60}초 · 완료 세트 ${c.setCount}개" +
+                            if (c.endedEarly) " · 일부 수행" else "", style = MaterialTheme.typography.bodyMedium)
+                        TextButton(onClick = { discardId = c.id }, modifier = Modifier.heightIn(min = 48.dp).testTag("calendar_conflict_discard_${c.id}")) { Text("충돌본 폐기") }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { showConflicts = false }, modifier = Modifier.heightIn(min = 48.dp).testTag("calendar_conflict_keep")) { Text("보관 유지") } }
+    )
+    discardId?.let { id ->
+        AlertDialog(
+            onDismissRequest = { discardId = null },
+            modifier = Modifier.testTag("calendar_conflict_discard_dialog"),
+            title = { Text("충돌본을 폐기할까요?") },
+            text = { Text("이 기록은 저장되지 않은 채 사라지고 되돌릴 수 없어요. 이미 저장된 운동 기록은 바뀌지 않아요.") },
+            confirmButton = { TextButton(onClick = {
+                viewModel.discardConflict(id); conflictItems = viewModel.conflicts(); discardId = null
+                if (conflictItems.isEmpty()) showConflicts = false
+            }, modifier = Modifier.heightIn(min = 48.dp).testTag("calendar_conflict_discard_confirm")) { Text("폐기") } },
+            dismissButton = { TextButton(onClick = { discardId = null }, modifier = Modifier.heightIn(min = 48.dp)) { Text("취소") } }
+        )
     }
     Scaffold(containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = {
@@ -417,9 +453,9 @@ fun WorkoutCalendar(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)) {
             if (conflicts > 0) item {
-                Move60Card(Modifier.testTag("calendar_conflict_notice")) {
+                Move60Card(Modifier.clickable { showConflicts = true }.testTag("calendar_conflict_notice")) {
                     Text("확인이 필요한 기록 ${conflicts}건", style = cardTitle)
-                    Text("같은 운동의 저장된 기록과 내용이 달라 자동으로 합치지 않았어요. 원본은 지우지 않고 안전하게 보관하고 있어요.",
+                    Text("같은 운동의 저장된 기록과 내용이 달라 자동으로 합치지 않았어요. 저장된 기록은 그대로예요. 눌러서 확인해 보세요.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                 }
             }

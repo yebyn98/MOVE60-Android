@@ -153,6 +153,21 @@ class ComposeRoutiveSessionTest {
             rule.onNode(hasText("확인이 필요한 기록 1건", substring = true)).assertIsDisplayed()
             capture("compose-record-conflict-notice.png")
             assertTrue("the entry is kept untouched", outbox.pending().any { outbox.sessionId(it) == id })
+            rule.onNodeWithTag("calendar_conflict_notice").performClick()
+            waitTag("calendar_conflict_dialog")
+            rule.onNodeWithTag("calendar_conflict_item_$id").assertIsDisplayed()
+            captureScreen("compose-record-conflict-dialog.png")
+            rule.onNodeWithTag("calendar_conflict_keep").performClick()               // 보관 유지: nothing changes
+            rule.waitUntil(5_000) { !has("calendar_conflict_dialog") }
+            assertTrue("keeping leaves the buffered copy", outbox.pending().any { outbox.sessionId(it) == id })
+            rule.onNodeWithTag("calendar_conflict_notice").performClick()
+            waitTag("calendar_conflict_dialog")
+            rule.onNodeWithTag("calendar_conflict_discard_$id").performClick()
+            waitTag("calendar_conflict_discard_dialog")
+            captureScreen("compose-record-conflict-discard-confirm.png")
+            rule.onNodeWithTag("calendar_conflict_discard_confirm").performClick()
+            rule.waitUntil(5_000) { !has("calendar_conflict_notice") }
+            assertTrue("only the buffered copy is gone", outbox.pending().none { outbox.sessionId(it) == id })
             rule.onNodeWithTag("tab_today").performClick()
         } finally { outbox.remove(id) }
     }

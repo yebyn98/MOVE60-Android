@@ -22,7 +22,7 @@ sealed interface RoutiveStart {
  * it is not stage time, not an active interval and not challenge time. When it reaches [totalSeconds] it is [done]
  * (kept as a visible cue until the next set, skip or stage change); later time counts as active again.
  */
-data class RestState(val exerciseId: String, val totalSeconds: Long, val elapsedSeconds: Long = 0L) {
+data class RestState(val exerciseId: String, val totalSeconds: Long, val elapsedSeconds: Long = 0L, val cued: Boolean = false) {
     val done: Boolean get() = elapsedSeconds >= totalSeconds
     val remainingSeconds: Long get() = (totalSeconds - elapsedSeconds).coerceAtLeast(0L)
 }
@@ -113,6 +113,18 @@ class RoutiveSessionStore(
         else settle(s, now).let { it.copy(rest = RestState(exerciseId, seconds)) }
     }
 
+    /**
+     * True exactly once when a rest has just finished: whoever gets true (the screen or the service, never both) gives the
+     * single end-of-rest vibration. The flag is stored, so a restart or a second observer cannot repeat it.
+     */
+    fun consumeRestCue(now: Long = clock()): Boolean {
+        val s = reconcile(now) ?: return false
+        val r = s.rest ?: return false
+        if (!r.done || r.cued) return false
+        write(s.copy(rest = r.copy(cued = true)), durable = true)
+        return true
+    }
+
     /** Ends the rest early (or clears the "rest finished" cue). The time already rested stays excluded. */
     fun skipRest(): RoutiveSession? = mutate { s, now -> settle(s, now).let { if (it.rest == null) it else it.copy(rest = null) } }
 
@@ -181,7 +193,7 @@ class RoutiveSessionStore(
             .put("routineId", s.routineId).put("routineName", s.routineName)
             .put("recordDate", s.recordDate.toString()).put("day", s.day).put("startedAt", s.startedAtEpochMs)
             .put("running", s.running).put("checkpointAt", s.checkpointEpochMs).put("autoPaused", s.autoPaused).put("trackerToken", s.trackerToken)
-            .put("rest", s.rest?.let { JSONObject().put("exerciseId", it.exerciseId).put("total", it.totalSeconds).put("elapsed", it.elapsedSeconds) } ?: JSONObject.NULL)
+            .put("rest", s.rest?.let { JSONObject().put("exerciseId", it.exerciseId).put("total", it.totalSeconds).put("elapsed", it.elapsedSeconds).put("cued", it.cued) } ?: JSONObject.NULL)
             .put("stageIndex", p.stageIndex).put("finished", p.finished).put("endedEarly", p.endedEarly)
             .put("plan", JSONArray().also { a -> p.plan.forEach { a.put(it.plannedSeconds ?: JSONObject.NULL) } })
             .put("elapsed", JSONArray().also { a -> p.elapsedSeconds.forEach { a.put(it) } })
@@ -215,7 +227,7 @@ class RoutiveSessionStore(
             o.getLong("startedAt"), o.optBoolean("running"), o.optLong("checkpointAt"), progress,
             (0 until ivArr.length()).map { ivArr.getJSONArray(it).let { p -> p.getLong(0) to p.getLong(1) } },
             o.optBoolean("autoPaused"), o.optString("trackerToken"),
-            o.optJSONObject("rest")?.let { RestState(it.getString("exerciseId"), it.getLong("total"), it.getLong("elapsed")) }
+            o.optJSONObject("rest")?.let { RestState(it.getString("exerciseId"), it.getLong("total"), it.getLong("elapsed"), it.optBoolean("cued")) }
         )
     } catch (_: Exception) { null }   // unreadable data is left in place, never overwritten or deleted by a read
 
