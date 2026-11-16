@@ -118,4 +118,16 @@ class RoutiveSessionLaunchTest {
         assertTrue(paused.body.startsWith("일시정지 ·")); assertEquals("재개", paused.actionLabel)
         assertTrue(routiveNotificationText(running.copy(running = false, autoPaused = true)).body.startsWith("자동 일시정지 ·"))
     }
+
+    @Test fun targetsAndRestAppearInTheUiModelAndNotificationOnlyWhenSet() {
+        val ex = listOf(RoutineExerciseInput("legPress", "레그 프레스", null, 3, 10, 90L), RoutineExerciseInput("row", "로우"))
+        val base = session(300L, null, 900L, null, stage = 1, elapsedInStage = 30)
+        val ui = buildRoutiveUi(base.copy(rest = RestState("legPress", 90L, 30L)), ex, emptyList(), null)
+        assertEquals(Triple<Int?, Int?, Long?>(3, 10, 90L), ui.exercises[0].let { Triple(it.targetSets, it.targetReps, it.restSeconds) })
+        assertEquals(Triple<Int?, Int?, Long?>(null, null, null), ui.exercises[1].let { Triple(it.targetSets, it.targetReps, it.restSeconds) })
+        assertEquals(RoutiveRestUi("legPress", 60L, 90L, false), ui.rest)
+        assertNull(buildRoutiveUi(base, ex, emptyList(), null).rest)
+        assertTrue(routiveNotificationText(base.copy(rest = RestState("legPress", 90L, 30L))).body.startsWith("진행 중 · 휴식 01:00 · 이 단계"))
+        assertTrue(routiveNotificationText(base.copy(rest = RestState("legPress", 90L, 90L))).body.startsWith("진행 중 · 휴식 끝 · "))
+    }
 }

@@ -248,4 +248,60 @@ class RoutiveSessionStoreTest {
     private object StageStatusCheck {
         fun unfinished(s: RoutiveSession) = (0 until 4).count { s.progress.statusOf(it) == com.move60.workout.domain.StageStatus.UNFINISHED }
     }
+
+    // ---- rest timer (step B2) -----------------------------------------------------------------------------------
+
+    private fun inStrength(st: RoutiveSessionStore) { started(st); t += 10_000; st.advance() }   // 10 s warm-up, now strength
+
+    @Test fun restTimeIsExcludedFromStageTimeIntervalsAndTotals() {
+        val st = store(); inStrength(st)
+        t += 30_000; st.startRest("legPress", 60L)           // 30 s of strength work, then a 60 s rest
+        t += 45_000; var s = st.reconcile()!!
+        assertEquals(15L, s.rest!!.remainingSeconds); assertFalse(s.rest!!.done)
+        assertEquals("only the 30 s of work counts in the strength stage", 30L, s.progress.elapsedSeconds[1])
+        assertEquals(40L, s.accumulatedSeconds)              // 10 warm-up + 30 strength
+        assertEquals(40L, s.intervals.sumOf { it.second - it.first })
+        t += 50_000; s = st.reconcile()!!                    // 15 s finish the rest, 35 s active again
+        assertTrue(s.rest!!.done)
+        assertEquals(30L + 35L, s.progress.elapsedSeconds[1]); assertEquals(75L, s.accumulatedSeconds)
+        assertEquals(75L, s.intervals.sumOf { it.second - it.first })
+    }
+
+    @Test fun pausingFreezesTheRestAndResumeContinuesIt() {
+        val st = store(); inStrength(st)
+        st.startRest("legPress", 60L)
+        t += 20_000; st.pause()
+        t += 600_000                                          // paused: neither rest nor stage time moves
+        assertEquals(40L, st.reconcile()!!.rest!!.remainingSeconds)
+        st.resume(); t += 10_000
+        val s = st.reconcile()!!
+        assertEquals(30L, s.rest!!.remainingSeconds); assertEquals(10L, s.accumulatedSeconds)   // only the warm-up counted
+    }
+
+    @Test fun restSurvivesARestartAndSkippingKeepsTheRestedTimeExcluded() {
+        val st = store(); inStrength(st)
+        st.startRest("legPress", 90L); t += 30_000
+        val reopened = store().active()!!                     // stored value, not yet settled
+        assertEquals("legPress", reopened.rest!!.exerciseId)
+        val skipped = store().skipRest()!!
+        assertNull(skipped.rest)
+        assertEquals("30 s rested are not stage time", 0L, skipped.progress.elapsedSeconds[1])
+    }
+
+    @Test fun invalidOrNonStrengthRestIsIgnoredAndStageChangeClearsRest() {
+        val st = store(); started(st)
+        assertNull("warm-up has no rest timer", st.startRest("walk", 60L)!!.rest)
+        t += 5_000; st.advance()
+        assertNull("no rest below the allowed range", st.startRest("legPress", 1L)!!.rest)
+        assertNotNull(st.startRest("legPress", 60L)!!.rest)
+        assertNull("changing stage ends the rest", st.advance()!!.rest)
+    }
+
+    @Test fun legacyStoredSessionsWithoutRestStillRead() {
+        started()
+        context.getSharedPreferences(RoutiveSessionStore.NAME, Context.MODE_PRIVATE).let { p ->
+            val o = org.json.JSONObject(p.getString("active", null)!!); o.remove("rest"); p.edit().putString("active", o.toString()).commit()
+        }
+        assertNull(store().active()!!.rest)
+    }
 }

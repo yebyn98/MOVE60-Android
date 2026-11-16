@@ -65,7 +65,7 @@ class ComposeRoutiveSessionTest {
     }
 
     /** Frees both session kinds, saves a fixture routine and returns its id. */
-    private fun prepareRoutine(): String {
+    private fun prepareRoutine(strength: RoutineExerciseInput = RoutineExerciseInput("legPress", "레그 프레스", null)): String {
         if (android.os.Build.VERSION.SDK_INT >= 33)
             instrumentation.uiAutomation.grantRuntimePermission(context.packageName, "android.permission.POST_NOTIFICATIONS")
         val legacy = SessionStore(context, WorkoutData(context))
@@ -78,7 +78,7 @@ class ComposeRoutiveSessionTest {
             val saved = runBlocking {
                 RoutinePlanService(db).save(id, "4단계 시작 확인", 3_600L, mapOf(
                     StageKind.WARM_UP to listOf(RoutineExerciseInput("walk", "걷기", 300L)),
-                    StageKind.STRENGTH to listOf(RoutineExerciseInput("legPress", "레그 프레스", null)),
+                    StageKind.STRENGTH to listOf(strength),
                     StageKind.CARDIO to listOf(RoutineExerciseInput("bike", "실내 자전거", 900L))))
             }
             assertTrue("fixture routine must save: $saved", saved is RoutinePlanResult.Saved)
@@ -99,6 +99,43 @@ class ComposeRoutiveSessionTest {
         waitTag("routine_start_dialog")
         rule.onNodeWithTag("routine_start_confirm").performClick()
         waitTag("routive_session"); waitTag("routive_stage_card")
+    }
+
+    private fun restNotificationBody(): String? =
+        (context.getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager)
+            .activeNotifications.firstOrNull { it.id == RoutiveSessionService.NOTIFICATION_ID }
+            ?.notification?.extras?.getCharSequence(android.app.Notification.EXTRA_TEXT)?.toString()
+
+    @Test fun restTimerRunsAfterASetAndIsExcludedFromActiveTime() {
+        val id = prepareRoutine(RoutineExerciseInput("legPress", "레그 프레스", null, 3, 10, 6L))
+        try {
+            startFromList(id)
+            rule.onNodeWithTag("routive_next").performClick()                        // -> strength
+            rule.waitUntil(5_000) { rule.onAllNodes(hasText("2 / 4 단계 · 근력운동")).fetchSemanticsNodes().isNotEmpty() }
+            rule.onNodeWithTag("routive_sets_legPress").performScrollTo().assertIsDisplayed()
+            rule.onNode(hasText("0 / 3 세트")).assertIsDisplayed()                   // target sets shown
+            rule.onNode(hasText("1세트 · 목표 10회 · 휴식 00:06")).performScrollTo().assertIsDisplayed()
+            capture("compose-routive-strength-targets.png")
+            rule.onNodeWithTag("routive_kg_legPress").performScrollTo().performTextInput("40")
+            rule.onNodeWithTag("routive_reps_legPress").performScrollTo().performTextInput("10")
+            rule.onNodeWithTag("routive_set_done_legPress").performScrollTo().performClick()
+            waitTag("routive_rest_card")
+            val workBeforeRest = RoutiveSessionStore(context).reconcile()!!.progress.elapsedSeconds[1]
+            val wallStart = System.currentTimeMillis()
+            capture("compose-routive-rest-running.png")
+            rule.waitUntil(5_000) { restNotificationBody()?.contains("휴식") == true }
+            rule.waitUntil(15_000) { rule.onAllNodes(hasText("휴식 끝")).fetchSemanticsNodes().isNotEmpty() }
+            val wallMs = System.currentTimeMillis() - wallStart
+            val workAfterRest = RoutiveSessionStore(context).reconcile()!!.progress.elapsedSeconds[1]
+            assertTrue("the rest ran for real (wall ${wallMs}ms)", wallMs >= 4_000)
+            assertTrue("rest time is not stage time: $workBeforeRest -> $workAfterRest after ${wallMs}ms", workAfterRest - workBeforeRest <= 2)
+            capture("compose-routive-rest-done.png")
+            rule.onNodeWithTag("routive_rest_skip").performClick()
+            rule.waitUntil(5_000) { !has("routive_rest_card") }
+            rule.onNode(hasText("1 / 3 세트")).performScrollTo().assertIsDisplayed()
+        } finally {
+            RoutiveSessionStore(context).let { s -> if (s.active()?.over == false) s.endEarly() }
+        }
     }
 
     @Test fun explicitFinalSkipFinishesAndIsSavedAsCompleted() {

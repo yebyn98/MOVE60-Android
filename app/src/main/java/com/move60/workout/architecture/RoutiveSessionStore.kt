@@ -17,6 +17,16 @@ sealed interface RoutiveStart {
     data object InvalidPlan : RoutiveStart
 }
 
+/**
+ * Rest between two strength sets. While it runs (session running and [done] false) time goes to [elapsedSeconds] only:
+ * it is not stage time, not an active interval and not challenge time. When it reaches [totalSeconds] it is [done]
+ * (kept as a visible cue until the next set, skip or stage change); later time counts as active again.
+ */
+data class RestState(val exerciseId: String, val totalSeconds: Long, val elapsedSeconds: Long = 0L) {
+    val done: Boolean get() = elapsedSeconds >= totalSeconds
+    val remainingSeconds: Long get() = (totalSeconds - elapsedSeconds).coerceAtLeast(0L)
+}
+
 /** Immutable view of the active ROUTIVE_4 session. [progress] holds stage plan/elapsed; [intervals] are real active stretches. */
 data class RoutiveSession(
     val routineId: String, val routineName: String,
@@ -26,7 +36,9 @@ data class RoutiveSession(
     /** The session was paused automatically because time that cannot be verified (service stopped, process died, reboot) was excluded. */
     val autoPaused: Boolean = false,
     /** Process that is tracking this running session; empty = nobody (tracking released). */
-    val trackerToken: String = ""
+    val trackerToken: String = "",
+    /** Rest after a completed set, null when none. Never started without a user-chosen rest time. */
+    val rest: RestState? = null
 ) {
     val over: Boolean get() = progress.isOver
     val accumulatedSeconds: Long get() = progress.totalElapsedSeconds
@@ -95,6 +107,15 @@ class RoutiveSessionStore(
         if (s.over || s.running) s else s.copy(running = true, checkpointEpochMs = now, autoPaused = false, trackerToken = processToken)
     }
 
+    /** Starts the rest timer after a completed set. [seconds] must be a user-chosen value; no default exists. */
+    fun startRest(exerciseId: String, seconds: Long): RoutiveSession? = mutate { s, now ->
+        if (s.progress.kind != com.move60.workout.domain.StageKind.STRENGTH || seconds !in RoutinePlanService.REST_RANGE) s
+        else settle(s, now).let { it.copy(rest = RestState(exerciseId, seconds)) }
+    }
+
+    /** Ends the rest early (or clears the "rest finished" cue). The time already rested stays excluded. */
+    fun skipRest(): RoutiveSession? = mutate { s, now -> settle(s, now).let { if (it.rest == null) it else it.copy(rest = null) } }
+
     fun advance(): RoutiveSession? = progressed { it.advance() }
     fun skip(): RoutiveSession? = progressed { it.skip() }
     fun back(): RoutiveSession? = progressed { it.back() }
@@ -117,11 +138,22 @@ class RoutiveSessionStore(
         if (s.trackerToken != processToken) return s.copy(running = false, checkpointEpochMs = 0L, autoPaused = true)
         val delta = ((now - s.checkpointEpochMs) / 1000L).coerceAtLeast(0L)
         if (delta <= 0L) return s
-        val start = Math.floorDiv(s.checkpointEpochMs, 1000L)
-        val last = s.intervals.lastOrNull()
-        val intervals = if (last != null && last.second == start) s.intervals.dropLast(1) + (last.first to start + delta)
-        else s.intervals + (start to start + delta)
-        return s.copy(progress = s.progress.tick(delta), intervals = intervals, checkpointEpochMs = s.checkpointEpochMs + delta * 1000L)
+        // Rest time is split off first: it advances only the rest timer, never stage time or an active interval.
+        val rest = s.rest
+        val restUsed = if (rest != null && !rest.done) minOf(delta, rest.remainingSeconds) else 0L
+        val active = delta - restUsed
+        val start = Math.floorDiv(s.checkpointEpochMs, 1000L) + restUsed
+        var intervals = s.intervals
+        if (active > 0L) {
+            val last = s.intervals.lastOrNull()
+            intervals = if (last != null && last.second == start) s.intervals.dropLast(1) + (last.first to start + active)
+            else s.intervals + (start to start + active)
+        }
+        return s.copy(
+            progress = if (active > 0L) s.progress.tick(active) else s.progress, intervals = intervals,
+            checkpointEpochMs = s.checkpointEpochMs + delta * 1000L,
+            rest = if (restUsed > 0L) rest!!.copy(elapsedSeconds = rest.elapsedSeconds + restUsed) else rest
+        )
     }
 
     /** A session that just became over is no longer running. */
@@ -129,7 +161,7 @@ class RoutiveSessionStore(
 
     /** Settles running time into the current stage first, then applies a user action to the progress. */
     private fun progressed(action: (FourStageProgress) -> FourStageProgress): RoutiveSession? =
-        mutate { s, now -> settle(s, now).let { over(it.copy(progress = action(it.progress))) } }
+        mutate { s, now -> settle(s, now).let { over(it.copy(progress = action(it.progress), rest = null)) } }
 
     private fun mutate(change: (RoutiveSession, Long) -> RoutiveSession): RoutiveSession? {
         val s = read() ?: return null
@@ -149,6 +181,7 @@ class RoutiveSessionStore(
             .put("routineId", s.routineId).put("routineName", s.routineName)
             .put("recordDate", s.recordDate.toString()).put("day", s.day).put("startedAt", s.startedAtEpochMs)
             .put("running", s.running).put("checkpointAt", s.checkpointEpochMs).put("autoPaused", s.autoPaused).put("trackerToken", s.trackerToken)
+            .put("rest", s.rest?.let { JSONObject().put("exerciseId", it.exerciseId).put("total", it.totalSeconds).put("elapsed", it.elapsedSeconds) } ?: JSONObject.NULL)
             .put("stageIndex", p.stageIndex).put("finished", p.finished).put("endedEarly", p.endedEarly)
             .put("plan", JSONArray().also { a -> p.plan.forEach { a.put(it.plannedSeconds ?: JSONObject.NULL) } })
             .put("elapsed", JSONArray().also { a -> p.elapsedSeconds.forEach { a.put(it) } })
@@ -181,7 +214,8 @@ class RoutiveSessionStore(
             o.getString("routineId"), o.optString("routineName"), LocalDate.parse(o.getString("recordDate")), o.getInt("day"),
             o.getLong("startedAt"), o.optBoolean("running"), o.optLong("checkpointAt"), progress,
             (0 until ivArr.length()).map { ivArr.getJSONArray(it).let { p -> p.getLong(0) to p.getLong(1) } },
-            o.optBoolean("autoPaused"), o.optString("trackerToken")
+            o.optBoolean("autoPaused"), o.optString("trackerToken"),
+            o.optJSONObject("rest")?.let { RestState(it.getString("exerciseId"), it.getLong("total"), it.getLong("elapsed")) }
         )
     } catch (_: Exception) { null }   // unreadable data is left in place, never overwritten or deleted by a read
 

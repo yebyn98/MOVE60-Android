@@ -19,7 +19,11 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 data class RoutiveSetUi(val number: Int, val kg: String, val reps: String)
-data class RoutiveExerciseUi(val id: String, val name: String, val plannedLabel: String, val done: List<RoutiveSetUi>) {
+data class RoutiveExerciseUi(
+    val id: String, val name: String, val plannedLabel: String, val done: List<RoutiveSetUi>,
+    /** Targets chosen by the user in the routine; null = not set (never a default). */
+    val targetSets: Int? = null, val targetReps: Int? = null, val restSeconds: Long? = null
+) {
     val nextSetNumber: Int get() = (done.maxOfOrNull { it.number } ?: 0) + 1
 }
 
@@ -31,6 +35,9 @@ sealed interface RoutiveOutcome {
     /** The record is kept safely and is retried automatically; no result yet. */
     data object RetryLater : RoutiveOutcome
 }
+
+/** Rest timer shown on the strength screen; [done] = the rest time is over and the cue stays until the next set. */
+data class RoutiveRestUi(val exerciseId: String, val remainingSeconds: Long, val totalSeconds: Long, val done: Boolean)
 
 enum class RoutiveLoad { LOADING, NONE, ACTIVE }
 
@@ -49,7 +56,8 @@ data class RoutiveSessionUiState(
     val readiness: StageReadiness = StageReadiness.IN_PROGRESS,
     val exercises: List<RoutiveExerciseUi> = emptyList(),
     val outcome: RoutiveOutcome? = null,
-    val autoPaused: Boolean = false
+    val autoPaused: Boolean = false,
+    val rest: RoutiveRestUi? = null
 ) { val paused: Boolean get() = load == RoutiveLoad.ACTIVE && !running && !over }
 
 /** Pure mapping of the stored session + saved plan + completed sets to what the screen shows. */
@@ -61,7 +69,8 @@ internal fun buildRoutiveUi(
     val perExercise = completed.groupBy { it.exerciseId }
     val ui = exercises.map { e ->
         RoutiveExerciseUi(e.id, e.name, formatPlanned(e.plannedSeconds),
-            perExercise[e.id].orEmpty().sortedBy { it.setNumber }.map { RoutiveSetUi(it.setNumber, it.kg, it.reps) })
+            perExercise[e.id].orEmpty().sortedBy { it.setNumber }.map { RoutiveSetUi(it.setNumber, it.kg, it.reps) },
+            e.targetSets, e.targetReps, e.restSeconds)
     }
     val allSetsDone = kind == StageKind.STRENGTH && ui.isNotEmpty() && ui.all { it.done.isNotEmpty() }
     return RoutiveSessionUiState(
@@ -71,7 +80,8 @@ internal fun buildRoutiveUi(
         plannedLabel = p.plannedSeconds()?.let { "계획 ${formatPlanned(it)}" } ?: "계획 시간 미정",
         elapsedSeconds = p.elapsedSeconds[p.stageIndex], remainingSeconds = p.remainingSeconds(), overtimeSeconds = p.overtimeSeconds(),
         totalSeconds = p.totalElapsedSeconds, isLast = p.isLast, readiness = p.readiness(allSetsDone),
-        exercises = ui, outcome = outcome, autoPaused = session.autoPaused
+        exercises = ui, outcome = outcome, autoPaused = session.autoPaused,
+        rest = session.rest?.takeIf { kind == StageKind.STRENGTH }?.let { RoutiveRestUi(it.exerciseId, it.remainingSeconds, it.totalSeconds, it.done) }
     )
 }
 
@@ -116,6 +126,9 @@ class RoutiveSessionViewModel @Inject constructor(
         if (s.over || s.progress.kind != StageKind.STRENGTH || kg.isBlank() || reps.isBlank()) return
         val next = (sets.completedSetsForSession(s.startedAtEpochMs).filter { it.exerciseId == exerciseId }.maxOfOrNull { it.setNumber } ?: 0) + 1
         sets.write(s.day, exerciseId, next, SetRecordStore.Record(kg, reps, "5", true), s.recordDate, s.startedAtEpochMs)
+        // Rest starts only when the user chose a rest time for this exercise; nothing is assumed otherwise.
+        val rest = stageExercises[StageKind.STRENGTH].orEmpty().firstOrNull { it.id == exerciseId }?.restSeconds
+        if (rest != null) store.startRest(exerciseId, rest) else store.skipRest()
         viewModelScope.launch { publish(store.active()) }
     }
 
@@ -125,8 +138,12 @@ class RoutiveSessionViewModel @Inject constructor(
         if (s.over) return
         val last = sets.completedSetsForSession(s.startedAtEpochMs).filter { it.exerciseId == exerciseId }.maxByOrNull { it.setNumber } ?: return
         sets.write(s.day, exerciseId, last.setNumber, SetRecordStore.Record(last.kg, last.reps, "5", false), s.recordDate, s.startedAtEpochMs)
+        if (s.rest?.exerciseId == exerciseId) store.skipRest()
         viewModelScope.launch { publish(store.active()) }
     }
+
+    /** Ends the rest early or dismisses the "rest finished" cue. */
+    fun skipRest() = act { store.skipRest() }
 
     private fun act(change: (RoutiveSession) -> RoutiveSession?) {
         val s = store.reconcile() ?: return

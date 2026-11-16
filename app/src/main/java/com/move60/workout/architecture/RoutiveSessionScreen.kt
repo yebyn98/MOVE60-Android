@@ -160,11 +160,12 @@ private fun ActiveContent(state: RoutiveSessionUiState, vm: RoutiveSessionViewMo
                 modifier = Modifier.testTag("routive_overtime"))
             else -> Text("남은 시간 ${formatMmSs(remaining)}", modifier = Modifier.testTag("routive_remaining"))
         }
-        readinessHint(state.readiness)?.let {
+        readinessHint(state.readiness, state.isLast)?.let {
             Text(it, color = secondary, style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("routive_hint"))
         }
     }
 
+    if (state.stageKind == StageKind.STRENGTH) state.rest?.let { RestCard(it, state.running, vm) }
     if (state.stageKind == StageKind.STRENGTH) state.exercises.forEach { StrengthExercise(it, vm) }
     else state.exercises.forEach { e ->
         Move60Card(Modifier.testTag("routive_exercise_${e.id}")) {
@@ -188,11 +189,14 @@ private fun ActiveContent(state: RoutiveSessionUiState, vm: RoutiveSessionViewMo
     }
 }
 
-private fun readinessHint(r: StageReadiness): String? = when (r) {
-    StageReadiness.PLAN_REACHED -> "계획한 시간이 됐어요. 준비되면 직접 다음 단계로 넘어가세요."
-    StageReadiness.SETS_DONE -> "기록한 세트가 있어요. 준비되면 직접 다음 단계로 넘어가세요."
-    StageReadiness.MANUAL -> "시간이 정해지지 않은 단계예요. 준비되면 직접 다음 단계로 넘어가세요."
-    else -> null
+private fun readinessHint(r: StageReadiness, isLast: Boolean): String? {
+    val go = if (isLast) "직접 운동을 완료하세요" else "직접 다음 단계로 넘어가세요"
+    return when (r) {
+        StageReadiness.PLAN_REACHED -> "계획한 시간이 됐어요. 준비되면 $go."
+        StageReadiness.SETS_DONE -> "기록한 세트가 있어요. 준비되면 $go."
+        StageReadiness.MANUAL -> "시간이 정해지지 않은 단계예요. 준비되면 $go."
+        else -> null
+    }
 }
 
 @Composable
@@ -201,12 +205,16 @@ private fun StrengthExercise(e: RoutiveExerciseUi, vm: RoutiveSessionViewModel) 
     Move60Card(Modifier.testTag("routive_exercise_${e.id}")) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(e.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text("${e.done.size}세트 완료", color = secondary, modifier = Modifier.testTag("routive_sets_${e.id}"))
+            Text(e.targetSets?.let { "${e.done.size} / $it 세트" } ?: "${e.done.size}세트 완료", color = secondary, modifier = Modifier.testTag("routive_sets_${e.id}"))
         }
         e.done.forEach { Text("${it.number}세트 · ${it.kg}kg × ${it.reps}회", style = MaterialTheme.typography.bodyMedium) }
         var kg by remember(e.id, e.nextSetNumber) { mutableStateOf("") }
         var reps by remember(e.id, e.nextSetNumber) { mutableStateOf("") }
-        Text("${e.nextSetNumber}세트", color = secondary, style = MaterialTheme.typography.bodySmall)
+        Text(buildString {
+            append("${e.nextSetNumber}세트")
+            e.targetReps?.let { append(" · 목표 ${it}회") }
+            e.restSeconds?.let { append(" · 휴식 ${formatMmSs(it)}") }
+        }, color = secondary, style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("routive_target_${e.id}"))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(kg, { kg = it.filter { c -> c.isDigit() || c == '.' }.take(5) }, singleLine = true, label = { Text("kg") },
                 modifier = Modifier.weight(1f).testTag("routive_kg_${e.id}"))
@@ -219,5 +227,21 @@ private fun StrengthExercise(e: RoutiveExerciseUi, vm: RoutiveSessionViewModel) 
             Move60Button(onClick = { vm.completeSet(e.id, kg, reps) }, enabled = kg.isNotBlank() && reps.isNotBlank(),
                 modifier = Modifier.weight(1f).testTag("routive_set_done_${e.id}")) { Text("세트 완료") }
         }
+    }
+}
+
+@Composable
+private fun RestCard(rest: RoutiveRestUi, running: Boolean, vm: RoutiveSessionViewModel) {
+    val secondary = MaterialTheme.colorScheme.onSurfaceVariant
+    Move60Card(Modifier.testTag("routive_rest_card")) {
+        Text(if (rest.done) "휴식 끝" else "휴식 중", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
+            modifier = Modifier.testTag("routive_rest_title"))
+        if (rest.done) Text("준비되면 다음 세트를 시작하세요. 이후 시간은 다시 운동 시간에 포함돼요.", color = secondary, style = MaterialTheme.typography.bodySmall)
+        else {
+            Text(formatMmSs(rest.remainingSeconds), style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold,
+                modifier = Modifier.testTag("routive_rest_remaining"))
+            Text(if (running) "휴식 시간은 운동 시간에 포함되지 않아요." else "일시정지 중에는 휴식 타이머도 멈춰 있어요.", color = secondary, style = MaterialTheme.typography.bodySmall)
+        }
+        Move60Button(onClick = vm::skipRest, primary = false, modifier = Modifier.fillMaxWidth().testTag("routive_rest_skip")) { Text(if (rest.done) "닫기" else "휴식 건너뛰기") }
     }
 }

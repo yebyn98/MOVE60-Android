@@ -22,7 +22,8 @@ internal fun routiveNotificationText(s: RoutiveSession): RoutiveNotificationText
     val state = if (s.running) "진행 중" else if (s.autoPaused) "자동 일시정지" else "일시정지"
     return RoutiveNotificationText(
         title = "ROUTIVE · ${p.stageIndex + 1}/${p.plan.size} ${p.kind.listTitle()}",
-        body = "$state · 이 단계 ${formatMmSs(p.elapsedSeconds[p.stageIndex])} · 총 ${formatMmSs(p.totalElapsedSeconds)}",
+        body = "$state · " + (s.rest?.let { if (it.done) "휴식 끝 · " else "휴식 ${formatMmSs(it.remainingSeconds)} · " } ?: "") +
+            "이 단계 ${formatMmSs(p.elapsedSeconds[p.stageIndex])} · 총 ${formatMmSs(p.totalElapsedSeconds)}",
         actionLabel = if (s.running) "일시정지" else "재개"
     )
 }
