@@ -11,7 +11,6 @@ import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -59,10 +58,10 @@ class ComposeFirstRunTest {
                 // Figma 01: nothing is preselected, so the button is disabled until one purpose is chosen.
                 rule.waitUntil(15_000) { rule.onAllNodesWithTag("setup_purpose").fetchSemanticsNodes().isNotEmpty() }
                 rule.onNodeWithTag("tab_bar").assertDoesNotExist()
-                rule.onNodeWithText("운동 공간 선택").assertIsNotEnabled()
+                rule.onNodeWithTag("setup_purpose_continue").assertIsNotEnabled()
                 capture("compose-firstrun-purpose-empty.png")
                 rule.onNodeWithTag("purpose_STRENGTH").performClick()
-                rule.onNodeWithText("운동 공간 선택").assertIsEnabled()
+                rule.onNodeWithTag("setup_purpose_continue").assertIsEnabled()
                 capture("compose-firstrun-purpose.png")
                 rule.onNodeWithTag("setup_purpose_continue").performClick()
 

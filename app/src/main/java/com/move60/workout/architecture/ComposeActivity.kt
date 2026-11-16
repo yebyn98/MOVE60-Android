@@ -111,9 +111,9 @@ fun Move60ComposeApp(showIntro: Boolean = false, openCalendar: Boolean = false, 
     val firstRun: FirstRunViewModel = androidx.hilt.navigation.compose.hiltViewModel()
     val needsSetup by firstRun.needsSetup.collectAsStateWithLifecycle()
     androidx.compose.runtime.LaunchedEffect(Unit) { firstRun.decide(forceFirstRun) }
-    // Keyed on the decision only (not the route): finishing the setup returns to "dashboard" and must not start it again.
-    androidx.compose.runtime.LaunchedEffect(needsSetup) {
-        if (needsSetup == true && nav.currentDestination?.route == "dashboard") nav.navigate("setup_purpose") { popUpTo("dashboard") { inclusive = true } }
+    // The setup screens share this ViewModel; finishing sets the decision to false, so returning to "dashboard" never restarts it.
+    androidx.compose.runtime.LaunchedEffect(needsSetup, route) {
+        if (needsSetup == true && route == "dashboard") nav.navigate("setup_purpose") { popUpTo("dashboard") { inclusive = true } }
     }
     androidx.compose.runtime.LaunchedEffect(openResultId) {
         // Deep link used by tests and by re-opening the last result; never required for the normal flow.
