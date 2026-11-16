@@ -166,7 +166,7 @@ class RoutiveMigrationTest {
     @Test fun v5ToV6AddsSpaceTablesWithoutTouchingExistingRows() {
         helper.createDatabase(dbName, 5).use { db ->
             seedV1(db)
-            db.execSQL("INSERT INTO routine_plans(routineId,name,targetSeconds,createdAtEpochMs,updatedAtEpochMs) VALUES('r1','하체',NULL,1,2)")
+            db.execSQL("INSERT INTO routine_plans(routineId,name,structure,targetSeconds,createdAtEpochMs,updatedAtEpochMs) VALUES('r1','하체','ROUTIVE_4',NULL,1,2)")
         }
         helper.runMigrationsAndValidate(dbName, 6, true, RoutiveMigrations.MIGRATION_5_6).use { db ->
             assertEquals(2, db.query("SELECT COUNT(*) FROM daily_workouts").use { it.moveToFirst(); it.getInt(0) })
