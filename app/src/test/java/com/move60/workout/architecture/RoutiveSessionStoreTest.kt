@@ -153,4 +153,17 @@ class RoutiveSessionStoreTest {
         val st = store(); started(st); t += 20_000; st.advance(); st.endEarly()
         assertEquals(before, legacy.all.toMap())
     }
+
+    @Test fun aConfirmedCommitIsRememberedSoTheSessionIsNeverReBuffered() = runBlocking {
+        val st = store(); started(st)
+        t += 61_000; val ended = st.endEarly()!!
+        assertEquals(ended, st.pendingCommit())
+        st.markCommitted(ended.startedAtEpochMs)
+        assertNull("committed session is not pending", st.pendingCommit())
+        assertTrue(st.isCommitted(ended))
+        t += 1_000
+        assertTrue(st.start(plan("r2")) is RoutiveStart.Started)
+        assertEquals("a committed session is not archived again on the next start", 0, PendingSessionOutbox(context).size())
+        assertNull("a new running session is never pending", st.pendingCommit())
+    }
 }

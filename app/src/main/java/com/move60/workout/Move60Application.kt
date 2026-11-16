@@ -9,6 +9,7 @@ import com.move60.workout.architecture.PendingSessionOutbox
 import com.move60.workout.architecture.SessionCommitter
 import com.move60.workout.architecture.RoutiveSessionStore
 import com.move60.workout.architecture.drain
+import com.move60.workout.architecture.isConfirmedFor
 import com.move60.workout.architecture.TimerSessionSync
 import com.move60.workout.architecture.timerSnapshot
 import dagger.hilt.android.HiltAndroidApp
@@ -59,8 +60,11 @@ class Move60Application : Application(), Configuration.Provider {
                 // P1-1: sessions copied to the outbox before their timer slot was replaced are retried here.
                 // A ROUTIVE_4 session that ended but was never confirmed committed is buffered, then drained (idempotent).
                 val outbox = PendingSessionOutbox(this@Move60Application)
-                RoutiveSessionStore(this@Move60Application).let { rs -> rs.active()?.takeIf { it.over }?.let { outbox.enqueue(rs.snapshot(it)) } }
-                sync.drain(outbox)
+                val routive = RoutiveSessionStore(this@Move60Application)
+                val pending = routive.pendingCommit()
+                val pendingId = pending?.let { sync.sessionId(routive.snapshot(it)).also { _ -> outbox.enqueue(routive.snapshot(it)) } }
+                val outcomes = sync.drain(outbox)
+                if (pending != null && pendingId != null && outcomes.any { it.isConfirmedFor(pendingId) }) routive.markCommitted(pending.startedAtEpochMs)
             } catch (_: Throwable) { /* retried on next foreground */ }
         }
     }

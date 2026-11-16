@@ -156,6 +156,7 @@ class RoutiveSessionViewModel @Inject constructor(
             outbox.pending().none { sync.sessionId(it) == id } -> RoutiveOutcome.NotRecorded
             else -> RoutiveOutcome.RetryLater
         }
+        if (outcome != RoutiveOutcome.RetryLater) store.markCommitted(session.startedAtEpochMs)
         committing = false
     }
 }

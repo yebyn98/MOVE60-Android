@@ -44,6 +44,12 @@ class RoutiveSessionStore(
 
     fun active(): RoutiveSession? = read()
 
+    /** The commit of this (over) session was confirmed (saved, already saved, or below the validity threshold). */
+    fun markCommitted(startedAtEpochMs: Long) { prefs.edit().putLong(COMMITTED_KEY, startedAtEpochMs).commit() }
+    fun isCommitted(s: RoutiveSession): Boolean = prefs.getLong(COMMITTED_KEY, 0L) == s.startedAtEpochMs
+    /** An over session whose commit has not been confirmed yet (the only kind that is ever re-buffered). */
+    fun pendingCommit(): RoutiveSession? = read()?.takeIf { it.over && !isCommitted(it) }
+
     /** Starts a session from a saved routine. Refuses to overwrite a running/paused one; an over-session is archived first. */
     fun start(routine: SavedRoutinePlan): RoutiveStart {
         val plan = FourStagePlans.from(routine.stages) ?: return RoutiveStart.InvalidPlan
@@ -115,6 +121,7 @@ class RoutiveSessionStore(
     }
 
     private fun archive(s: RoutiveSession) {
+        if (isCommitted(s)) return
         try { PendingSessionOutbox(context).enqueue(snapshot(s)) } catch (_: Throwable) { /* the slot stays intact on failure */ }
     }
 
@@ -153,5 +160,13 @@ class RoutiveSessionStore(
         )
     } catch (_: Exception) { null }   // unreadable data is left in place, never overwritten or deleted by a read
 
-    companion object { const val NAME = "move60_routive_session_v1"; private const val KEY = "active" }
+    companion object { const val NAME = "move60_routive_session_v1"; private const val KEY = "active"; private const val COMMITTED_KEY = "committed_started_at" }
+}
+
+/** True when this sync outcome confirms what happens to the session with [id] (nothing more to retry). */
+internal fun SyncOutcome.isConfirmedFor(id: String): Boolean = when (this) {
+    is SyncOutcome.Committed -> sessionId == id
+    is SyncOutcome.AlreadyCommitted -> sessionId == id
+    is SyncOutcome.Discarded -> sessionId == id
+    else -> false
 }
