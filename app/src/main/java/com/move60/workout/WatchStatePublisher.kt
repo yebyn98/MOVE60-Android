@@ -3,6 +3,7 @@ package com.move60.workout
 import android.content.Context
 import com.google.android.gms.wearable.PutDataMapRequest
 import com.google.android.gms.wearable.Wearable
+import com.move60.workout.architecture.RoutiveWatchSync
 import org.json.JSONObject
 import kotlin.math.ceil
 
