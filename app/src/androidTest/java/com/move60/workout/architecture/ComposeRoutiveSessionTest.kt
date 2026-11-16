@@ -77,6 +77,11 @@ class ComposeRoutiveSessionTest {
             waitForDashboard()
             rule.onNodeWithTag("dashboard_saved_routines").performClick()
             waitTag("routine_list")
+            // The list loads asynchronously: wait for the first saved routine card before scrolling to ours.
+            val anyItem = androidx.compose.ui.test.SemanticsMatcher("routine item") {
+                it.config.getOrNull(androidx.compose.ui.semantics.SemanticsProperties.TestTag)?.startsWith("routine_item_") == true
+            }
+            rule.waitUntil(10_000) { rule.onAllNodes(anyItem).fetchSemanticsNodes().isNotEmpty() }
             rule.onNodeWithTag("routine_list").performScrollToNode(hasTestTag("routine_start_$id"))
             rule.onNodeWithTag("routine_start_$id").performClick()
             waitTag("routine_start_dialog")
