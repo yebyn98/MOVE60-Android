@@ -148,12 +148,17 @@ private fun RecordSessionCard(s: RecordSession, name: (String) -> String, onOpen
                 color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall)
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("운동 세션", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
+            Text(s.routineName ?: "운동 세션", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
             Icon(Icons.Outlined.ChevronRight, contentDescription = null)
         }
         Text(
             if (s.exerciseIds.isEmpty()) "완료한 세트 없음" else s.exerciseIds.joinToString(" · ") { name(it) },
             color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall
+        )
+        if (s.stageSeconds.isNotEmpty()) Text(
+            s.stageSeconds.joinToString(" · ") { (label, seconds) -> "$label ${RecordFormat.compact(seconds)}" },
+            color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.testTag("record_session_stages_${s.sessionId}")
         )
         Text("${RecordFormat.completionLabel(s.completion)} · 완료 세트 ${s.completedSets}개",
             color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall)
@@ -200,7 +205,7 @@ private fun SessionContent(
 ) {
     val s = detail.session
     RecordHeading(
-        "ACTIVITY / SESSION", "운동 세션",
+        "ACTIVITY / SESSION", s.routineName ?: "운동 세션",
         listOfNotNull(s.startClock?.let { "$it 시작" }, RecordFormat.completionLabel(s.completion)).joinToString(" · ")
     )
     Move60Card(Modifier.testTag("record_session_total")) {
@@ -209,7 +214,7 @@ private fun SessionContent(
             fontWeight = FontWeight.Bold, modifier = Modifier.testTag("record_session_total_time"))
     }
     Text("수행한 운동", style = MaterialTheme.typography.titleMedium)
-    StrengthStageCard(detail.exercises, name)
+    StageCards(detail, name)
     CorrectionSection(detail, name, onSaveCorrections)
     Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.testTag("record_session_footnote")) {
         Text("유효 기록은 시간형 활성 합계 60초↑ 또는 근력 1세트 완료↑", color = MaterialTheme.colorScheme.secondary,
@@ -220,7 +225,10 @@ private fun SessionContent(
 }
 
 @Composable
-private fun StrengthStageCard(exercises: List<ExerciseSets>, name: (String) -> String) {
+private fun StrengthStageCard(
+    exercises: List<ExerciseSets>, name: (String) -> String,
+    actualSeconds: Long? = null, plannedSeconds: Long? = null
+) {
     var open by rememberSaveable { mutableStateOf(true) }
     val shape = RoundedCornerShape(14.dp)
     Column(
@@ -238,9 +246,14 @@ private fun StrengthStageCard(exercises: List<ExerciseSets>, name: (String) -> S
                 Text("근력운동", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
                 Icon(if (open) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, contentDescription = if (open) "접기" else "펼치기")
             }
+            // With stage data the real time and the plan come first; without it the summary is exactly as before.
+            val timeParts = if (actualSeconds == null) emptyList() else listOf(
+                "실제 ${RecordFormat.compact(actualSeconds)}",
+                plannedSeconds?.let { "계획 ${RecordFormat.compact(it)}" } ?: "계획 시간 미정"
+            )
             Text(
-                if (exercises.isEmpty()) "완료한 세트가 없어요"
-                else "${exercises.size}종목 · ${exercises.sumOf { e -> e.sets.count { !it.differsFromStored } }}세트",
+                (timeParts + if (exercises.isEmpty()) listOf("완료한 세트가 없어요")
+                else listOf("${exercises.size}종목 · ${exercises.sumOf { e -> e.sets.count { !it.differsFromStored } }}세트")).joinToString(" · "),
                 color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.testTag("record_stage_summary")
             )
@@ -435,4 +448,84 @@ private fun HistoryDialog(history: List<CorrectionEntry>, name: (String) -> Stri
         },
         confirmButton = { TextButton(onClick = onClose, modifier = Modifier.heightIn(min = 48.dp)) { Text("닫기") } }
     )
+}
+
+/**
+ * Stage cards (Figma 27, docs/v61 D5). A session saved with stage data shows one card per stage that has real time, in stage
+ * order; strength keeps its real sets. A session without stage data shows only the strength card, exactly as before.
+ */
+@Composable
+private fun StageCards(detail: SessionDetail, name: (String) -> String) {
+    if (detail.stages.isEmpty()) {
+        StrengthStageCard(detail.exercises, name)
+        return
+    }
+    var strengthShown = false
+    detail.stages.forEach { stage ->
+        if (stage.kind == SegmentKind.STRENGTH) {
+            strengthShown = true
+            StrengthStageCard(detail.exercises, name, stage.actualSeconds, stage.plannedSeconds)
+        } else PlanStageCard(stage)
+    }
+    // Sets exist but no strength time was stored: still show them rather than hide recorded sets.
+    if (!strengthShown && detail.exercises.isNotEmpty()) StrengthStageCard(detail.exercises, name)
+}
+
+/**
+ * A non-strength stage: the REAL time, the plan time next to it ("계획 시간 미정" when unknown) and the planned items.
+ * Item times are plans, labelled "계획", never presented as measured. No cardio console values are stored, so the cardio
+ * stage says "수치 미기록" instead of showing numbers.
+ */
+@Composable
+private fun PlanStageCard(stage: StageRecord) {
+    var open by rememberSaveable(stage.index) { mutableStateOf(true) }
+    val shape = RoundedCornerShape(14.dp)
+    val cardio = stage.kind == SegmentKind.CARDIO_STEADY
+    Column(
+        Modifier.fillMaxWidth().testTag("record_stage_${stage.kind.name}")
+            .background(MaterialTheme.colorScheme.surfaceVariant, shape)
+            .border(1.dp, MaterialTheme.colorScheme.outline, shape)
+    ) {
+        Column(
+            Modifier.fillMaxWidth()
+                .clickable(onClickLabel = if (open) "접기" else "펼치기", role = Role.Button) { open = !open }
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text(stage.label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
+                Icon(if (open) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, contentDescription = if (open) "접기" else "펼치기")
+            }
+            Text(
+                listOfNotNull(
+                    "실제 ${RecordFormat.compact(stage.actualSeconds)}",
+                    stage.plannedSeconds?.let { "계획 ${RecordFormat.compact(it)}" } ?: "계획 시간 미정",
+                    if (stage.items.isNotEmpty()) "계획 항목 ${stage.items.size}개" else null
+                ).joinToString(" · "),
+                color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall
+            )
+        }
+        if (open && (stage.items.isNotEmpty() || cardio)) {
+            Column(Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                stage.items.forEach { item ->
+                    val itemShape = RoundedCornerShape(8.dp)
+                    Column(
+                        Modifier.fillMaxWidth().testTag("record_plan_item")
+                            .background(MaterialTheme.colorScheme.surface, itemShape)
+                            .border(1.dp, MaterialTheme.colorScheme.outline, itemShape).padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Box(Modifier.width(3.dp).height(22.dp).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(2.dp)))
+                            Text(item.name, fontWeight = FontWeight.Medium)
+                        }
+                        Text(item.plannedSeconds?.let { "계획 ${RecordFormat.compact(it)}" } ?: "계획 시간 미정",
+                            color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                if (cardio) Text("수치 미기록", color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.testTag("record_cardio_no_values"))
+            }
+        }
+    }
 }

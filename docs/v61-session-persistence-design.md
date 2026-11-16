@@ -3,6 +3,7 @@
 **상태: 승인됨 — 사용자 "권고대로 진행"(2026-11-16)으로 7항 모두 권고안, 6번 칼로리는 정책 확정 전 미표시.**
 **슬라이스 1(저장 경로) 코드 작성 완료, CI 검증 전.** 슬라이스 2(읽기·화면)와 정정 이력은 미착수.
 구현 위치: `RoutivePlanSnapshot`, `TimerSnapshot`/`TimerStage`/`stageSegments`(`TimerSessionSync.kt`), `RoutiveSessionStore`(시작 시 계획 보관·`snapshot()`), `PendingSessionOutbox`(선택 필드), `SessionCommitter.sameContent`(D3).
+슬라이스 2(읽기·화면): 26 카드에 루틴 이름·단계 시간, 27에 단계 카드(`RecordReader.stageRecords`, `PlanStageCard`). 테스트 `RecordStageReadTest`, 에뮬레이터 `ComposeRecordStagesTest`. CI 검증 전.
 테스트: `SessionStageSegmentsTest`(AC-S1~S7), `RoutivePlanSnapshotTest`. AC-S8(스키마 불변)은 변경 파일에 `app/schemas/`가 없음으로 확인.
 목적: Figma 27(세션 상세)이 요구하는 루틴 이름·단계별 시간을 실제 저장 데이터로 보여줄 수 있게 한다. 근거와 한계는 `docs/v60-record-screens.md`.
 
