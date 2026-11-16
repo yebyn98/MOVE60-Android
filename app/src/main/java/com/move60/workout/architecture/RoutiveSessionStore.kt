@@ -64,7 +64,8 @@ class RoutiveSessionStore(
     /** Attributes elapsed running time to the current stage. Returns the up-to-date session or null when there is none. */
     fun reconcile(now: Long = clock()): RoutiveSession? {
         val s = read() ?: return null
-        return write(settle(s, now), durable = false)
+        val next = settle(s, now)
+        return if (next === s) s else write(next, durable = false)
     }
 
     fun pause(): RoutiveSession? = mutate { s, now -> settle(s, now).let { it.copy(running = false, checkpointEpochMs = 0L) } }

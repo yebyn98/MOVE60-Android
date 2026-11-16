@@ -38,10 +38,17 @@ internal fun SavedRoutinePlan.toListItem() = RoutineListItem(
 
 enum class RoutineListLoad { LOADING, READY, FAILED }
 
-data class RoutineListUiState(val load: RoutineListLoad = RoutineListLoad.LOADING, val items: List<RoutineListItem> = emptyList())
+data class RoutineListUiState(
+    val load: RoutineListLoad = RoutineListLoad.LOADING, val items: List<RoutineListItem> = emptyList(),
+    /** Name of the ROUTIVE_4 session in progress, if any. */
+    val activeRoutineName: String? = null
+)
 
 @HiltViewModel
-class RoutineListViewModel @Inject constructor(private val service: RoutinePlanService) : ViewModel() {
+class RoutineListViewModel @Inject constructor(
+    private val service: RoutinePlanService,
+    private val launcher: RoutiveSessionLauncher
+) : ViewModel() {
     private val _state = MutableStateFlow(RoutineListUiState())
     val state: StateFlow<RoutineListUiState> = _state.asStateFlow()
 
@@ -50,11 +57,19 @@ class RoutineListViewModel @Inject constructor(private val service: RoutinePlanS
     fun refresh() {
         _state.value = _state.value.copy(load = RoutineListLoad.LOADING)
         viewModelScope.launch {
+            val active = launcher.activeSession()?.routineName
             _state.value = try {
-                RoutineListUiState(RoutineListLoad.READY, service.list().map { it.toListItem() })
+                RoutineListUiState(RoutineListLoad.READY, service.list().map { it.toListItem() }, active)
             } catch (_: Exception) {
-                RoutineListUiState(RoutineListLoad.FAILED, _state.value.items)   // keep what was shown, no invented data
+                RoutineListUiState(RoutineListLoad.FAILED, _state.value.items, active)   // keep what was shown, no invented data
             }
         }
+    }
+
+    /** Re-reads only whether a session is in progress (used when the screen is shown again). */
+    fun refreshActive() { _state.value = _state.value.copy(activeRoutineName = launcher.activeSession()?.routineName) }
+
+    fun start(routineId: String, onResult: (LaunchResult) -> Unit) {
+        viewModelScope.launch { onResult(try { launcher.start(routineId) } catch (_: Exception) { LaunchResult.Failed }) }
     }
 }

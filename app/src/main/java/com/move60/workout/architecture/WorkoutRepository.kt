@@ -171,6 +171,9 @@ class DefaultWorkoutRepository @Inject constructor(
     }
     override suspend fun startPause() = mutate {
         if (session.running) session.pause() else {
+            // One workout at a time: a ROUTIVE_4 session in progress is never run in parallel with a legacy one.
+            if (RoutiveSessionStore(context).active()?.over == false)
+                throw IllegalStateException("진행 중인 운동이 있어요. 먼저 마치거나 종료해 주세요.")
             if (session.finished || session.elapsed() == 0) session.refreshRoutine()
             session.start()
             setStore.beginSession(session.day, session.sessionStartedAt)

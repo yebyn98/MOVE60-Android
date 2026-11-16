@@ -7,6 +7,7 @@ import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import com.move60.workout.architecture.PendingSessionOutbox
 import com.move60.workout.architecture.SessionCommitter
+import com.move60.workout.architecture.RoutiveSessionStore
 import com.move60.workout.architecture.drain
 import com.move60.workout.architecture.TimerSessionSync
 import com.move60.workout.architecture.timerSnapshot
@@ -56,7 +57,10 @@ class Move60Application : Application(), Configuration.Provider {
                 val snapshot = SessionStore(this@Move60Application, WorkoutData(this@Move60Application)).timerSnapshot(com.move60.workout.SetRecordStore(this@Move60Application))
                 if (settle) sync.onForeground(snapshot) else sync.syncFinished(snapshot)
                 // P1-1: sessions copied to the outbox before their timer slot was replaced are retried here.
-                sync.drain(PendingSessionOutbox(this@Move60Application))
+                // A ROUTIVE_4 session that ended but was never confirmed committed is buffered, then drained (idempotent).
+                val outbox = PendingSessionOutbox(this@Move60Application)
+                RoutiveSessionStore(this@Move60Application).let { rs -> rs.active()?.takeIf { it.over }?.let { outbox.enqueue(rs.snapshot(it)) } }
+                sync.drain(outbox)
             } catch (_: Throwable) { /* retried on next foreground */ }
         }
     }

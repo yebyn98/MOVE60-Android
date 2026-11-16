@@ -183,6 +183,8 @@ class SessionStore(private val context: Context, private val data: WorkoutData, 
         completed.clear()
     }
     private fun stageSeconds(s: Int = stage) = routine.stages[s].minutes * 60
+    /** A legacy (5-stage) session is in progress: started, not finished and not ended early. */
+    val hasActiveSession: Boolean get() = !finished && !endedEarly && (running || sessionStartedAt > 0L || accumulatedActiveSeconds > 0)
     fun reloadIfChanged(): Boolean {
         if (recordDate != dateNow() && !running) {
             archiveUncommitted()

@@ -124,13 +124,17 @@ fun Move60ComposeApp(showIntro: Boolean = false, openCalendar: Boolean = false, 
                     }
                     composable("challenge") { ChallengeScreen(onBack = { nav.popBackStack() }) }
                     composable("routine_compose") { RoutineComposeScreen(onBack = { nav.popBackStack() }) }
-                    composable("routine_list") { RoutineListScreen(onBack = { nav.popBackStack() }, onCompose = { nav.navigate("routine_compose") }) }
+                    composable("routine_list") { RoutineListScreen(
+                        onBack = { nav.popBackStack() }, onCompose = { nav.navigate("routine_compose") },
+                        onOpenSession = { nav.navigate("routive_session") { launchSingleTop = true } }
+                    ) }
+                    composable("routive_session") { RoutiveSessionScreen(onBack = { nav.popBackStack() }, onResult = openResult) }
                     composable("calendar") { WorkoutCalendar(onBack = { nav.popBackStack() }) }
                     composable("settings") { WorkoutSettings(onBack = { nav.popBackStack() }) }
                 }
                 // Provisional rule (pending policy confirmation): hide the tab bar while a workout is running
                 // so it never competes with the workout dock.
-                if (route != "workout" && !(workoutRunning && route == "dashboard")) {
+                if (route != "workout" && route != "routive_session" && !(workoutRunning && route == "dashboard")) {
                     Move60TabBar(route) { tab ->
                         nav.navigate(tab.route) {
                             popUpTo("dashboard") { saveState = true }
