@@ -88,6 +88,8 @@ class ComposeRecordStagesTest {
                     rule.onAllNodesWithContentDescription("$date · 운동 기록 있음", substring = true).fetchSemanticsNodes().isNotEmpty()
                 }
                 rule.onNodeWithContentDescription("$date · 운동 기록 있음", substring = true).performScrollTo().performClick()
+                // A day with a stored session must not show the "no record" toast (seen on a real emulator capture).
+                rule.onNodeWithText("운동한 기록이 없습니다.").assertDoesNotExist()
                 rule.waitUntil(10_000) {
                     runCatching { rule.onNodeWithTag("calendar_list").performScrollToNode(hasTestTag("record_day_summary")) }.isSuccess
                 }

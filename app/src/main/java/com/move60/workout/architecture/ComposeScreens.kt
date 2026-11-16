@@ -410,9 +410,13 @@ fun WorkoutCalendar(
     // Tapping a day selects it; a day without a record also shows a short toast (every tap, not only the first).
     val onDayClick: (java.time.LocalDate) -> Unit = { date ->
         viewModel.select(date)
-        if (!viewModel.trained(date)) scope.launch {
-            snackbar.currentSnackbarData?.dismiss()
-            snackbar.showSnackbar("운동한 기록이 없습니다.", duration = SnackbarDuration.Short)
+        // A day counts as recorded when it has v58 history OR a stored session; the toast must not contradict the day card.
+        scope.launch {
+            val hasStoredSession = viewModel.dayRecord(date)?.sessions?.isNotEmpty() == true
+            if (!viewModel.trained(date) && !hasStoredSession) {
+                snackbar.currentSnackbarData?.dismiss()
+                snackbar.showSnackbar("운동한 기록이 없습니다.", duration = SnackbarDuration.Short)
+            }
         }
     }
     if (showConflicts) AlertDialog(
