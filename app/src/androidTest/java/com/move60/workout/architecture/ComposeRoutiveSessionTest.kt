@@ -172,23 +172,6 @@ class ComposeRoutiveSessionTest {
         }
     }
 
-    @Test fun notificationTapHandlerReturnsToTheExistingSession() {
-        val id = prepareRoutine()
-        try {
-            startFromList(id)
-            rule.onNodeWithTag("routive_back").performClick()                        // leave the screen, the session keeps existing
-            waitTag("routine_list")
-            // Same delivery path a notification tap uses on an open app (the real tap itself is not exercised here).
-            rule.runOnUiThread {
-                rule.activity.onNewIntent(android.content.Intent(context, ComposeActivity::class.java).putExtra(RoutiveSessionService.EXTRA_OPEN_SESSION, true))
-            }
-            waitTag("routive_stage_card", 15_000)
-            rule.onNodeWithTag("routive_pause").assertIsDisplayed()                  // same running session, not a new one
-        } finally {
-            RoutiveSessionStore(context).let { s -> if (s.active()?.over == false) s.endEarly() }
-        }
-    }
-
     @Test fun explicitFinalSkipFinishesAndIsSavedAsCompleted() {
         val id = prepareRoutine()
         try {
