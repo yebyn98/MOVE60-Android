@@ -24,10 +24,12 @@ object WorkoutProvides {
     fun database(@ApplicationContext context: Context): WorkoutDatabase =
         Room.databaseBuilder(context, WorkoutDatabase::class.java, "move60_workouts_room_v1.db")
             // Keep the shipped file name so existing history is upgraded in place.
-            .addMigrations(RoutiveMigrations.MIGRATION_1_2, RoutiveMigrations.MIGRATION_2_3, RoutiveMigrations.MIGRATION_3_4, RoutiveMigrations.MIGRATION_4_5)
+            .addMigrations(RoutiveMigrations.MIGRATION_1_2, RoutiveMigrations.MIGRATION_2_3, RoutiveMigrations.MIGRATION_3_4, RoutiveMigrations.MIGRATION_4_5, RoutiveMigrations.MIGRATION_5_6)
             .build()
 
     @Provides fun dao(database: WorkoutDatabase): WorkoutDao = database.workoutDao()
+    @Provides fun spaceDao(database: WorkoutDatabase): SpaceDao = database.spaceDao()
+    @Provides @Singleton fun spaceService(database: WorkoutDatabase): SpaceService = SpaceService(database)
     @Provides fun routiveDao(database: WorkoutDatabase): RoutiveDao = database.routiveDao()
     @Provides @Singleton fun sessionCommitter(database: WorkoutDatabase): SessionCommitter = SessionCommitter(database)
     @Provides @Singleton fun routinePlanService(database: WorkoutDatabase): RoutinePlanService = RoutinePlanService(database)

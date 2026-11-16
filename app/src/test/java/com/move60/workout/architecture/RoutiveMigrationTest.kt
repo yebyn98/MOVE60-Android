@@ -82,7 +82,7 @@ class RoutiveMigrationTest {
 
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val db = Room.databaseBuilder(context, WorkoutDatabase::class.java, dbName)
-            .addMigrations(RoutiveMigrations.MIGRATION_1_2, RoutiveMigrations.MIGRATION_2_3, RoutiveMigrations.MIGRATION_3_4, RoutiveMigrations.MIGRATION_4_5).allowMainThreadQueries().build()
+            .addMigrations(RoutiveMigrations.MIGRATION_1_2, RoutiveMigrations.MIGRATION_2_3, RoutiveMigrations.MIGRATION_3_4, RoutiveMigrations.MIGRATION_4_5, RoutiveMigrations.MIGRATION_5_6).allowMainThreadQueries().build()
         try {
             val legacy = db.workoutDao()
             assertEquals(3540L, legacy.day("2026-11-04")?.activeSeconds)
@@ -159,6 +159,20 @@ class RoutiveMigrationTest {
             db.execSQL("UPDATE routine_exercises SET targetSets=3, targetReps=10, restSeconds=90 WHERE exerciseId='legPress'")
             db.query("SELECT restSeconds FROM routine_exercises WHERE exerciseId='legPress'").use { assertTrue(it.moveToFirst()); assertEquals(90L, it.getLong(0)) }
             assertEquals(2, db.query("SELECT COUNT(*) FROM daily_workouts").use { it.moveToFirst(); it.getInt(0) })
+        }
+    }
+
+    /** v5 -> v6 adds the MY tab tables; every existing row (history, routines) survives and the new tables start empty. */
+    @Test fun v5ToV6AddsSpaceTablesWithoutTouchingExistingRows() {
+        helper.createDatabase(dbName, 5).use { db ->
+            seedV1(db)
+            db.execSQL("INSERT INTO routine_plans(routineId,name,targetSeconds,createdAtEpochMs,updatedAtEpochMs) VALUES('r1','하체',NULL,1,2)")
+        }
+        helper.runMigrationsAndValidate(dbName, 6, true, RoutiveMigrations.MIGRATION_5_6).use { db ->
+            assertEquals(2, db.query("SELECT COUNT(*) FROM daily_workouts").use { it.moveToFirst(); it.getInt(0) })
+            assertEquals(1, db.query("SELECT COUNT(*) FROM routine_plans").use { it.moveToFirst(); it.getInt(0) })
+            assertEquals(0, db.query("SELECT COUNT(*) FROM workout_spaces").use { it.moveToFirst(); it.getInt(0) })
+            assertEquals(0, db.query("SELECT COUNT(*) FROM space_equipment").use { it.moveToFirst(); it.getInt(0) })
         }
     }
 }

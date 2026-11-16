@@ -39,7 +39,7 @@ class RoutiveUpgradeInstrumentedTest {
 
     private val chain = arrayOf(
         RoutiveMigrations.MIGRATION_1_2, RoutiveMigrations.MIGRATION_2_3,
-        RoutiveMigrations.MIGRATION_3_4, RoutiveMigrations.MIGRATION_4_5
+        RoutiveMigrations.MIGRATION_3_4, RoutiveMigrations.MIGRATION_4_5, RoutiveMigrations.MIGRATION_5_6
     )
 
     @Before fun removeStaleTestFile() { context.deleteDatabase(dbName) }
