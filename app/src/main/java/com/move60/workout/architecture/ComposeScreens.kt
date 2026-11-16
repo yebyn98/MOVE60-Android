@@ -410,9 +410,13 @@ fun WorkoutCalendar(
     // Tapping a day selects it; a day without a record also shows a short toast (every tap, not only the first).
     val onDayClick: (java.time.LocalDate) -> Unit = { date ->
         viewModel.select(date)
-        if (!viewModel.trained(date)) scope.launch {
-            snackbar.currentSnackbarData?.dismiss()
-            snackbar.showSnackbar("운동한 기록이 없습니다.", duration = SnackbarDuration.Short)
+        // A day counts as recorded when it has v58 history OR a stored session; the toast must not contradict the day card.
+        scope.launch {
+            val hasStoredSession = viewModel.dayRecord(date)?.sessions?.isNotEmpty() == true
+            if (!viewModel.trained(date) && !hasStoredSession) {
+                snackbar.currentSnackbarData?.dismiss()
+                snackbar.showSnackbar("운동한 기록이 없습니다.", duration = SnackbarDuration.Short)
+            }
         }
     }
     if (showConflicts) AlertDialog(
@@ -479,7 +483,11 @@ fun WorkoutCalendar(
             }
             item { MonthGrid(viewModel, month, selected, sessionDates, onDayClick) }
             item {
-                val summary = viewModel.monthSummary(month)
+                val legacyMonth = viewModel.monthSummary(month)
+                // Stored sessions are counted too (v58 and stored time are never added on one date); no calories (policy 7).
+                val summary by androidx.compose.runtime.produceState(MonthSummaryUi(legacyMonth.trainedDays, legacyMonth.activeMinutes), month) {
+                    value = viewModel.monthSummaryCombined(month)
+                }
                 Column(Modifier.fillMaxWidth().testTag("calendar_summary"),
                     verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
@@ -490,8 +498,12 @@ fun WorkoutCalendar(
                             LegendDot(lowerDot, "하체")
                             LegendDot(null, "부위 미기록")
                         }
-                        Text("이번 달 ${summary.trainedDays}일 · ${summary.activeMinutes}분 · 약 ${summary.kcal} kcal",
+                        Text("이번 달 ${summary.trainedDays}일 · ${summary.activeMinutes}분",
                             color = secondary, style = MaterialTheme.typography.bodySmall)
+                    }
+                    if (summary.trainedDays == 0) {
+                        Text("이 달의 운동 기록이 없어요.", color = secondary, style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.testTag("calendar_month_empty"))
                     }
                     if (!viewModel.trained(selected) && !hasSessions) {
                         Row(Modifier.fillMaxWidth().testTag("calendar_day_empty"),
@@ -591,7 +603,7 @@ internal fun SetRecordsSection(day: LegacySetDay, exerciseName: (String) -> Stri
             SetGroupCard("저장된 운동 기록", "linked", group, exerciseName)
         }
         day.unlinked.forEach { group ->
-            SetGroupCard("이전 버전에서 저장한 기록", "legacy", group, exerciseName,
+            SetGroupCard("이전 버전 운동 기록", "legacy", group, exerciseName,
                 note = "저장된 운동과 연결할 수 없어 시간 없이 보여줘요.")
         }
     }
@@ -1008,7 +1020,7 @@ enum class Move60Tab(val route: String, val label: String, val tag: String) {
     TODAY("dashboard", "오늘", "tab_today"),
     RECORD("calendar", "기록", "tab_calendar"),
     CHALLENGE("challenge", "도전", "tab_challenge"),
-    MY("settings", "마이", "tab_settings")
+    MY("my", "마이", "tab_settings")
 }
 
 /** Material 3 bottom navigation: 48dp+ targets, labels always shown, safe-area aware. */
@@ -1021,7 +1033,8 @@ fun Move60TabBar(currentRoute: String?, onSelect: (Move60Tab) -> Unit) {
         Move60Tab.values().forEach { tab ->
             NavigationBarItem(
                 // The record detail screens (day, session) belong to the 기록 tab.
-                selected = currentRoute == tab.route || (tab == Move60Tab.RECORD && currentRoute?.startsWith("record_") == true),
+                selected = currentRoute == tab.route || (tab == Move60Tab.RECORD && currentRoute?.startsWith("record_") == true) ||
+                    (tab == Move60Tab.MY && (currentRoute == "settings" || currentRoute?.startsWith("my_") == true)),
                 onClick = { onSelect(tab) },
                 modifier = Modifier.testTag(tab.tag),
                 icon = {

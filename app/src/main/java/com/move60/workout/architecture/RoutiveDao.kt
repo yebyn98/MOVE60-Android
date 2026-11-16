@@ -46,12 +46,26 @@ interface RoutiveDao {
     @Query("SELECT DISTINCT date FROM session_day_slices WHERE date >= :from AND date <= :to ORDER BY date")
     suspend fun sessionDatesBetween(from: String, to: String): List<String>
 
+    /** MY tab numbers. Read-only. */
+    @Query("SELECT COUNT(*) FROM sessions") suspend fun sessionCount(): Int
+    @Query("SELECT COUNT(*) FROM challenges WHERE status = 'COMPLETE'") suspend fun completedChallengeCount(): Int
+    @Query("SELECT sessionId FROM sessions ORDER BY COALESCE(startedAtEpochMs, committedAtEpochMs) DESC, sessionId DESC LIMIT 1")
+    suspend fun latestSessionId(): String?
+
+    /** Every session-zone ISO date that has stored session time (MY tab lifetime count). Read-only. */
+    @Query("SELECT DISTINCT date FROM session_day_slices ORDER BY date")
+    suspend fun allSessionDates(): List<String>
+
     /** Stored sessions with time on [date], earliest start first (record day list). Read-only. */
     @Query(
         "SELECT s.* FROM sessions s INNER JOIN session_day_slices d ON d.sessionId = s.sessionId " +
             "WHERE d.date = :date ORDER BY s.startedAtEpochMs, s.sessionId"
     )
     suspend fun sessionsOn(date: String): List<SessionEntity>
+
+    /** Stored session seconds per session-zone date in [from, to] (month summary). Read-only. */
+    @Query("SELECT date AS date, SUM(activeSecondsOnDate) AS seconds FROM session_day_slices WHERE date >= :from AND date <= :to GROUP BY date")
+    suspend fun sessionSecondsByDate(from: String, to: String): List<DaySeconds>
 
     @Query("SELECT activeSecondsOnDate FROM session_day_slices WHERE sessionId = :sessionId AND date = :date")
     suspend fun sliceSeconds(sessionId: String, date: String): Long?
@@ -116,3 +130,6 @@ interface RoutiveDao {
     @Query("SELECT * FROM routine_exercises WHERE routineId = :id ORDER BY stageIndex, orderIndex") suspend fun routineExercises(id: String): List<RoutineExerciseEntity>
     @Query("SELECT * FROM routine_plans ORDER BY updatedAtEpochMs DESC") suspend fun routinePlans(): List<RoutinePlanEntity>
 }
+
+/** Query result: stored session seconds on one date. */
+data class DaySeconds(val date: String, val seconds: Long)

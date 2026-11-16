@@ -1,0 +1,147 @@
+package com.move60.workout.architecture
+
+import androidx.room.withTransaction
+
+/**
+ * Record correction (policy 6, P-22/P-23). The owner can correct the weight and repetitions of a COMPLETED set that
+ * really exists in a stored session. The stored rows (`session_sets`, intervals, day slices, the session itself) are NEVER
+ * changed: every correction is a new append-only row in `session_adjustments` holding the previous value, the new value and
+ * the time, and the screen shows the latest value on top of the untouched original.
+ *
+ * Not correctable here: sensor/raw active intervals, the session id, a set that was never recorded (nothing is created),
+ * and values the app never stored (RPE, cardio console values) - there is nothing to correct for those.
+ * Corrections cannot change active time or challenge credit, so closed challenge snapshots are untouched by construction.
+ */
+object CorrectionField {
+    const val WEIGHT = "weightKg"
+    const val REPS = "repetitions"
+
+    fun set(exerciseId: String, setNumber: Int, attribute: String) = "set:$exerciseId:$setNumber:$attribute"
+
+    data class Parsed(val exerciseId: String, val setNumber: Int, val attribute: String)
+
+    /** Parsed from the right, so an exercise id may itself contain ':'. Null for anything this code did not write. */
+    fun parse(field: String): Parsed? {
+        if (!field.startsWith("set:")) return null
+        val body = field.removePrefix("set:")
+        val attrAt = body.lastIndexOf(':')
+        if (attrAt <= 0) return null
+        val attribute = body.substring(attrAt + 1)
+        if (attribute != WEIGHT && attribute != REPS) return null
+        val rest = body.substring(0, attrAt)
+        val numAt = rest.lastIndexOf(':')
+        if (numAt <= 0) return null
+        val number = rest.substring(numAt + 1).toIntOrNull() ?: return null
+        return Parsed(rest.substring(0, numAt), number, attribute)
+    }
+}
+
+/** Values the user typed. null = leave that value as it is. */
+data class SetCorrection(val exerciseId: String, val setNumber: Int, val weightKg: String? = null, val repetitions: String? = null)
+
+sealed interface CorrectionResult {
+    data class Saved(val adjustments: Int) : CorrectionResult
+    data object SessionNotFound : CorrectionResult
+    /** The set does not exist or was not completed. A correction never creates a set. */
+    data class SetNotFound(val exerciseId: String, val setNumber: Int) : CorrectionResult
+    data class InvalidValue(val exerciseId: String, val setNumber: Int, val attribute: String) : CorrectionResult
+    /** Every given value already equals the current one, so nothing is written. */
+    data object Unchanged : CorrectionResult
+    data class Failed(val cause: Throwable) : CorrectionResult
+}
+
+/** The latest corrected value per set; null = never corrected (show the stored original). */
+data class SetValues(val kg: String?, val reps: String?)
+
+data class CorrectionEntry(
+    val adjustmentId: Long, val createdAtEpochMs: Long, val exerciseId: String, val setNumber: Int,
+    /** [CorrectionField.WEIGHT] or [CorrectionField.REPS]. */
+    val attribute: String, val oldValue: String?, val newValue: String?, val reason: String?
+)
+
+internal object CorrectionRules {
+    private val WEIGHT = Regex("^\\d+(\\.\\d+)?$")
+    private val REPS = Regex("^\\d+$")
+
+    /** Same bounds as live input (0..500 kg). Blank is not accepted: a correction never removes a recorded value. */
+    fun weight(raw: String): String? {
+        val t = raw.trim()
+        if (!WEIGHT.matches(t)) return null
+        val v = t.toDoubleOrNull() ?: return null
+        return if (v in 0.0..500.0) t else null
+    }
+
+    /** Same bounds as live input (1..100 reps). */
+    fun reps(raw: String): String? {
+        val t = raw.trim()
+        if (!REPS.matches(t)) return null
+        val v = t.toIntOrNull() ?: return null
+        return if (v in 1..100) t else null
+    }
+}
+
+class SessionCorrectionService(private val db: WorkoutDatabase, private val clock: () -> Long = System::currentTimeMillis) {
+    private val dao get() = db.routiveDao()
+
+    /** Latest corrected value per (exercise, set), replayed in the order the corrections were saved. */
+    suspend fun overlay(sessionId: String): Map<Pair<String, Int>, SetValues> {
+        val out = HashMap<Pair<String, Int>, SetValues>()
+        for (a in dao.adjustments(sessionId)) {
+            val f = CorrectionField.parse(a.field) ?: continue
+            val key = f.exerciseId to f.setNumber
+            val current = out[key] ?: SetValues(null, null)
+            out[key] = if (f.attribute == CorrectionField.WEIGHT) current.copy(kg = a.newValue) else current.copy(reps = a.newValue)
+        }
+        return out
+    }
+
+    /** Oldest first. Each row keeps the value before the change, so the original is always the first `oldValue` of a chain. */
+    suspend fun history(sessionId: String): List<CorrectionEntry> = dao.adjustments(sessionId).mapNotNull { a ->
+        CorrectionField.parse(a.field)?.let {
+            CorrectionEntry(a.adjustmentId, a.createdAtEpochMs, it.exerciseId, it.setNumber, it.attribute, a.oldValue, a.newValue, a.reason)
+        }
+    }
+
+    /**
+     * Saves all given corrections or none. Every value is validated first; one invalid value, a missing set or a duplicate
+     * set in the request writes nothing. Only values that differ from the current one are recorded.
+     */
+    suspend fun apply(sessionId: String, edits: List<SetCorrection>, reason: String? = null): CorrectionResult = try {
+        db.withTransaction {
+            if (dao.session(sessionId) == null) return@withTransaction CorrectionResult.SessionNotFound
+            val stored = dao.sets(sessionId).filter { it.state == SetState.COMPLETED.name }.associateBy { it.exerciseId to it.setNumber }
+            val current = overlay(sessionId)
+            val now = clock()
+            val seen = HashSet<Pair<String, Int>>()
+            val pending = ArrayList<SessionAdjustmentEntity>()
+            for (e in edits) {
+                val key = e.exerciseId to e.setNumber
+                val row = stored[key] ?: return@withTransaction CorrectionResult.SetNotFound(e.exerciseId, e.setNumber)
+                if (!seen.add(key)) return@withTransaction CorrectionResult.InvalidValue(e.exerciseId, e.setNumber, "duplicate")
+                val shown = current[key]
+                if (e.weightKg != null) {
+                    val v = CorrectionRules.weight(e.weightKg) ?: return@withTransaction CorrectionResult.InvalidValue(e.exerciseId, e.setNumber, CorrectionField.WEIGHT)
+                    val old = shown?.kg ?: row.weightKg
+                    if (v != old) pending += SessionAdjustmentEntity(
+                        sessionId = sessionId, createdAtEpochMs = now, field = CorrectionField.set(e.exerciseId, e.setNumber, CorrectionField.WEIGHT),
+                        oldValue = old, newValue = v, reason = reason
+                    )
+                }
+                if (e.repetitions != null) {
+                    val v = CorrectionRules.reps(e.repetitions) ?: return@withTransaction CorrectionResult.InvalidValue(e.exerciseId, e.setNumber, CorrectionField.REPS)
+                    val old = shown?.reps ?: row.repetitions
+                    if (v != old) pending += SessionAdjustmentEntity(
+                        sessionId = sessionId, createdAtEpochMs = now, field = CorrectionField.set(e.exerciseId, e.setNumber, CorrectionField.REPS),
+                        oldValue = old, newValue = v, reason = reason
+                    )
+                }
+            }
+            if (pending.isEmpty()) return@withTransaction CorrectionResult.Unchanged
+            pending.forEach { dao.appendAdjustment(it) }
+            CorrectionResult.Saved(pending.size)
+        }
+    } catch (error: Throwable) {
+        if (error is kotlinx.coroutines.CancellationException) throw error
+        CorrectionResult.Failed(error)
+    }
+}

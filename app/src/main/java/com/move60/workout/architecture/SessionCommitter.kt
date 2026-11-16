@@ -218,13 +218,25 @@ class SessionCommitter(private val db: WorkoutDatabase, private val clock: () ->
         )
     }
 
+    /**
+     * Idempotency check (docs/v61 D3). The CORE (session row without the plan snapshot, intervals, day slices, sets) must
+     * match exactly. The ENRICHMENT (plan snapshot, stage segments) is compared only when BOTH sides carry it: a session
+     * saved by an older build has none, so replaying it with enrichment (or the reverse) is an `AlreadyCommitted` no-op
+     * instead of a `Conflict`, and the stored rows are never changed. Two different enrichments stay a `Conflict`.
+     */
     private suspend fun sameContent(existing: SessionEntity, incoming: Normalized): Boolean {
         val b = incoming.bundle
-        return incoming.valid &&
-            existing.copy(committedAtEpochMs = 0L) == b.session.copy(committedAtEpochMs = 0L) &&
+        if (!incoming.valid) return false
+        val core = existing.copy(planSnapshotJson = null, committedAtEpochMs = 0L) ==
+            b.session.copy(planSnapshotJson = null, committedAtEpochMs = 0L) &&
             dao.intervals(existing.sessionId) == b.intervals &&
             dao.slices(existing.sessionId) == incoming.slices &&
-            dao.sets(existing.sessionId) == b.sets &&
-            dao.segments(existing.sessionId) == b.segments
+            dao.sets(existing.sessionId) == b.sets
+        if (!core) return false
+        val storedSegments = dao.segments(existing.sessionId)
+        val segmentsAgree = storedSegments.isEmpty() || b.segments.isEmpty() || storedSegments == b.segments
+        val storedPlan = existing.planSnapshotJson
+        val plansAgree = storedPlan == null || b.session.planSnapshotJson == null || storedPlan == b.session.planSnapshotJson
+        return segmentsAgree && plansAgree
     }
 }

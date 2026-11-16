@@ -18,12 +18,14 @@ import androidx.room.RoomDatabase
         SessionSetEntity::class, SessionAdjustmentEntity::class,
         ChallengeEntity::class, ChallengeDayCreditEntity::class,
         SessionDraftEntity::class,
-        RoutinePlanEntity::class, RoutineStagePlanEntity::class, RoutineExerciseEntity::class
+        RoutinePlanEntity::class, RoutineStagePlanEntity::class, RoutineExerciseEntity::class,
+        WorkoutSpaceEntity::class, SpaceEquipmentEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = true
 )
 abstract class WorkoutDatabase : RoomDatabase() {
     abstract fun workoutDao(): WorkoutDao
     abstract fun routiveDao(): RoutiveDao
+    abstract fun spaceDao(): SpaceDao
 }

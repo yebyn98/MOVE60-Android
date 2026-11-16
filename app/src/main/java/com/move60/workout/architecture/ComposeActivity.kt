@@ -149,7 +149,15 @@ fun Move60ComposeApp(showIntro: Boolean = false, openCalendar: Boolean = false, 
                         RecordDayScreen(onBack = { nav.popBackStack() }, onOpenSession = { nav.navigate("record_session/$it") })
                     }
                     composable("record_session/{sessionId}") { RecordSessionScreen(onBack = { nav.popBackStack() }) }
-                    composable("settings") { WorkoutSettings(onBack = { nav.popBackStack() }) }
+                    composable("my") { MyHomeScreen(
+                        onOpenSpaces = { nav.navigate("my_spaces") },
+                        onOpenSettings = { nav.navigate("settings") },
+                        onOpenReport = { nav.navigate("my_report") }
+                    ) }
+                    composable("my_report") { MyReportScreen(onBack = { nav.popBackStack() }, onOpenSession = { nav.navigate("record_session/$it") }) }
+                    composable("my_spaces") { MySpacesScreen(onBack = { nav.popBackStack() }, onOpenSpace = { nav.navigate("my_space/$it") }) }
+                    composable("my_space/{spaceId}") { SpaceEquipmentScreen(onBack = { nav.popBackStack() }) }
+    composable("settings") { WorkoutSettings(onBack = { nav.popBackStack() }) }
                 }
                 // Provisional rule (pending policy confirmation): hide the tab bar while a workout is running
                 // so it never competes with the workout dock.

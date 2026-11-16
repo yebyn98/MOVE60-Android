@@ -134,16 +134,13 @@ fun WorkoutProgressScreen(
     if (confirmEnd) AlertDialog(
         onDismissRequest = { confirmEnd = false },
         modifier = Modifier.testTag("workout_end_dialog"),
-        title = { Text("지금 운동을 종료할까요?") },
-        text = {
-            Text(if (state.activeSeconds >= 60) "실제 운동 ${state.activeSeconds / 60}분을 일부 수행으로 기록해요."
-            else "실제 운동이 1분 미만이면 기록하지 않아요.")
-        },
+        title = { Text("운동을 종료할까요?") },
+        text = { Text("지금까지 수행한 내용이 기록돼요.") },
         confirmButton = {
             TextButton(onClick = { confirmEnd = false; viewModel.endEarly() },
-                modifier = Modifier.testTag("workout_end_confirm")) { Text("기록하고 종료") }
+                modifier = Modifier.testTag("workout_end_confirm")) { Text("운동 종료") }
         },
-        dismissButton = { TextButton(onClick = { confirmEnd = false }) { Text("계속하기") } }
+        dismissButton = { TextButton(onClick = { confirmEnd = false }) { Text("계속 운동") } }
     )
 }
 

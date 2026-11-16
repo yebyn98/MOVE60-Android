@@ -55,7 +55,7 @@ class RecordDayViewModel @Inject constructor(
 @HiltViewModel
 class RecordSessionViewModel @Inject constructor(
     savedState: SavedStateHandle,
-    db: WorkoutDatabase,
+    private val db: WorkoutDatabase,
     sets: SetRecordStore,
     private val data: WorkoutData
 ) : ViewModel() {
@@ -76,4 +76,16 @@ class RecordSessionViewModel @Inject constructor(
     }
 
     fun exerciseName(id: String): String = data.exerciseName(id) ?: id
+
+    /**
+     * Policy 6: saves corrections as new history rows (the stored originals are never changed). The screen keeps showing the
+     * old record until the save is confirmed; only [CorrectionResult.Saved] reloads it.
+     */
+    fun saveCorrections(edits: List<SetCorrection>, onResult: (CorrectionResult) -> Unit) {
+        viewModelScope.launch {
+            val result = SessionCorrectionService(db).apply(sessionId, edits)
+            if (result is CorrectionResult.Saved) load()
+            onResult(result)
+        }
+    }
 }

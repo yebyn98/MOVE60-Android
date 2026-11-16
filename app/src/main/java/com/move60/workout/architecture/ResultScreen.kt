@@ -31,7 +31,7 @@ fun WorkoutResultScreen(onViewRecord: () -> Unit, viewModel: ResultViewModel = h
             val (title, sub) = when (r.completion) {
                 SessionCompletion.COMPLETED -> "오늘 운동을 마쳤어요" to "수행한 운동이 기록으로 저장돼요."
                 SessionCompletion.PARTIAL -> "운동을 일부 마쳤어요" to "중간까지 수행한 실제 시간이 기록으로 저장돼요."
-                SessionCompletion.NOT_PERFORMED -> "기록할 운동이 없어요" to "수행한 운동이 없어 저장하지 않았어요."
+                SessionCompletion.NOT_PERFORMED -> "기록할 운동이 없어요" to "저장 기준에 도달하지 않아 이번 운동은 기록되지 않아요."
                 null -> when (r.saveState) {
                     ResultSaveState.SAVING -> "결과를 저장하고 있어요" to "잠시만 기다려 주세요."
                     else -> "결과를 저장하지 못했어요" to "다시 시도하면 같은 운동이 중복 없이 저장돼요."

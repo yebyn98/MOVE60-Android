@@ -68,6 +68,16 @@ class HistoryViewModel @Inject constructor(
         RecordReader(db) { sets.completedStoredSets() }.sessionDates(month)
     } catch (_: Exception) { emptySet() }
 
+    /**
+     * Month line of the calendar: v58 history plus stored sessions, never added on the same date (see [MonthSummaryCombiner]).
+     * A read failure falls back to the v58 numbers only.
+     */
+    suspend fun monthSummaryCombined(month: YearMonth): MonthSummaryUi {
+        val legacy = history.month(month).filter { it.activeMinutes >= 1L }.associate { it.date to it.activeSeconds }
+        val stored = try { RecordReader(db) { sets.completedStoredSets() }.monthSeconds(month) } catch (_: Exception) { emptyMap() }
+        return MonthSummaryCombiner.combine(legacy, stored)
+    }
+
     /** Figma 11: stored sessions of [date] for the selected-day card; null when they cannot be read. */
     suspend fun dayRecord(date: LocalDate): DayRecord? = try {
         RecordReader(db) { sets.completedStoredSets() }.day(date)

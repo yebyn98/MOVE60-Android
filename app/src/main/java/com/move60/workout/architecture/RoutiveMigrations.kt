@@ -72,4 +72,16 @@ object RoutiveMigrations {
             V4_TO_V5_STATEMENTS.forEach(db::execSQL)
         }
     }
+
+    /** Room v5 -> v6: two additive tables for MY > 운동 공간 (docs/v64). Copied from schemas/.../6.json. */
+    val V5_TO_V6_STATEMENTS: List<String> = listOf(
+        "CREATE TABLE IF NOT EXISTS `workout_spaces` (`spaceId` TEXT NOT NULL, `kind` TEXT NOT NULL, `name` TEXT NOT NULL, `isDefault` INTEGER NOT NULL, `createdAtEpochMs` INTEGER NOT NULL, PRIMARY KEY(`spaceId`))",
+        "CREATE TABLE IF NOT EXISTS `space_equipment` (`spaceId` TEXT NOT NULL, `equipmentKey` TEXT NOT NULL, `brand` TEXT, `model` TEXT, `updatedAtEpochMs` INTEGER NOT NULL, PRIMARY KEY(`spaceId`, `equipmentKey`), FOREIGN KEY(`spaceId`) REFERENCES `workout_spaces`(`spaceId`) ON UPDATE NO ACTION ON DELETE CASCADE )"
+    )
+
+    val MIGRATION_5_6: Migration = object : Migration(5, 6) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            V5_TO_V6_STATEMENTS.forEach(db::execSQL)
+        }
+    }
 }
