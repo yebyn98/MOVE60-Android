@@ -54,6 +54,11 @@
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="User-initiated 60-minute exercise interval timer with ongoing lock-screen countdown and phase notifications" />
         </service>
+        <service android:name=".architecture.RoutiveSessionService" android:exported="false"
+            android:stopWithTask="false" android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="User-initiated workout session with an ongoing progress notification (stage, elapsed time, pause and resume)" />
+        </service>
     </application>
 </manifest>
 

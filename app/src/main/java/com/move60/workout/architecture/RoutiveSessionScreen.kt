@@ -132,6 +132,10 @@ private fun ActiveContent(state: RoutiveSessionUiState, vm: RoutiveSessionViewMo
             Box(Modifier.weight(1f).height(4.dp).background(if (i <= state.stageIndex) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, CircleShape))
         }
     }
+    if (state.autoPaused && state.paused) Move60Card(Modifier.testTag("routive_auto_paused")) {
+        Text("자동으로 일시정지했어요", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text("앱이 오랫동안 꺼져 있어서 그 시간은 운동 시간에 넣지 않았어요. 준비되면 재개해 주세요.", color = secondary, style = MaterialTheme.typography.bodySmall)
+    }
     Move60Card(Modifier.testTag("routive_stage_card")) {
         Text(state.stageTitle, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Text(state.routineName, color = secondary, style = MaterialTheme.typography.bodySmall)

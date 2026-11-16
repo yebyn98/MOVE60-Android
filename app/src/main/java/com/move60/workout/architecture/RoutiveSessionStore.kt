@@ -22,11 +22,20 @@ data class RoutiveSession(
     val routineId: String, val routineName: String,
     val recordDate: LocalDate, val day: Int, val startedAtEpochMs: Long,
     val running: Boolean, val checkpointEpochMs: Long,
-    val progress: FourStageProgress, val intervals: List<Pair<Long, Long>>
+    val progress: FourStageProgress, val intervals: List<Pair<Long, Long>>,
+    /** The session was paused automatically because nothing tracked it for longer than [RoutiveAwayPolicy.MAX_UNTRACKED_GAP_SECONDS]. */
+    val autoPaused: Boolean = false
 ) {
     val over: Boolean get() = progress.isOver
     val accumulatedSeconds: Long get() = progress.totalElapsedSeconds
 }
+
+/**
+ * PROVISIONAL (pending ChatGPT policy confirmation): time during which nothing tracked the session (process death, reboot,
+ * long absence without the foreground service) is never counted. When a gap longer than this is found, the session is
+ * paused at its last known checkpoint and the user decides whether to resume.
+ */
+object RoutiveAwayPolicy { const val MAX_UNTRACKED_GAP_SECONDS = 1_800L }
 
 /**
  * Durable store of ONE ROUTIVE_4 session (new SharedPreferences file; the legacy 5-stage SessionStore and its data are
@@ -77,7 +86,7 @@ class RoutiveSessionStore(
     fun pause(): RoutiveSession? = mutate { s, now -> settle(s, now).let { it.copy(running = false, checkpointEpochMs = 0L) } }
 
     fun resume(): RoutiveSession? = mutate { s, now ->
-        if (s.over || s.running) s else s.copy(running = true, checkpointEpochMs = now)
+        if (s.over || s.running) s else s.copy(running = true, checkpointEpochMs = now, autoPaused = false)
     }
 
     fun advance(): RoutiveSession? = progressed { it.advance() }
@@ -98,6 +107,7 @@ class RoutiveSessionStore(
     private fun settle(s: RoutiveSession, now: Long): RoutiveSession {
         if (!s.running || s.over || s.checkpointEpochMs <= 0L) return s
         val delta = ((now - s.checkpointEpochMs) / 1000L).coerceAtLeast(0L)
+        if (delta > RoutiveAwayPolicy.MAX_UNTRACKED_GAP_SECONDS) return s.copy(running = false, checkpointEpochMs = 0L, autoPaused = true)
         if (delta <= 0L) return s
         val start = Math.floorDiv(s.checkpointEpochMs, 1000L)
         val last = s.intervals.lastOrNull()
@@ -130,7 +140,7 @@ class RoutiveSessionStore(
         val json = JSONObject()
             .put("routineId", s.routineId).put("routineName", s.routineName)
             .put("recordDate", s.recordDate.toString()).put("day", s.day).put("startedAt", s.startedAtEpochMs)
-            .put("running", s.running).put("checkpointAt", s.checkpointEpochMs)
+            .put("running", s.running).put("checkpointAt", s.checkpointEpochMs).put("autoPaused", s.autoPaused)
             .put("stageIndex", p.stageIndex).put("finished", p.finished).put("endedEarly", p.endedEarly)
             .put("plan", JSONArray().also { a -> p.plan.forEach { a.put(it.plannedSeconds ?: JSONObject.NULL) } })
             .put("elapsed", JSONArray().also { a -> p.elapsedSeconds.forEach { a.put(it) } })
@@ -156,7 +166,8 @@ class RoutiveSessionStore(
         RoutiveSession(
             o.getString("routineId"), o.optString("routineName"), LocalDate.parse(o.getString("recordDate")), o.getInt("day"),
             o.getLong("startedAt"), o.optBoolean("running"), o.optLong("checkpointAt"), progress,
-            (0 until ivArr.length()).map { ivArr.getJSONArray(it).let { p -> p.getLong(0) to p.getLong(1) } }
+            (0 until ivArr.length()).map { ivArr.getJSONArray(it).let { p -> p.getLong(0) to p.getLong(1) } },
+            o.optBoolean("autoPaused")
         )
     } catch (_: Exception) { null }   // unreadable data is left in place, never overwritten or deleted by a read
 

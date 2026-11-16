@@ -108,4 +108,14 @@ class RoutiveSessionLaunchTest {
         val all = buildRoutiveUi(session(300L, null, 900L, null, stage = 1), ex.take(1), sets, null)
         assertEquals(StageReadiness.SETS_DONE, all.readiness)
     }
+
+    @Test fun notificationTextShowsStageTimeAndTheRightAction() {
+        val running = session(300L, null, 900L, null, stage = 1, elapsedInStage = 30)
+        val n = routiveNotificationText(running)
+        assertEquals("ROUTIVE · 2/4 근력운동", n.title)
+        assertEquals("진행 중 · 이 단계 00:30 · 총 00:30", n.body); assertEquals("일시정지", n.actionLabel)
+        val paused = routiveNotificationText(running.copy(running = false))
+        assertTrue(paused.body.startsWith("일시정지 ·")); assertEquals("재개", paused.actionLabel)
+        assertTrue(routiveNotificationText(running.copy(running = false, autoPaused = true)).body.startsWith("자동 일시정지 ·"))
+    }
 }

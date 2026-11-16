@@ -31,7 +31,7 @@ class RoutiveSessionLauncher @Inject constructor(
         val plan = try { plans.list().firstOrNull { it.routineId == routineId } } catch (_: Exception) { return LaunchResult.Failed }
             ?: return LaunchResult.NotFound
         return when (store.start(plan)) {
-            is RoutiveStart.Started -> LaunchResult.Started(routineId)
+            is RoutiveStart.Started -> { RoutiveSessionService.ensure(context); LaunchResult.Started(routineId) }
             RoutiveStart.AlreadyActive -> LaunchResult.AlreadyActive(plan.name)
             RoutiveStart.InvalidPlan -> LaunchResult.InvalidPlan
         }

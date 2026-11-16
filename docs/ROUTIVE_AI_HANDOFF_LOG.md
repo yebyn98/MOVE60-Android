@@ -164,3 +164,10 @@ no rows with those values were ever written by a shipped build).
 - **테스트:** JVM `RoutiveSessionLaunchTest` 7(시작·재시작 거부, 없는 루틴, 레거시 진행 중 차단, 종료 후 재시작, UI 모델의 미정/초과/세트 집계), 에뮬레이터 `ComposeRoutiveSessionTest`(시작 다이얼로그→준비운동→근력 "미정"→세트 완료→일시정지→종료→결과) 캡처 `compose-routive-*.png`.
 - **보강(CI 1차 실패 후):** 이미 저장이 확인된 ROUTIVE_4 세션을 포그라운드마다 아웃박스에 다시 넣는 결함을 발견·수정(저장 확인 시 `markCommitted`, 미확정 종료 세션만 재보관). 기존 P1-1 에뮬레이터 테스트가 이를 잡아냄.
 - **CI 결과(2b):** 커밋 `fa5e10e` — JVM 워크플로 성공, 에뮬레이터 스모크 성공(78 테스트). 실제 에뮬레이터 캡처 확인: `features/compose-routive-{start-dialog,session-warmup,session-strength-set,session-paused,end-dialog,result}.png` (준비운동 "1 / 4 · 계획 5분 · 남은 04:58", 근력 "계획 시간 미정 · 남은 시간 미정", 세트 1개 완료 후 결과 "일부 마쳤어요 · 저장됨 · 1세트"). 실기기 검증은 하지 않음. 캡처에서 확인된 한계: 근력 화면 하단 안내 문구가 하단 바에 바짝 붙음(스크롤 여백 미확인).
+
+### N. Phase 3 2c단계: ROUTIVE_4 세션 포그라운드 서비스·알림·자리 비움 처리 (2026-11-16, 구현 완료·CI 확인 대기)
+- **서비스:** `RoutiveSessionService`(새 서비스, 기존 `WorkoutService`는 변경 없음). 세션이 진행 중일 때만 시작·유지, 종료/없음이면 스스로 정지. 진행 알림 1개(단계 n/4, 단계 이름, 상태, 이 단계 경과, 총 시간, 일시정지/재개 버튼, 탭하면 세션 화면). 시간은 서비스가 소유하지 않고 모두 `RoutiveSessionStore`에 있음(1초마다 reconcile). 앱 시작·세션 시작·재개 때 `ensure`.
+- **자리 비움(임시 규칙, ChatGPT 확인 필요):** 추적이 없던 공백이 30분(`RoutiveAwayPolicy.MAX_UNTRACKED_GAP_SECONDS=1800`)을 넘으면 그 시간은 운동 시간에 넣지 않고 마지막 체크포인트에서 자동 일시정지, 화면에 "자동으로 일시정지했어요" 안내. 30분 이내 공백은 그대로 계산. 기준값(30분)·자동 일시정지 여부는 정책 확정 전 임시값.
+- **한계:** 알림 시각 확인은 `NotificationManager.activeNotifications`(게시/제거 여부)로만 했고 알림 모양의 화면 캡처는 없음. 알림 탭은 `onCreate`에서만 처리(이미 열린 앱을 앞으로 가져올 때 세션 화면으로 이동하지 않을 수 있음). 위젯·Wear·심박·휴식 알림은 Phase 4 남은 범위. 실기기·절전 모드 장시간 검증 없음.
+- **테스트:** JVM 신규 3(공백 초과 시 미계산·재시작 후 유지·재개, 한도 이내 계산, 알림 문구), 에뮬레이터 `ComposeRoutiveSessionTest`에 알림 게시/제거 단언 추가.
+

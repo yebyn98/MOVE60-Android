@@ -43,6 +43,14 @@ class ComposeRoutiveSessionTest {
         val image = requireNotNull(instrumentation.uiAutomation.takeScreenshot())
         File(context.getExternalFilesDir(null), name).outputStream().use { image.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
     }
+    private fun notificationPosted(): Boolean =
+        (context.getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager)
+            .activeNotifications.any { it.id == RoutiveSessionService.NOTIFICATION_ID }
+    private fun waitNotification(expected: Boolean, what: String) {
+        val end = System.currentTimeMillis() + 12_000
+        while (System.currentTimeMillis() < end && notificationPosted() != expected) Thread.sleep(300)
+        org.junit.Assert.assertEquals(what, expected, notificationPosted())
+    }
     private fun has(tag: String) = rule.onAllNodes(hasTestTag(tag)).fetchSemanticsNodes().isNotEmpty()
     private fun waitTag(tag: String, ms: Long = 10_000) = rule.waitUntil(ms) { has(tag) }
 
@@ -57,6 +65,8 @@ class ComposeRoutiveSessionTest {
     }
 
     @Test fun savedRoutineStartsAFourStageSessionAndEndsWithARecordedResult() {
+        if (android.os.Build.VERSION.SDK_INT >= 33)
+            instrumentation.uiAutomation.grantRuntimePermission(context.packageName, "android.permission.POST_NOTIFICATIONS")
         val legacy = SessionStore(context, WorkoutData(context))
         legacy.reloadIfChanged()
         if (legacy.running || legacy.elapsed() > 0 || legacy.stage != 0) legacy.resetAll()
@@ -93,6 +103,7 @@ class ComposeRoutiveSessionTest {
             waitTag("routive_stage_card")
             rule.onNodeWithTag("routive_stage_label").assertIsDisplayed()
             rule.onNode(hasText("1 / 4 단계 · 준비운동")).assertIsDisplayed()
+            waitNotification(true, "ongoing workout notification while the session is in progress")
             rule.onNode(hasText("계획 5분")).assertIsDisplayed()
             Thread.sleep(2_500)                                       // real running time accrues
             rule.waitForIdle()
@@ -123,6 +134,7 @@ class ComposeRoutiveSessionTest {
             captureScreen("compose-routive-end-dialog.png")
             rule.onNodeWithTag("routive_end_confirm").performClick()
             waitTag("result_screen", 20_000)
+            waitNotification(false, "notification is removed when the session is over")
             rule.waitForIdle()
             capture("compose-routive-result.png")
         } finally {

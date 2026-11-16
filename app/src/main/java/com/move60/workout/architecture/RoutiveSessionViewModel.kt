@@ -48,7 +48,8 @@ data class RoutiveSessionUiState(
     val totalSeconds: Long = 0, val isLast: Boolean = false,
     val readiness: StageReadiness = StageReadiness.IN_PROGRESS,
     val exercises: List<RoutiveExerciseUi> = emptyList(),
-    val outcome: RoutiveOutcome? = null
+    val outcome: RoutiveOutcome? = null,
+    val autoPaused: Boolean = false
 ) { val paused: Boolean get() = load == RoutiveLoad.ACTIVE && !running && !over }
 
 /** Pure mapping of the stored session + saved plan + completed sets to what the screen shows. */
@@ -70,7 +71,7 @@ internal fun buildRoutiveUi(
         plannedLabel = p.plannedSeconds()?.let { "계획 ${formatPlanned(it)}" } ?: "계획 시간 미정",
         elapsedSeconds = p.elapsedSeconds[p.stageIndex], remainingSeconds = p.remainingSeconds(), overtimeSeconds = p.overtimeSeconds(),
         totalSeconds = p.totalElapsedSeconds, isLast = p.isLast, readiness = p.readiness(allSetsDone),
-        exercises = ui, outcome = outcome
+        exercises = ui, outcome = outcome, autoPaused = session.autoPaused
     )
 }
 
@@ -101,7 +102,9 @@ class RoutiveSessionViewModel @Inject constructor(
         }
     }
 
-    fun playPause() = act { s -> if (s.running) store.pause() else store.resume() }
+    fun playPause() = act { s ->
+        if (s.running) store.pause() else store.resume().also { RoutiveSessionService.ensure(context) }
+    }
     fun next() = act { store.advance() }
     fun skip() = act { store.skip() }
     fun back() = act { store.back() }

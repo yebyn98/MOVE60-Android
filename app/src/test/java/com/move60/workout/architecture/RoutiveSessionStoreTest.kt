@@ -166,4 +166,27 @@ class RoutiveSessionStoreTest {
         assertEquals("a committed session is not archived again on the next start", 0, PendingSessionOutbox(context).size())
         assertNull("a new running session is never pending", st.pendingCommit())
     }
+
+    @Test fun anUntrackedGapIsNeverCountedAndPausesTheSession() {
+        val st = store(); started(st)
+        t += 100_000; assertEquals(100L, st.reconcile()!!.accumulatedSeconds)
+        t += (RoutiveAwayPolicy.MAX_UNTRACKED_GAP_SECONDS + 1) * 1_000L
+        val s = st.reconcile()!!
+        assertFalse(s.running); assertTrue(s.autoPaused)
+        assertEquals("the gap is not exercise time", 100L, s.accumulatedSeconds)
+        assertEquals(s, store().active())                       // survives a restart
+        t += 5_000
+        val resumed = st.resume()!!
+        assertTrue(resumed.running); assertFalse(resumed.autoPaused)
+        t += 20_000
+        assertEquals(120L, st.reconcile()!!.accumulatedSeconds)
+    }
+
+    @Test fun aGapWithinTheLimitIsStillCounted() {
+        val st = store(); started(st)
+        t += RoutiveAwayPolicy.MAX_UNTRACKED_GAP_SECONDS * 1_000L
+        val s = st.reconcile()!!
+        assertTrue(s.running); assertFalse(s.autoPaused)
+        assertEquals(RoutiveAwayPolicy.MAX_UNTRACKED_GAP_SECONDS, s.accumulatedSeconds)
+    }
 }

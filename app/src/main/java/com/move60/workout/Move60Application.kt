@@ -37,7 +37,7 @@ class Move60Application : Application(), Configuration.Provider {
         super.onCreate()
         CrashReporter.install(this)
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
-            override fun onActivityStarted(activity: Activity) { if (startedActivities++ == 0) syncTimerSessionAsync(settle = true) }
+            override fun onActivityStarted(activity: Activity) { if (startedActivities++ == 0) { syncTimerSessionAsync(settle = true); com.move60.workout.architecture.RoutiveSessionService.ensure(this@Move60Application) } }
             override fun onActivityStopped(activity: Activity) { if (startedActivities > 0) startedActivities-- }
             override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) = Unit
             override fun onActivityResumed(activity: Activity) = Unit

@@ -71,7 +71,8 @@ class ComposeActivity : ComponentActivity() {
         setContent { Move60ComposeApp(
             showIntro = savedInstanceState == null && !animationsDisabled() && !intent.getBooleanExtra("move60_open_calendar", false),
             openCalendar = intent.getBooleanExtra("move60_open_calendar", false),
-            openResultId = intent.getStringExtra("move60_open_result")
+            openResultId = intent.getStringExtra("move60_open_result"),
+            openSession = intent.getBooleanExtra(RoutiveSessionService.EXTRA_OPEN_SESSION, false)
         ) }
     }
 
@@ -81,7 +82,7 @@ class ComposeActivity : ComponentActivity() {
 }
 
 @Composable
-fun Move60ComposeApp(showIntro: Boolean = false, openCalendar: Boolean = false, openResultId: String? = null) {
+fun Move60ComposeApp(showIntro: Boolean = false, openCalendar: Boolean = false, openResultId: String? = null, openSession: Boolean = false) {
     val nav = rememberNavController()
     var introVisible by rememberSaveable { mutableStateOf(showIntro) }
     var workoutRunning by rememberSaveable { mutableStateOf(false) }
@@ -97,6 +98,10 @@ fun Move60ComposeApp(showIntro: Boolean = false, openCalendar: Boolean = false, 
     androidx.compose.runtime.LaunchedEffect(openResultId) {
         // Deep link used by tests and by re-opening the last result; never required for the normal flow.
         if (openResultId != null) nav.navigate("result/$openResultId") { launchSingleTop = true }
+    }
+    androidx.compose.runtime.LaunchedEffect(openSession) {
+        // Tapping the ongoing workout notification opens the session screen.
+        if (openSession) nav.navigate("routive_session") { launchSingleTop = true }
     }
     Move60ComposeTheme {
         Box {
