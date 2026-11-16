@@ -123,6 +123,7 @@ fun WorkoutDashboard(
     onRunningChanged: (Boolean) -> Unit = {},
     onOpenChallenge: () -> Unit = {},
     onComposeRoutine: () -> Unit = {},
+    onOpenRoutines: () -> Unit = {},
     onWorkoutFinished: (sessionId: String) -> Unit = {},
     onOpenWorkout: () -> Unit = {},
     viewModel: WorkoutViewModel = hiltViewModel(),
@@ -189,6 +190,7 @@ fun WorkoutDashboard(
                 Move60Card(Modifier.clickable(onClick = onComposeRoutine).testTag("dashboard_compose_routine")) {
                     Text("루틴 직접 구성", style = cardTitle)
                     Text("운동과 계획시간을 직접 골라 루틴을 만들어요.", color = secondary, style = MaterialTheme.typography.bodySmall)
+                    TextButton(onClick = onOpenRoutines, modifier = Modifier.heightIn(min = 48.dp).testTag("dashboard_saved_routines")) { Text("저장한 루틴 보기") }
                 }
             }
             // Figma order: the weekly plan first, then today's routine.

@@ -78,5 +78,8 @@ class RoutinePlanService(private val db: WorkoutDatabase, private val clock: () 
         return SavedRoutinePlan(plan.routineId, plan.name, plan.targetSeconds, stages, ex)
     }
 
+    /** All saved routines, newest first. A row that cannot be read is skipped, never deleted. */
+    suspend fun list(): List<SavedRoutinePlan> = dao.routinePlans().mapNotNull { runCatching { load(it.routineId) }.getOrNull() }
+
     companion object { const val MAX_NAME = 30 }
 }
