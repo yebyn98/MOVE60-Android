@@ -36,6 +36,12 @@ class ComposeRoutiveSessionTest {
         val bitmap = rule.onRoot().captureToImage().asAndroidBitmap()
         File(context.getExternalFilesDir(null), name).outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
     }
+    /** A dialog is a second window (two compose roots), so dialogs are captured from the real screen. */
+    private fun captureScreen(name: String) {
+        rule.waitForIdle(); Thread.sleep(500)
+        val image = requireNotNull(instrumentation.uiAutomation.takeScreenshot())
+        File(context.getExternalFilesDir(null), name).outputStream().use { image.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+    }
     private fun has(tag: String) = rule.onAllNodes(hasTestTag(tag)).fetchSemanticsNodes().isNotEmpty()
     private fun waitTag(tag: String, ms: Long = 10_000) = rule.waitUntil(ms) { has(tag) }
 
@@ -74,7 +80,7 @@ class ComposeRoutiveSessionTest {
             rule.onNodeWithTag("routine_list").performScrollToNode(hasTestTag("routine_start_$id"))
             rule.onNodeWithTag("routine_start_$id").performClick()
             waitTag("routine_start_dialog")
-            capture("compose-routive-start-dialog.png")
+            captureScreen("compose-routive-start-dialog.png")
             rule.onNodeWithTag("routine_start_confirm").performClick()
 
             waitTag("routive_session")
@@ -108,6 +114,7 @@ class ComposeRoutiveSessionTest {
             capture("compose-routive-session-paused.png")
             rule.onNodeWithTag("routive_end").performClick()
             rule.onNodeWithTag("routive_end_dialog").assertIsDisplayed()
+            captureScreen("compose-routive-end-dialog.png")
             rule.onNodeWithTag("routive_end_confirm").performClick()
             waitTag("result_screen", 20_000)
             rule.waitForIdle()
