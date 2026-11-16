@@ -35,19 +35,24 @@ class RoutineListTest {
     @Test fun emptyStoreListsNothing() = runBlocking { assertTrue(service.list().isEmpty()) }
 
     @Test fun listsNewestFirstWithExactStoredValues() = runBlocking {
-        clock = 1_000L; service.save("old", "예전 루틴", null, mapOf(StageKind.STRENGTH to listOf(ex("legPress"))))
-        clock = 2_000L; service.save("new", "새 루틴", 3_600L, mapOf(
-            StageKind.WARM_UP to listOf(ex("walk", 150L)), StageKind.CARDIO to listOf(ex("bike", 1_800L))))
+        clock = 1_000L
+        assertTrue(service.save("old", "예전 루틴", null, mapOf(StageKind.STRENGTH to listOf(ex("legPress")))) is RoutinePlanResult.Saved)
+        clock = 2_000L
+        // One exercise has no time, so the known sum (1950 s) may stay below the 3600 s target (E-02 B).
+        val saved = service.save("new", "새 루틴", 3_600L, mapOf(
+            StageKind.WARM_UP to listOf(ex("walk", 150L)), StageKind.STRENGTH to listOf(ex("legPress")),
+            StageKind.CARDIO to listOf(ex("bike", 1_800L))))
+        assertTrue("fixture must save: $saved", saved is RoutinePlanResult.Saved)
         val items = service.list().map { it.toListItem() }
         assertEquals(listOf("새 루틴", "예전 루틴"), items.map { it.name })
         val new = items.first()
-        assertEquals("목표 60분", new.targetLabel); assertEquals(2, new.exerciseCount)
+        assertEquals("목표 60분", new.targetLabel); assertEquals(3, new.exerciseCount)
         assertEquals(listOf("준비운동" to "2분 30초", "근력운동" to "미정", "유산소" to "30분", "마무리" to "미정"), new.stages)
         assertEquals("목표 시간 미정", items.last().targetLabel)
     }
 
     @Test fun listingDoesNotChangeStoredRoutines() = runBlocking {
-        service.save("r", "A", null, mapOf(StageKind.STRENGTH to listOf(ex("legPress", 600L))))
+        assertTrue(service.save("r", "A", null, mapOf(StageKind.STRENGTH to listOf(ex("legPress", 600L)))) is RoutinePlanResult.Saved)
         val before = service.load("r")
         service.list(); service.list()
         assertEquals(before, service.load("r"))
