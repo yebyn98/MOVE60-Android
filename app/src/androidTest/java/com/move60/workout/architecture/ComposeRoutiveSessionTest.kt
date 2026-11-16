@@ -138,6 +138,48 @@ class ComposeRoutiveSessionTest {
         }
     }
 
+    @Test fun conflictingBufferedRecordShowsANoticeOnTheRecordScreenAndIsKept() {
+        val outbox = PendingSessionOutbox(context)
+        val started = 1_600_000_000_000L + System.currentTimeMillis() % 1000
+        val snap = TimerSnapshot(java.time.LocalDate.of(2026, 11, 2), 1, started, false, 70, listOf(started / 1000 to started / 1000 + 70), true)
+        val id = outbox.sessionId(snap)
+        try {
+            assertTrue(outbox.enqueue(snap)); outbox.markFailed(id, PendingSessionOutbox.CONFLICT)
+            waitForDashboard()
+            rule.onNodeWithTag("tab_calendar").performClick()
+            waitTag("calendar_list")
+            waitTag("calendar_conflict_notice")
+            rule.onNodeWithTag("calendar_conflict_notice").assertIsDisplayed()
+            rule.onNode(hasText("확인이 필요한 기록 1건", substring = true)).assertIsDisplayed()
+            capture("compose-record-conflict-notice.png")
+            assertTrue("the entry is kept untouched", outbox.pending().any { outbox.sessionId(it) == id })
+            rule.onNodeWithTag("tab_today").performClick()
+        } finally { outbox.remove(id) }
+    }
+
+    @Test fun tabsShowOnNormalScreensHideDuringSessionAndNotificationTapReturnsToIt() {
+        // 4 tabs on normal screens, none while a workout runs or is paused; a notification tap returns to the existing session.
+        val id = prepareRoutine()
+        try {
+            waitForDashboard()
+            rule.onNodeWithTag("tab_bar").assertIsDisplayed()
+            startFromList(id)
+            assertTrue("tab bar hidden in the running session", !has("tab_bar"))
+            rule.onNodeWithTag("routive_pause").performClick()
+            waitTag("routive_resume")
+            assertTrue("tab bar hidden while paused", !has("tab_bar"))
+            rule.onNodeWithTag("routive_back").performClick()                        // leave the screen, session keeps existing
+            waitTag("routine_list")
+            context.startActivity(android.content.Intent(context, ComposeActivity::class.java)
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                .putExtra(RoutiveSessionService.EXTRA_OPEN_SESSION, true))
+            waitTag("routive_stage_card", 15_000)                                    // same session, not a new one
+            rule.onNodeWithTag("routive_resume").assertIsDisplayed()
+        } finally {
+            RoutiveSessionStore(context).let { s -> if (s.active()?.over == false) s.endEarly() }
+        }
+    }
+
     @Test fun explicitFinalSkipFinishesAndIsSavedAsCompleted() {
         val id = prepareRoutine()
         try {

@@ -49,6 +49,12 @@ class PendingSessionOutbox(context: Context) {
         prefs.edit().putString(sessionId, json.toString()).apply()
     }
 
+    /** Sessions whose commit hit a conflict (same id, different content). They stay here untouched, are never merged automatically. */
+    fun conflicts(): List<TimerSnapshot> = pending().filter { lastError(sessionId(it)) == CONFLICT }
+
+    fun lastError(sessionId: String): String? =
+        try { JSONObject(prefs.getString(sessionId, "{}") ?: "{}").optString("lastError").takeIf { it.isNotEmpty() } } catch (_: Exception) { null }
+
     fun attempts(sessionId: String): Int =
         try { JSONObject(prefs.getString(sessionId, "{}") ?: "{}").optInt("attempts", 0) } catch (_: Exception) { 0 }
 
@@ -65,7 +71,7 @@ class PendingSessionOutbox(context: Context) {
         )
     } catch (_: Exception) { null }
 
-    companion object { const val NAME = "move60_pending_sessions_v1" }
+    companion object { const val NAME = "move60_pending_sessions_v1"; const val CONFLICT = "conflict" }
 }
 
 /** Retries every buffered session; entries leave the outbox only on a confirmed outcome. */

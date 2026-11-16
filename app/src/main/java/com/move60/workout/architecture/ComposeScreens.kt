@@ -392,6 +392,8 @@ fun WorkoutCalendar(
     val selected by viewModel.selected.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    var conflicts by remember { mutableStateOf(viewModel.conflictCount()) }
+    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) { conflicts = viewModel.conflictCount(); onPauseOrDispose { } }
     // Tapping a day selects it; a day without a record also shows a short toast (every tap, not only the first).
     val onDayClick: (java.time.LocalDate) -> Unit = { date ->
         viewModel.select(date)
@@ -414,6 +416,13 @@ fun WorkoutCalendar(
         LazyColumn(Modifier.fillMaxSize().padding(inner).testTag("calendar_list"),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            if (conflicts > 0) item {
+                Move60Card(Modifier.testTag("calendar_conflict_notice")) {
+                    Text("확인이 필요한 기록 ${conflicts}건", style = cardTitle)
+                    Text("같은 운동의 저장된 기록과 내용이 달라 자동으로 합치지 않았어요. 원본은 지우지 않고 안전하게 보관하고 있어요.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                }
+            }
             item {
                 val summary = viewModel.monthSummary(month)
                 val week = viewModel.weekTrainedDays()

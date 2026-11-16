@@ -45,8 +45,12 @@ class HistoryViewModel @Inject constructor(
     private val ledger: EnergyLedger,
     private val stageLog: StageLog,
     private val sets: SetRecordStore,
-    data: WorkoutData
+    data: WorkoutData,
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context
 ) : ViewModel() {
+    /** Number of buffered sessions that conflict with an already saved record and need the user's attention. */
+    fun conflictCount(): Int = try { PendingSessionOutbox(context).conflicts().size } catch (_: Exception) { 0 }
+
     val days = repository.recentDays().stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList()
     )

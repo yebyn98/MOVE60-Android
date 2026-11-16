@@ -37,6 +37,9 @@ import dagger.hilt.android.AndroidEntryPoint
  */
 @AndroidEntryPoint
 class ComposeActivity : ComponentActivity() {
+    /** Counts notification taps (including taps while the app is already open) so each one navigates to the existing session. */
+    private var sessionOpenRequest by androidx.compose.runtime.mutableIntStateOf(0)
+
     @Inject lateinit var healthGateway: HealthConnectGateway
 
     override fun onResume() {
@@ -63,6 +66,7 @@ class ComposeActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (savedInstanceState == null && intent.getBooleanExtra(RoutiveSessionService.EXTRA_OPEN_SESSION, false)) sessionOpenRequest = 1
         WindowCompat.setDecorFitsSystemWindows(window, false)
         if (Build.VERSION.SDK_INT >= 33 &&
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
@@ -72,8 +76,14 @@ class ComposeActivity : ComponentActivity() {
             showIntro = savedInstanceState == null && !animationsDisabled() && !intent.getBooleanExtra("move60_open_calendar", false),
             openCalendar = intent.getBooleanExtra("move60_open_calendar", false),
             openResultId = intent.getStringExtra("move60_open_result"),
-            openSession = intent.getBooleanExtra(RoutiveSessionService.EXTRA_OPEN_SESSION, false)
+            openSessionRequest = sessionOpenRequest
         ) }
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.getBooleanExtra(RoutiveSessionService.EXTRA_OPEN_SESSION, false)) sessionOpenRequest++
     }
 
     /** Respect the system "remove animations" setting; the intro is skipped when it is 0. */
@@ -82,7 +92,7 @@ class ComposeActivity : ComponentActivity() {
 }
 
 @Composable
-fun Move60ComposeApp(showIntro: Boolean = false, openCalendar: Boolean = false, openResultId: String? = null, openSession: Boolean = false) {
+fun Move60ComposeApp(showIntro: Boolean = false, openCalendar: Boolean = false, openResultId: String? = null, openSessionRequest: Int = 0) {
     val nav = rememberNavController()
     var introVisible by rememberSaveable { mutableStateOf(showIntro) }
     var workoutRunning by rememberSaveable { mutableStateOf(false) }
@@ -99,9 +109,9 @@ fun Move60ComposeApp(showIntro: Boolean = false, openCalendar: Boolean = false, 
         // Deep link used by tests and by re-opening the last result; never required for the normal flow.
         if (openResultId != null) nav.navigate("result/$openResultId") { launchSingleTop = true }
     }
-    androidx.compose.runtime.LaunchedEffect(openSession) {
-        // Tapping the ongoing workout notification opens the session screen.
-        if (openSession) nav.navigate("routive_session") { launchSingleTop = true }
+    androidx.compose.runtime.LaunchedEffect(openSessionRequest) {
+        // Tapping the ongoing workout notification returns to the existing session screen (every tap, also when the app is open).
+        if (openSessionRequest > 0) nav.navigate("routive_session") { launchSingleTop = true }
     }
     Move60ComposeTheme {
         Box {

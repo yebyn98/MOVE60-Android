@@ -140,4 +140,20 @@ class PendingSessionOutboxTest {
         assertEquals("a second enqueue must not reset retry bookkeeping", 1, outbox.attempts(outbox.sessionId(ok)))
         assertEquals(1, outbox.size())
     }
+
+    @Test fun aConflictingBufferedSessionIsKeptListedAndNeverMerged() = runBlocking {
+        val (_, snap) = endedEarly(90, withSet = false)
+        assertTrue(outbox.enqueue(snap)); sync.drain(outbox)
+        assertTrue("first commit leaves the outbox", outbox.pending().isEmpty()); assertTrue(outbox.conflicts().isEmpty())
+        val before = dao.session(outbox.sessionId(snap))!!.totalActiveSeconds
+        val different = snap.copy(accumulatedSeconds = snap.accumulatedSeconds + 30, intervals = snap.intervals.map { it.first to it.second + 30 })
+        assertTrue(outbox.enqueue(different))
+        val outcomes = sync.drain(outbox)
+        assertTrue(outcomes.single() is SyncOutcome.Failed)
+        assertEquals(listOf(outbox.sessionId(different)), outbox.conflicts().map { outbox.sessionId(it) })
+        assertEquals("conflict", outbox.lastError(outbox.sessionId(different)))
+        sync.drain(outbox)                                    // retries never remove or merge it
+        assertEquals(1, outbox.size()); assertEquals(1, outbox.conflicts().size)
+        assertEquals("the stored record keeps its original content", before, dao.session(outbox.sessionId(snap))!!.totalActiveSeconds)
+    }
 }
