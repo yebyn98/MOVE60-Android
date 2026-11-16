@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 5,
-    "identityHash": "PLACEHOLDER_REPLACED_BY_ROOM_GENERATED_SCHEMA",
+    "identityHash": "8fef0aaa146f49b36046703a6fa7f78b",
     "entities": [
       {
         "tableName": "daily_workouts",
@@ -926,7 +926,7 @@
     "views": [],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'PLACEHOLDER_REPLACED_BY_ROOM_GENERATED_SCHEMA')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '8fef0aaa146f49b36046703a6fa7f78b')"
     ]
   }
 }
