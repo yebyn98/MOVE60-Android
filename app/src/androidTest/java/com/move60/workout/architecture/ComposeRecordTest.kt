@@ -82,8 +82,11 @@ class ComposeRecordTest {
                     rule.onAllNodesWithContentDescription("$date · 운동 기록 있음", substring = true).fetchSemanticsNodes().isNotEmpty()
                 }
                 rule.onNodeWithContentDescription("$date · 운동 기록 있음", substring = true).performScrollTo().performClick()
-                rule.waitUntil(10_000) { rule.onAllNodesWithTag("record_day_summary").fetchSemanticsNodes().isNotEmpty() }
-                rule.onNodeWithTag("calendar_list").performScrollToNode(hasTestTag("record_day_summary"))
+                // The card is the LAST LazyColumn item: it is composed only after the day record has loaded AND the list
+                // is scrolled to it, so keep trying to scroll there until it exists.
+                rule.waitUntil(10_000) {
+                    runCatching { rule.onNodeWithTag("calendar_list").performScrollToNode(hasTestTag("record_day_summary")) }.isSuccess
+                }
                 rule.onNodeWithTag("record_day_summary").assertIsDisplayed()
                 rule.onNodeWithText("운동 2회").assertIsDisplayed()
                 rule.onNodeWithText("운동시간 25분 00초").assertIsDisplayed()
