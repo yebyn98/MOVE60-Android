@@ -20,5 +20,5 @@ LV 배지, 성취 흐름 차트, 운동 성과 리포트, 마일스톤, 운동 �
 
 ## 검증 상태
 - JVM: `SpaceServiceTest`, `MyGrowthTest`, 5→6 `RoutiveMigrationTest`
-- 에뮬레이터: `ComposeMyTest`(공간 등록 → 기구 선택 → 저장 → DB 확인), 업그레이드 계측 테스트 체인에 5→6 포함
+- 에뮬레이터: `ComposeMyTest` 3건(헬스장 등록·기구 저장 · 집 등록+유산소 모델 입력 · 기본 공간 변경+중복 이름 메시지, 모두 DB 확인), 업그레이드 계측 테스트 체인에 5→6 포함
 - 기존 `ComposeArchitectureTest`의 설정 진입 경로가 마이 허브의 설정 바로가기(`my_settings_open`)를 거치도록 변경

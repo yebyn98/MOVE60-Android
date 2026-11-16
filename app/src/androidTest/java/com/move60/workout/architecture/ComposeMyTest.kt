@@ -93,4 +93,91 @@ class ComposeMyTest {
     }
 
     private fun textExists(text: String) = rule.onAllNodesWithText(text, substring = true).fetchSemanticsNodes().isNotEmpty()
+
+    private fun cleanE2e(includeHome: Boolean) {
+        val clean = Room.databaseBuilder(context, WorkoutDatabase::class.java, dbFile).build()
+        try {
+            val raw = clean.openHelper.writableDatabase
+            val where = if (includeHome) "name LIKE 'e2e %' OR spaceId = 'home'" else "name LIKE 'e2e %'"
+            raw.execSQL("DELETE FROM space_equipment WHERE spaceId IN (SELECT spaceId FROM workout_spaces WHERE $where)")
+            raw.execSQL("DELETE FROM workout_spaces WHERE $where")
+        } finally { clean.close() }
+    }
+
+    /** Home registration + the cardio model dialog (Figma 73). Skipped when a real "home" space already exists, so user data is never touched. */
+    @Test fun homeSpaceWithCardioModelIsSavedAndReadBack() {
+        val probe = Room.databaseBuilder(context, WorkoutDatabase::class.java, dbFile).build()
+        val homeExists = try { runBlocking { probe.spaceDao().space("home") != null } } finally { probe.close() }
+        org.junit.Assume.assumeFalse("a real home space exists on this device", homeExists)
+        try {
+            ActivityScenario.launch(ComposeActivity::class.java).use {
+                rule.onNodeWithTag("tab_settings").performClick()
+                rule.onNodeWithTag("my_spaces_open").performClick()
+                rule.onNodeWithTag("my_add_home").performScrollTo().performClick()
+                rule.waitUntil(10_000) { rule.onAllNodesWithTag("my_default_space").fetchSemanticsNodes().isNotEmpty() }
+                rule.onNodeWithTag("my_default_space").performClick()
+                rule.waitUntil(10_000) { rule.onAllNodesWithTag("my_eq_DUMBBELL").fetchSemanticsNodes().isNotEmpty() }
+                rule.onNodeWithTag("my_eq_INDOOR_CYCLE").performClick()
+                rule.onNodeWithTag("my_eq_DUMBBELL").performClick()
+                capture("compose-my-home-equipment.png")
+                rule.onNodeWithTag("my_model_open").performClick()
+                rule.onNodeWithTag("my_model_dialog").assertIsDisplayed()
+                rule.onNodeWithTag("my_brand_INDOOR_CYCLE").performTextInput("테스트브랜드")
+                rule.onNodeWithTag("my_model_INDOOR_CYCLE").performTextInput("M1")
+                captureScreen("compose-my-model-dialog.png")
+                rule.onNodeWithTag("my_model_done").performClick()
+                rule.onNodeWithTag("my_equipment_save").performClick()
+                rule.waitUntil(10_000) { rule.onAllNodesWithTag("my_spaces").fetchSemanticsNodes().isNotEmpty() }
+                rule.waitUntil(10_000) { textExists("등록된 기구 2종") }
+                capture("compose-my-home-saved.png")
+            }
+            val db = Room.databaseBuilder(context, WorkoutDatabase::class.java, dbFile).build()
+            try {
+                val rows = runBlocking { db.spaceDao().equipment("home") }
+                assertEquals(listOf("DUMBBELL", "INDOOR_CYCLE"), rows.map { it.equipmentKey })
+                val cycle = rows.first { it.equipmentKey == "INDOOR_CYCLE" }
+                assertEquals("테스트브랜드" to "M1", cycle.brand to cycle.model)
+                assertEquals(null to null, rows.first { it.equipmentKey == "DUMBBELL" }.let { it.brand to it.model })
+            } finally { db.close() }
+        } finally { cleanE2e(includeHome = true) }
+    }
+
+    /** Changing the default space and the duplicate-name message (Figma 61). */
+    @Test fun defaultSpaceCanBeChangedAndADuplicateNameIsRejectedWithAMessage() {
+        val seed = Room.databaseBuilder(context, WorkoutDatabase::class.java, dbFile).build()
+        try {
+            val onlyOurs = runBlocking { seed.spaceDao().spaces().isEmpty() }
+            org.junit.Assume.assumeTrue("real spaces exist on this device", onlyOurs)
+            runBlocking {
+                SpaceService(seed).create("e2e-a", SpaceKind.GYM, "e2e 가")
+                SpaceService(seed).create("e2e-b", SpaceKind.GYM, "e2e 나")
+            }
+        } finally { seed.close() }
+        try {
+            ActivityScenario.launch(ComposeActivity::class.java).use {
+                rule.onNodeWithTag("tab_settings").performClick()
+                rule.onNodeWithTag("my_spaces_open").performClick()
+                rule.waitUntil(10_000) { rule.onAllNodesWithTag("my_set_default_e2e-b").fetchSemanticsNodes().isNotEmpty() }
+                capture("compose-my-spaces-two.png")
+                rule.onNodeWithTag("my_set_default_e2e-b").performScrollTo().performClick()
+                // The old default now offers "set as default"; the new default no longer does.
+                rule.waitUntil(10_000) { rule.onAllNodesWithTag("my_set_default_e2e-a").fetchSemanticsNodes().isNotEmpty() }
+                rule.onNodeWithTag("my_set_default_e2e-b").assertDoesNotExist()
+                capture("compose-my-default-changed.png")
+
+                rule.onNodeWithTag("my_add_gym").performScrollTo().performClick()
+                rule.onNodeWithTag("my_add_gym_name").performTextInput("e2e 가")
+                rule.onNodeWithTag("my_add_gym_confirm").performClick()
+                rule.waitUntil(10_000) { rule.onAllNodesWithTag("my_spaces_message").fetchSemanticsNodes().isNotEmpty() }
+                rule.onNodeWithText("같은 이름의 운동 공간이 이미 있어요.").assertIsDisplayed()
+                capture("compose-my-duplicate-name.png")
+            }
+            val db = Room.databaseBuilder(context, WorkoutDatabase::class.java, dbFile).build()
+            try {
+                val spaces = runBlocking { db.spaceDao().spaces() }
+                assertEquals(listOf("e2e-b" to true, "e2e-a" to false), spaces.map { it.spaceId to it.isDefault })
+                assertEquals("the rejected duplicate wrote nothing", 2, spaces.size)
+            } finally { db.close() }
+        } finally { cleanE2e(includeHome = false) }
+    }
 }
