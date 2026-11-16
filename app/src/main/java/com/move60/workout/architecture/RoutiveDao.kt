@@ -42,6 +42,20 @@ interface RoutiveDao {
     @Query("SELECT COALESCE(SUM(activeSecondsOnDate), 0) FROM session_day_slices WHERE date = :date")
     suspend fun sessionSecondsOn(date: String): Long
 
+    /** Session-zone ISO dates in [from, to] that have stored session time (record calendar dots). Read-only. */
+    @Query("SELECT DISTINCT date FROM session_day_slices WHERE date >= :from AND date <= :to ORDER BY date")
+    suspend fun sessionDatesBetween(from: String, to: String): List<String>
+
+    /** Stored sessions with time on [date], earliest start first (record day list). Read-only. */
+    @Query(
+        "SELECT s.* FROM sessions s INNER JOIN session_day_slices d ON d.sessionId = s.sessionId " +
+            "WHERE d.date = :date ORDER BY s.startedAtEpochMs, s.sessionId"
+    )
+    suspend fun sessionsOn(date: String): List<SessionEntity>
+
+    @Query("SELECT activeSecondsOnDate FROM session_day_slices WHERE sessionId = :sessionId AND date = :date")
+    suspend fun sliceSeconds(sessionId: String, date: String): Long?
+
     /** Valid sessions' intervals overlapping [windowStart, windowEnd) UTC epoch seconds. */
     @Query(
         "SELECT i.sessionId AS sessionId, i.startEpochSec AS startEpochSec, i.endEpochSec AS endEpochSec, " +

@@ -387,10 +387,19 @@ internal fun ScreenTopBar(title: String, onBack: (() -> Unit)?, backTag: String?
 @Composable
 fun WorkoutCalendar(
     onBack: () -> Unit,
+    onOpenDay: (java.time.LocalDate) -> Unit = {},
     viewModel: HistoryViewModel = hiltViewModel()
 ) {
     val month by viewModel.month.collectAsStateWithLifecycle()
     val selected by viewModel.selected.collectAsStateWithLifecycle()
+    // Stored (ROUTIVE v2) sessions: extra dots and the selected-day card. Legacy history keeps driving everything else.
+    val sessionDates by androidx.compose.runtime.produceState<Set<java.time.LocalDate>>(emptySet(), month) {
+        value = viewModel.sessionDates(month)
+    }
+    val dayRecord by androidx.compose.runtime.produceState<DayRecord?>(null, selected) {
+        value = viewModel.dayRecord(selected)
+    }
+    val hasSessions = dayRecord?.sessions?.isNotEmpty() == true
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var conflictItems by remember { mutableStateOf(viewModel.conflicts()) }
@@ -468,7 +477,7 @@ fun WorkoutCalendar(
                     HabitProgress("이번 달 목표", summary.trainedDays, WorkoutHistory.MONTHLY_GOAL_DAYS, "calendar_month_progress")
                 }
             }
-            item { MonthGrid(viewModel, month, selected, onDayClick) }
+            item { MonthGrid(viewModel, month, selected, sessionDates, onDayClick) }
             item {
                 val summary = viewModel.monthSummary(month)
                 Column(Modifier.fillMaxWidth().testTag("calendar_summary"),
@@ -484,7 +493,7 @@ fun WorkoutCalendar(
                         Text("이번 달 ${summary.trainedDays}일 · ${summary.activeMinutes}분 · 약 ${summary.kcal} kcal",
                             color = secondary, style = MaterialTheme.typography.bodySmall)
                     }
-                    if (!viewModel.trained(selected)) {
+                    if (!viewModel.trained(selected) && !hasSessions) {
                         Row(Modifier.fillMaxWidth().testTag("calendar_day_empty"),
                             horizontalArrangement = Arrangement.SpaceBetween) {
                             Text(selected.toString(), style = MaterialTheme.typography.bodySmall)
@@ -498,6 +507,9 @@ fun WorkoutCalendar(
                     value = viewModel.legacySets(selected)
                 }
                 DayDetailCard(viewModel.dayDetail(selected), legacySets, viewModel::exerciseName)
+            }
+            dayRecord?.takeIf { it.sessions.isNotEmpty() }?.let { record ->
+                item(key = "record_day_summary_$selected") { RecordDaySummaryCard(record) { onOpenDay(selected) } }
             }
         }
     }
@@ -572,7 +584,7 @@ private fun DayDetailCard(detail: DayDetail, legacySets: LegacySetDay?, exercise
  * tied to one are listed separately with no time, and nothing here is counted as workout time or challenge credit.
  */
 @Composable
-private fun SetRecordsSection(day: LegacySetDay, exerciseName: (String) -> String) {
+internal fun SetRecordsSection(day: LegacySetDay, exerciseName: (String) -> String) {
     Column(Modifier.fillMaxWidth().testTag("calendar_set_records"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("근력운동 세트 기록", style = MaterialTheme.typography.titleMedium)
         day.linked.forEach { group ->
@@ -608,6 +620,7 @@ private fun SetGroupCard(title: String, kind: String, group: LegacySetGroup, exe
 @Composable
 private fun MonthGrid(
     viewModel: HistoryViewModel, month: java.time.YearMonth, selected: java.time.LocalDate,
+    sessionDates: Set<java.time.LocalDate>,
     onDayClick: (java.time.LocalDate) -> Unit
 ) {
     Move60Card(Modifier.testTag("calendar_month_grid")) {
@@ -633,7 +646,7 @@ private fun MonthGrid(
         dates.chunked(7).forEach { week ->
             Row(Modifier.fillMaxWidth()) {
                 week.forEach { date ->
-                    DayCell(viewModel, date, selected, date.month != month.month,
+                    DayCell(viewModel, date, selected, date.month != month.month, date in sessionDates,
                         onDayClick, Modifier.weight(1f))
                 }
             }
@@ -647,10 +660,11 @@ private fun DayCell(
     date: java.time.LocalDate,
     selected: java.time.LocalDate,
     outsideMonth: Boolean,
+    hasStoredSession: Boolean,
     onDayClick: (java.time.LocalDate) -> Unit,
     modifier: Modifier
 ) {
-    val trained = viewModel.trained(date)
+    val trained = viewModel.trained(date) || hasStoredSession
     val focus = if (trained) viewModel.focus(date) else null
     val focusLabel = when (focus) { "upper" -> " · 상체"; "lower" -> " · 하체"; else -> "" }
     val isSelected = date == selected
@@ -1006,7 +1020,8 @@ fun Move60TabBar(currentRoute: String?, onSelect: (Move60Tab) -> Unit) {
     ) {
         Move60Tab.values().forEach { tab ->
             NavigationBarItem(
-                selected = currentRoute == tab.route,
+                // The record detail screens (day, session) belong to the 기록 tab.
+                selected = currentRoute == tab.route || (tab == Move60Tab.RECORD && currentRoute?.startsWith("record_") == true),
                 onClick = { onSelect(tab) },
                 modifier = Modifier.testTag(tab.tag),
                 icon = {
