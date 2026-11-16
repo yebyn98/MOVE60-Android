@@ -157,7 +157,7 @@ fun MySpacesScreen(onBack: () -> Unit, onOpenSpace: (String) -> Unit, viewModel:
                 list.filter { !it.space.isDefault }.forEach { s ->
                     NavRow(s.space.name, "${kindLabel(s.space.kind)} · ${equipmentSummary(s.equipmentCount)} · 보유 기구 관리", "my_space_${s.space.spaceId}") { onOpenSpace(s.space.spaceId) }
                     TextButton(onClick = { viewModel.setDefault(s.space.spaceId) }, modifier = Modifier.heightIn(min = 48.dp).testTag("my_set_default_${s.space.spaceId}")) {
-                        Text("${s.space.name}을(를) 기본 운동 공간으로 설정")
+                        Text("‘${s.space.name}’ 기본 운동 공간으로 설정")
                     }
                 }
                 if (list.none { it.space.kind == SpaceKind.HOME.name })
