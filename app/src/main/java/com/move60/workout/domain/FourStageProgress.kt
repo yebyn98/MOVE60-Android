@@ -11,12 +11,18 @@ package com.move60.workout.domain
  * - Nothing advances by itself: moving on, skipping and going back are explicit user actions.
  * - Cardio is ONE stage; its internal segments never create stages.
  * - Elapsed time of a stage is real active time and is preserved when the user goes back or skips.
+ * - Every stage ends as PERFORMED ("다음"/"운동 완료"), SKIPPED (explicit "건너뛰기"/"마무리 생략") or UNFINISHED (never decided).
+ *   Going back never clears SKIPPED; only performing the stage ("다음") does. The session is [finished] when the user
+ *   walked through the last stage and at least one stage was performed (explicit skips are the user's decision, never an
+ *   automatic PARTIAL); it is [endedEarly] when the user ended with undecided stages left (saved as PARTIAL), or when
+ *   nothing at all was performed. The final record (COMPLETED/PARTIAL/NOT_PERFORMED) is derived from this by the commit rules.
  */
 data class FourStageProgress(
     val plan: List<StageTimePlan>,
     val stageIndex: Int = 0,
     val elapsedSeconds: List<Long> = List(plan.size) { 0L },
     val skipped: Set<Int> = emptySet(),
+    val performed: Set<Int> = emptySet(),
     val finished: Boolean = false,
     val endedEarly: Boolean = false
 ) {
@@ -63,27 +69,39 @@ data class FourStageProgress(
         return copy(elapsedSeconds = elapsedSeconds.toMutableList().also { it[stageIndex] += seconds })
     }
 
-    /** Explicit "다음" (or "종료" on the last stage). */
+    /** Explicit "다음" (or "운동 완료" on the last stage): the stage counts as performed and any earlier skip mark is replaced. */
     fun advance(): FourStageProgress = when {
         isOver -> this
-        isLast -> copy(finished = true)
-        else -> copy(stageIndex = stageIndex + 1)
+        isLast -> copy(performed = performed + stageIndex, skipped = skipped - stageIndex, finished = true)
+        else -> copy(performed = performed + stageIndex, skipped = skipped - stageIndex, stageIndex = stageIndex + 1)
     }
 
-    /** User skips the current stage: recorded as skipped, real elapsed time is kept. Skipping the last stage ends the session as early. */
+    /**
+     * User skips the current stage: recorded as skipped, real elapsed time is kept. Skipping the last stage ("마무리 생략")
+     * finishes the session by the user's own decision; only when nothing was performed at all it is an early end.
+     */
     fun skip(): FourStageProgress = when {
         isOver -> this
-        isLast -> copy(skipped = skipped + stageIndex, endedEarly = true)
-        else -> copy(skipped = skipped + stageIndex, stageIndex = stageIndex + 1)
+        isLast -> copy(skipped = skipped + stageIndex, performed = performed - stageIndex).let {
+            if (it.performed.isEmpty()) it.copy(endedEarly = true) else it.copy(finished = true)
+        }
+        else -> copy(skipped = skipped + stageIndex, performed = performed - stageIndex, stageIndex = stageIndex + 1)
     }
 
-    /** Back to the previous stage; its elapsed time and skipped mark are kept, and it can resume from there. */
-    fun back(): FourStageProgress =
-        if (isOver || stageIndex == 0) this else copy(stageIndex = stageIndex - 1, skipped = skipped - (stageIndex - 1))
+    /** Back to the previous stage; its elapsed time and its skipped mark are kept (only performing it clears the mark). */
+    fun back(): FourStageProgress = if (isOver || stageIndex == 0) this else copy(stageIndex = stageIndex - 1)
+
+    fun statusOf(index: Int): StageStatus = when {
+        index in skipped -> StageStatus.SKIPPED
+        index in performed -> StageStatus.PERFORMED
+        else -> StageStatus.UNFINISHED
+    }
 
     /** Confirmed early end (saved as PARTIAL by the existing commit rules, never as complete). */
     fun endEarly(): FourStageProgress = if (isOver) this else copy(endedEarly = true)
 }
+
+enum class StageStatus { PERFORMED, SKIPPED, UNFINISHED }
 
 enum class StageReadiness { IN_PROGRESS, SETS_DONE, PLAN_REACHED, MANUAL, OVER }
 

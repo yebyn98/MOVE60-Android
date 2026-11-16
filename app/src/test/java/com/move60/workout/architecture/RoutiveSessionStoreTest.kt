@@ -167,26 +167,85 @@ class RoutiveSessionStoreTest {
         assertNull("a new running session is never pending", st.pendingCommit())
     }
 
-    @Test fun anUntrackedGapIsNeverCountedAndPausesTheSession() {
-        val st = store(); started(st)
-        t += 100_000; assertEquals(100L, st.reconcile()!!.accumulatedSeconds)
-        t += (RoutiveAwayPolicy.MAX_UNTRACKED_GAP_SECONDS + 1) * 1_000L
-        val s = st.reconcile()!!
+    @Test fun timeNobodyTrackedIsNeverCountedAndThereIsNoGracePeriod() {
+        val first = store(); started(first)
+        t += 100_000; assertEquals(100L, first.reconcile()!!.accumulatedSeconds)
+        // The process that tracked the session died; a new process (different token) finds it still "running".
+        t += 3_000
+        val next = RoutiveSessionStore(context, { t }, { date }, "new-process")
+        val s = next.reconcile()!!
         assertFalse(s.running); assertTrue(s.autoPaused)
-        assertEquals("the gap is not exercise time", 100L, s.accumulatedSeconds)
-        assertEquals(s, store().active())                       // survives a restart
+        assertEquals("not even 3 s of the untracked gap is counted", 100L, s.accumulatedSeconds)
+        assertEquals(s, RoutiveSessionStore(context, { t }, { date }, "new-process").active())
         t += 5_000
-        val resumed = st.resume()!!
+        val resumed = next.resume()!!
         assertTrue(resumed.running); assertFalse(resumed.autoPaused)
         t += 20_000
-        assertEquals(120L, st.reconcile()!!.accumulatedSeconds)
+        assertEquals(120L, next.reconcile()!!.accumulatedSeconds)
     }
 
-    @Test fun aGapWithinTheLimitIsStillCounted() {
+    @Test fun aLongGapInTheSameLiveProcessIsStillCountedBecauseTheTrackerSurvived() {
         val st = store(); started(st)
-        t += RoutiveAwayPolicy.MAX_UNTRACKED_GAP_SECONDS * 1_000L
+        t += 3_600_000L                                  // screen off for an hour, service alive in the same process
         val s = st.reconcile()!!
-        assertTrue(s.running); assertFalse(s.autoPaused)
-        assertEquals(RoutiveAwayPolicy.MAX_UNTRACKED_GAP_SECONDS, s.accumulatedSeconds)
+        assertTrue(s.running); assertFalse(s.autoPaused); assertEquals(3_600L, s.accumulatedSeconds)
+    }
+
+    @Test fun releasedTrackingPausesAtTheNextLookWithoutCountingLaterTime() {
+        val st = store(); started(st)
+        t += 50_000; st.releaseTracking()
+        t += 400_000
+        val s = st.reconcile()!!
+        assertFalse(s.running); assertTrue(s.autoPaused); assertEquals(50L, s.accumulatedSeconds)
+    }
+
+    @Test fun sessionsStoredBeforeTrackingTokensExistAreSafelyPausedNotCounted() {
+        val st = store(); started(st)
+        val prefs = context.getSharedPreferences(RoutiveSessionStore.NAME, Context.MODE_PRIVATE)
+        val json = org.json.JSONObject(prefs.getString("active", null)!!).also { it.remove("trackerToken"); it.remove("performed") }
+        prefs.edit().putString("active", json.toString()).commit()
+        t += 10_000
+        val s = store().reconcile()!!
+        assertTrue(s.autoPaused); assertEquals(0L, s.accumulatedSeconds)
+    }
+
+    @Test fun newRecordsSupportSundayAndCommitThroughTheExistingSync() = runBlocking {
+        val sunday = LocalDate.parse("2026-11-22")
+        val st = RoutiveSessionStore(context, { t }, { sunday })
+        val s0 = (st.start(plan()) as RoutiveStart.Started).session
+        assertEquals(7, s0.day)
+        SetRecordStore(context).write(s0.day, "chestPress", 1, SetRecordStore.Record("40", "10", "5", true), sunday, s0.startedAtEpochMs)
+        t += 61_000; val ended = st.endEarly()!!
+        val sync = TimerSessionSync(SessionCommitter(db) { 5_000L }) { "Asia/Seoul" }
+        val snap = st.snapshot(ended)
+        assertTrue(snap.day == 7 && sync.sessionId(snap).contains("-d7-"))
+        assertTrue(sync.syncFinished(snap) is SyncOutcome.Committed)
+        assertEquals(1, db.routiveDao().session(sync.sessionId(snap))!!.completedStrengthSets)
+    }
+
+    @Test fun explicitFinalSkipIsSavedAsCompletedAndEarlyEndWithUnfinishedStagesAsPartial() = runBlocking {
+        val sync = TimerSessionSync(SessionCommitter(db) { 5_000L }) { "Asia/Seoul" }
+        val st = store(); started(st)
+        t += 70_000; st.advance(); t += 70_000; st.advance(); t += 70_000; st.advance()
+        t += 10_000; val done = st.skip()!!
+        assertTrue(done.progress.finished && !done.progress.endedEarly)
+        val snap = st.snapshot(done)
+        assertTrue(snap.finished && !snap.endedEarly)
+        assertTrue(sync.syncFinished(snap) is SyncOutcome.Committed)
+        assertEquals("COMPLETED", db.routiveDao().session(sync.sessionId(snap))!!.completion)
+
+        t += 1_000
+        val second = (st.start(plan("r2")) as RoutiveStart.Started).session
+        t += 90_000; st.advance(); t += 30_000
+        val early = st.endEarly()!!
+        assertEquals(3, StageStatusCheck.unfinished(early))
+        val snap2 = st.snapshot(early)
+        assertTrue(sync.syncFinished(snap2) is SyncOutcome.Committed)
+        assertEquals("PARTIAL", db.routiveDao().session(sync.sessionId(snap2))!!.completion)
+        assertNotEquals(second.startedAtEpochMs, done.startedAtEpochMs)
+    }
+
+    private object StageStatusCheck {
+        fun unfinished(s: RoutiveSession) = (0 until 4).count { s.progress.statusOf(it) == com.move60.workout.domain.StageStatus.UNFINISHED }
     }
 }

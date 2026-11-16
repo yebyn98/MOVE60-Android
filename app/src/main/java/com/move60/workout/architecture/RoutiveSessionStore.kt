@@ -23,19 +23,17 @@ data class RoutiveSession(
     val recordDate: LocalDate, val day: Int, val startedAtEpochMs: Long,
     val running: Boolean, val checkpointEpochMs: Long,
     val progress: FourStageProgress, val intervals: List<Pair<Long, Long>>,
-    /** The session was paused automatically because nothing tracked it for longer than [RoutiveAwayPolicy.MAX_UNTRACKED_GAP_SECONDS]. */
-    val autoPaused: Boolean = false
+    /** The session was paused automatically because time that cannot be verified (service stopped, process died, reboot) was excluded. */
+    val autoPaused: Boolean = false,
+    /** Process that is tracking this running session; empty = nobody (tracking released). */
+    val trackerToken: String = ""
 ) {
     val over: Boolean get() = progress.isOver
     val accumulatedSeconds: Long get() = progress.totalElapsedSeconds
 }
 
-/**
- * PROVISIONAL (pending ChatGPT policy confirmation): time during which nothing tracked the session (process death, reboot,
- * long absence without the foreground service) is never counted. When a gap longer than this is found, the session is
- * paused at its last known checkpoint and the user decides whether to resume.
- */
-object RoutiveAwayPolicy { const val MAX_UNTRACKED_GAP_SECONDS = 1_800L }
+/** One id per process. A running session whose tracker token differs was last tracked by a process that no longer exists. */
+object RoutiveProcess { val token: String = java.util.UUID.randomUUID().toString() }
 
 /**
  * Durable store of ONE ROUTIVE_4 session (new SharedPreferences file; the legacy 5-stage SessionStore and its data are
@@ -47,7 +45,8 @@ object RoutiveAwayPolicy { const val MAX_UNTRACKED_GAP_SECONDS = 1_800L }
 class RoutiveSessionStore(
     private val context: Context,
     private val clock: () -> Long = System::currentTimeMillis,
-    private val dateNow: () -> LocalDate = { java.time.LocalDate.now(java.time.ZoneId.of("Asia/Seoul")) }
+    private val dateNow: () -> LocalDate = { java.time.LocalDate.now(java.time.ZoneId.of("Asia/Seoul")) },
+    private val processToken: String = RoutiveProcess.token
 ) {
     private val prefs = context.applicationContext.getSharedPreferences(NAME, Context.MODE_PRIVATE)
 
@@ -69,8 +68,8 @@ class RoutiveSessionStore(
         prefs.getString(KEY, null)?.takeIf { current == null }?.let { prefs.edit().putString("unreadable_${clock()}", it).commit() }
         val now = clock()
         val date = dateNow()
-        val day = date.dayOfWeek.value.coerceIn(1, 5)
-        val session = RoutiveSession(routine.routineId, routine.name, date, day, now, true, now, plan, emptyList())
+        val day = date.dayOfWeek.value   // new records support Mon..Sun (1..7); stored legacy records are never rewritten
+        val session = RoutiveSession(routine.routineId, routine.name, date, day, now, true, now, plan, emptyList(), trackerToken = processToken)
         SetRecordStore(context).beginSession(day, now)
         write(session, durable = true)
         return RoutiveStart.Started(session)
@@ -83,10 +82,17 @@ class RoutiveSessionStore(
         return if (next === s) s else write(next, durable = false)
     }
 
+    /** The tracking service went away while the session still runs: count up to now, then mark it untracked. */
+    fun releaseTracking(now: Long = clock()) {
+        val s = read() ?: return
+        if (s.over || !s.running) return
+        write(settle(s, now).let { if (it.running) it.copy(trackerToken = "") else it }, durable = true)
+    }
+
     fun pause(): RoutiveSession? = mutate { s, now -> settle(s, now).let { it.copy(running = false, checkpointEpochMs = 0L) } }
 
     fun resume(): RoutiveSession? = mutate { s, now ->
-        if (s.over || s.running) s else s.copy(running = true, checkpointEpochMs = now, autoPaused = false)
+        if (s.over || s.running) s else s.copy(running = true, checkpointEpochMs = now, autoPaused = false, trackerToken = processToken)
     }
 
     fun advance(): RoutiveSession? = progressed { it.advance() }
@@ -106,8 +112,10 @@ class RoutiveSessionStore(
 
     private fun settle(s: RoutiveSession, now: Long): RoutiveSession {
         if (!s.running || s.over || s.checkpointEpochMs <= 0L) return s
+        // Time that nobody verifiably tracked (the tracking process is gone, or tracking was released) is never counted,
+        // with no grace period: the session pauses at its last checkpoint and the user resumes.
+        if (s.trackerToken != processToken) return s.copy(running = false, checkpointEpochMs = 0L, autoPaused = true)
         val delta = ((now - s.checkpointEpochMs) / 1000L).coerceAtLeast(0L)
-        if (delta > RoutiveAwayPolicy.MAX_UNTRACKED_GAP_SECONDS) return s.copy(running = false, checkpointEpochMs = 0L, autoPaused = true)
         if (delta <= 0L) return s
         val start = Math.floorDiv(s.checkpointEpochMs, 1000L)
         val last = s.intervals.lastOrNull()
@@ -140,11 +148,12 @@ class RoutiveSessionStore(
         val json = JSONObject()
             .put("routineId", s.routineId).put("routineName", s.routineName)
             .put("recordDate", s.recordDate.toString()).put("day", s.day).put("startedAt", s.startedAtEpochMs)
-            .put("running", s.running).put("checkpointAt", s.checkpointEpochMs).put("autoPaused", s.autoPaused)
+            .put("running", s.running).put("checkpointAt", s.checkpointEpochMs).put("autoPaused", s.autoPaused).put("trackerToken", s.trackerToken)
             .put("stageIndex", p.stageIndex).put("finished", p.finished).put("endedEarly", p.endedEarly)
             .put("plan", JSONArray().also { a -> p.plan.forEach { a.put(it.plannedSeconds ?: JSONObject.NULL) } })
             .put("elapsed", JSONArray().also { a -> p.elapsedSeconds.forEach { a.put(it) } })
             .put("skipped", JSONArray().also { a -> p.skipped.sorted().forEach { a.put(it) } })
+            .put("performed", JSONArray().also { a -> p.performed.sorted().forEach { a.put(it) } })
             .put("intervals", JSONArray().also { a -> s.intervals.forEach { a.put(JSONArray().put(it.first).put(it.second)) } })
         val edit = prefs.edit().putString(KEY, json.toString())
         if (durable) edit.commit() else edit.apply()
@@ -159,15 +168,20 @@ class RoutiveSessionStore(
         val elapsedArr = o.getJSONArray("elapsed")
         val skippedArr = o.optJSONArray("skipped") ?: JSONArray()
         val ivArr = o.getJSONArray("intervals")
+        val skipped = (0 until skippedArr.length()).map { skippedArr.getInt(it) }.toSet()
+        val stageIndex = o.getInt("stageIndex")
+        val finished = o.optBoolean("finished")
+        // Sessions stored before "performed" existed: every stage already passed and not skipped was performed.
+        val performed = o.optJSONArray("performed")?.let { a -> (0 until a.length()).map { a.getInt(it) }.toSet() }
+            ?: ((0 until (if (finished) plan.size else stageIndex)).toSet() - skipped)
         val progress = FourStageProgress(
-            plan, o.getInt("stageIndex"), (0 until elapsedArr.length()).map { elapsedArr.getLong(it) },
-            (0 until skippedArr.length()).map { skippedArr.getInt(it) }.toSet(), o.optBoolean("finished"), o.optBoolean("endedEarly")
+            plan, stageIndex, (0 until elapsedArr.length()).map { elapsedArr.getLong(it) }, skipped, performed, finished, o.optBoolean("endedEarly")
         )
         RoutiveSession(
             o.getString("routineId"), o.optString("routineName"), LocalDate.parse(o.getString("recordDate")), o.getInt("day"),
             o.getLong("startedAt"), o.optBoolean("running"), o.optLong("checkpointAt"), progress,
             (0 until ivArr.length()).map { ivArr.getJSONArray(it).let { p -> p.getLong(0) to p.getLong(1) } },
-            o.optBoolean("autoPaused")
+            o.optBoolean("autoPaused"), o.optString("trackerToken")
         )
     } catch (_: Exception) { null }   // unreadable data is left in place, never overwritten or deleted by a read
 

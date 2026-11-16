@@ -72,13 +72,40 @@ class FourStageProgressTest {
         assertEquals("back at the first stage is a no-op", p, p.back())
     }
 
-    @Test fun skipMarksTheStageButKeepsRealTimeAndNeverCountsAsCompleted() {
-        var p = plan().tick(40).skip()
+    @Test fun skipMarksTheStageButKeepsRealTime() {
+        val p = plan().tick(40).skip()
         assertEquals(1, p.stageIndex); assertEquals(setOf(0), p.skipped); assertEquals(40L, p.elapsedSeconds[0])
-        p = p.back()
-        assertEquals("going back resumes the skipped stage", emptySet<Int>(), p.skipped)
-        val last = plan().advance().advance().advance().skip()
-        assertTrue("skipping the final stage is an early end, never a complete finish", last.endedEarly && !last.finished)
+        assertEquals(StageStatus.SKIPPED, p.statusOf(0)); assertEquals(StageStatus.UNFINISHED, p.statusOf(1))
+    }
+
+    @Test fun goingBackNeverClearsASkipButPerformingTheStageDoes() {
+        var p = plan().tick(40).skip().back()
+        assertEquals(0, p.stageIndex)
+        assertEquals("moving back alone keeps SKIPPED", setOf(0), p.skipped)
+        p = p.tick(20).advance()
+        assertEquals("performing it with 다음 replaces the skip", emptySet<Int>(), p.skipped)
+        assertEquals(StageStatus.PERFORMED, p.statusOf(0))
+        assertEquals(60L, p.elapsedSeconds[0])
+    }
+
+    @Test fun skippingTheLastStageFinishesByTheUsersDecisionWhenSomethingWasPerformed() {
+        val last = plan().tick(60).advance().tick(60).advance().tick(60).advance().tick(30).skip()
+        assertTrue("explicit 마무리 생략 is a finish, never an automatic early end", last.finished && !last.endedEarly)
+        assertEquals(setOf(3), last.skipped); assertEquals(setOf(0, 1, 2), last.performed)
+        assertEquals(StageStatus.SKIPPED, last.statusOf(3))
+        assertEquals(210L, last.totalElapsedSeconds)
+    }
+
+    @Test fun skippingEverythingPerformsNothingSoItIsAnEarlyEndNotAFinish() {
+        val p = plan().skip().skip().skip().skip()
+        assertTrue(p.endedEarly && !p.finished); assertEquals(setOf(0, 1, 2, 3), p.skipped); assertTrue(p.performed.isEmpty())
+    }
+
+    @Test fun earlyEndLeavesUndecidedStagesUnfinished() {
+        val p = plan().advance().skip().endEarly()
+        assertEquals(StageStatus.PERFORMED, p.statusOf(0)); assertEquals(StageStatus.SKIPPED, p.statusOf(1))
+        assertEquals(StageStatus.UNFINISHED, p.statusOf(2)); assertEquals(StageStatus.UNFINISHED, p.statusOf(3))
+        assertTrue(p.endedEarly && !p.finished)
     }
 
     @Test fun earlyEndFreezesAndKeepsElapsedForThePartialRecord() {

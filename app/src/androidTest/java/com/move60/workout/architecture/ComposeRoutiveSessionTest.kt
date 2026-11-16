@@ -64,14 +64,14 @@ class ComposeRoutiveSessionTest {
         waitTag("dashboard_saved_routines", 2_000)
     }
 
-    @Test fun savedRoutineStartsAFourStageSessionAndEndsWithARecordedResult() {
+    /** Frees both session kinds, saves a fixture routine and returns its id. */
+    private fun prepareRoutine(): String {
         if (android.os.Build.VERSION.SDK_INT >= 33)
             instrumentation.uiAutomation.grantRuntimePermission(context.packageName, "android.permission.POST_NOTIFICATIONS")
         val legacy = SessionStore(context, WorkoutData(context))
         legacy.reloadIfChanged()
         if (legacy.running || legacy.elapsed() > 0 || legacy.stage != 0) legacy.resetAll()
         RoutiveSessionStore(context).let { s -> if (s.active()?.over == false) s.endEarly() }
-
         val id = "routive-session-${System.currentTimeMillis()}"
         val db = Room.databaseBuilder(context, WorkoutDatabase::class.java, "move60_workouts_room_v1.db").build()
         try {
@@ -83,12 +83,59 @@ class ComposeRoutiveSessionTest {
             }
             assertTrue("fixture routine must save: $saved", saved is RoutinePlanResult.Saved)
         } finally { db.close() }
+        return id
+    }
 
+    private fun startFromList(id: String) {
+        waitForDashboard()
+        rule.onNodeWithTag("dashboard_saved_routines").performClick()
+        waitTag("routine_list")
+        val anyItem = androidx.compose.ui.test.SemanticsMatcher("routine item") {
+            it.config.getOrNull(androidx.compose.ui.semantics.SemanticsProperties.TestTag)?.startsWith("routine_item_") == true
+        }
+        rule.waitUntil(10_000) { rule.onAllNodes(anyItem).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithTag("routine_list").performScrollToNode(hasTestTag("routine_start_$id"))
+        rule.onNodeWithTag("routine_start_$id").performClick()
+        waitTag("routine_start_dialog")
+        rule.onNodeWithTag("routine_start_confirm").performClick()
+        waitTag("routive_session"); waitTag("routive_stage_card")
+    }
+
+    @Test fun explicitFinalSkipFinishesAndIsSavedAsCompleted() {
+        val id = prepareRoutine()
+        try {
+            startFromList(id)
+            Thread.sleep(1_500)
+            rule.onNodeWithTag("routive_next").performClick()                        // -> strength
+            rule.waitUntil(5_000) { rule.onAllNodes(hasText("2 / 4 단계 · 근력운동")).fetchSemanticsNodes().isNotEmpty() }
+            rule.onNodeWithTag("routive_kg_legPress").performScrollTo().performTextInput("40")
+            rule.onNodeWithTag("routive_reps_legPress").performScrollTo().performTextInput("10")
+            rule.onNodeWithTag("routive_set_done_legPress").performScrollTo().performClick()
+            rule.waitUntil(5_000) { rule.onAllNodes(hasText("1세트 완료")).fetchSemanticsNodes().isNotEmpty() }
+            rule.onNodeWithTag("routive_next").performClick()                        // -> cardio
+            rule.onNodeWithTag("routive_next").performClick()                        // -> cool-down (last)
+            rule.waitUntil(5_000) { rule.onAllNodes(hasText("4 / 4 단계 · 마무리")).fetchSemanticsNodes().isNotEmpty() }
+            rule.onNode(hasText("운동 완료")).assertIsDisplayed()                    // primary action
+            rule.onNodeWithTag("routive_skip_last").performScrollTo().assertIsDisplayed()   // secondary action
+            capture("compose-routive-last-stage.png")
+            rule.onNodeWithTag("routive_skip_last").performClick()
+            waitTag("routive_skip_last_dialog")
+            captureScreen("compose-routive-skip-last-dialog.png")
+            rule.onNodeWithTag("routive_skip_last_confirm").performClick()
+            waitTag("result_screen", 20_000)
+            rule.onNode(hasText("오늘 운동을 마쳤어요")).assertIsDisplayed()          // skip is not an automatic PARTIAL
+            capture("compose-routive-result-skip-last.png")
+        } finally {
+            RoutiveSessionStore(context).let { s -> if (s.active()?.over == false) s.endEarly() }
+        }
+    }
+
+    @Test fun savedRoutineStartsAFourStageSessionAndEndsWithARecordedResult() {
+        val id = prepareRoutine()
         try {
             waitForDashboard()
             rule.onNodeWithTag("dashboard_saved_routines").performClick()
             waitTag("routine_list")
-            // The list loads asynchronously: wait for the first saved routine card before scrolling to ours.
             val anyItem = androidx.compose.ui.test.SemanticsMatcher("routine item") {
                 it.config.getOrNull(androidx.compose.ui.semantics.SemanticsProperties.TestTag)?.startsWith("routine_item_") == true
             }

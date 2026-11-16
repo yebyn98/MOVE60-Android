@@ -114,6 +114,11 @@ class RoutiveSessionService : Service() {
         stopSelf()
     }
 
-    override fun onDestroy() { handler.removeCallbacks(tick); super.onDestroy() }
+    override fun onDestroy() {
+        handler.removeCallbacks(tick)
+        // If the system stops the service while the session still runs, nothing tracks it any more: mark that explicitly.
+        try { store.releaseTracking() } catch (_: Exception) { }
+        super.onDestroy()
+    }
     override fun onBind(intent: Intent?): IBinder? = null
 }

@@ -57,6 +57,7 @@ fun RoutiveSessionScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var confirmEnd by rememberSaveable { mutableStateOf(false) }
+    var confirmSkipLast by rememberSaveable { mutableStateOf(false) }
     val outcome = state.outcome
     LaunchedEffect(outcome) { if (outcome is RoutiveOutcome.ResultReady) onResult(outcome.sessionId) }
     val active = state.load == RoutiveLoad.ACTIVE && !state.over
@@ -96,10 +97,19 @@ fun RoutiveSessionScreen(
                         "지금은 저장을 마치지 못했어요. 앱을 다시 열면 자동으로 다시 시도해요.", onBack)
                     else -> Text("기록을 저장하는 중…", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.testTag("routive_saving"))
                 }
-                else -> ActiveContent(state, viewModel)
+                else -> ActiveContent(state, viewModel, onSkipLast = { confirmSkipLast = true })
             }
         }
     }
+
+    if (confirmSkipLast) AlertDialog(
+        onDismissRequest = { confirmSkipLast = false },
+        modifier = Modifier.testTag("routive_skip_last_dialog"),
+        title = { Text("마무리를 생략하고 운동을 완료할까요?") },
+        text = { Text("마무리 단계는 생략한 것으로 기록하고, 지금까지의 실제 운동 시간과 완료한 세트를 저장해요.") },
+        confirmButton = { TextButton(onClick = { confirmSkipLast = false; viewModel.skip() }, modifier = Modifier.heightIn(min = 48.dp).testTag("routive_skip_last_confirm")) { Text("생략하고 완료") } },
+        dismissButton = { TextButton(onClick = { confirmSkipLast = false }, modifier = Modifier.heightIn(min = 48.dp)) { Text("계속하기") } }
+    )
 
     if (confirmEnd) AlertDialog(
         onDismissRequest = { confirmEnd = false },
@@ -121,7 +131,7 @@ private fun EndNotice(tag: String, title: String, body: String, onClose: () -> U
 }
 
 @Composable
-private fun ActiveContent(state: RoutiveSessionUiState, vm: RoutiveSessionViewModel) {
+private fun ActiveContent(state: RoutiveSessionUiState, vm: RoutiveSessionViewModel, onSkipLast: () -> Unit) {
     val secondary = MaterialTheme.colorScheme.onSurfaceVariant
     Text(if (state.running) "● 진행 중" else "● 일시정지", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold,
         modifier = Modifier.testTag("routive_status"))
@@ -134,7 +144,7 @@ private fun ActiveContent(state: RoutiveSessionUiState, vm: RoutiveSessionViewMo
     }
     if (state.autoPaused && state.paused) Move60Card(Modifier.testTag("routive_auto_paused")) {
         Text("자동으로 일시정지했어요", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Text("앱이 오랫동안 꺼져 있어서 그 시간은 운동 시간에 넣지 않았어요. 준비되면 재개해 주세요.", color = secondary, style = MaterialTheme.typography.bodySmall)
+        Text("앱이나 알림 서비스가 멈춰서 확인할 수 없는 시간은 운동 시간에 넣지 않았어요. 준비되면 재개해 주세요.", color = secondary, style = MaterialTheme.typography.bodySmall)
     }
     Move60Card(Modifier.testTag("routive_stage_card")) {
         Text(state.stageTitle, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
@@ -170,6 +180,7 @@ private fun ActiveContent(state: RoutiveSessionUiState, vm: RoutiveSessionViewMo
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         TextButton(onClick = vm::back, enabled = state.stageIndex > 0, modifier = Modifier.heightIn(min = 48.dp).weight(1f).testTag("routive_back_stage")) { Text("이전 단계") }
         if (!state.isLast) TextButton(onClick = vm::skip, modifier = Modifier.heightIn(min = 48.dp).weight(1f).testTag("routive_skip")) { Text("이 단계 건너뛰기") }
+        else TextButton(onClick = onSkipLast, modifier = Modifier.heightIn(min = 48.dp).weight(1f).testTag("routive_skip_last")) { Text("마무리 생략") }
     }
     state.nextStageTitle?.let {
         Text("다음 단계", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
