@@ -38,7 +38,9 @@ data class RoutiveSession(
     /** Process that is tracking this running session; empty = nobody (tracking released). */
     val trackerToken: String = "",
     /** Rest after a completed set, null when none. Never started without a user-chosen rest time. */
-    val rest: RestState? = null
+    val rest: RestState? = null,
+    /** The plan as it was when this session started (docs/v61 D1). Null for sessions started before it existed. */
+    val planSnapshotJson: String? = null
 ) {
     val over: Boolean get() = progress.isOver
     val accumulatedSeconds: Long get() = progress.totalElapsedSeconds
@@ -81,7 +83,8 @@ class RoutiveSessionStore(
         val now = clock()
         val date = dateNow()
         val day = date.dayOfWeek.value   // new records support Mon..Sun (1..7); stored legacy records are never rewritten
-        val session = RoutiveSession(routine.routineId, routine.name, date, day, now, true, now, plan, emptyList(), trackerToken = processToken)
+        val session = RoutiveSession(routine.routineId, routine.name, date, day, now, true, now, plan, emptyList(), trackerToken = processToken,
+            planSnapshotJson = RoutivePlanSnapshot.toJson(routine))
         SetRecordStore(context).beginSession(day, now)
         write(session, durable = true)
         return RoutiveStart.Started(session)
@@ -138,7 +141,9 @@ class RoutiveSessionStore(
         TimerSnapshot(
             session.recordDate, session.day, session.startedAtEpochMs, session.progress.finished, session.accumulatedSeconds.toInt(),
             session.intervals, session.progress.endedEarly,
-            sets?.completedSetsForSession(session.startedAtEpochMs).orEmpty().map { TimerSet(it.exerciseId, it.setNumber, it.kg, it.reps) }
+            sets?.completedSetsForSession(session.startedAtEpochMs).orEmpty().map { TimerSet(it.exerciseId, it.setNumber, it.kg, it.reps) },
+            stages = session.progress.plan.mapIndexed { i, p -> TimerStage(p.kind, p.plannedSeconds, session.progress.elapsedSeconds[i]) },
+            planSnapshotJson = session.planSnapshotJson
         )
 
     // ---- internals ----------------------------------------------------------------------------------------------
@@ -193,6 +198,7 @@ class RoutiveSessionStore(
             .put("routineId", s.routineId).put("routineName", s.routineName)
             .put("recordDate", s.recordDate.toString()).put("day", s.day).put("startedAt", s.startedAtEpochMs)
             .put("running", s.running).put("checkpointAt", s.checkpointEpochMs).put("autoPaused", s.autoPaused).put("trackerToken", s.trackerToken)
+            .put("planSnapshot", s.planSnapshotJson ?: JSONObject.NULL)
             .put("rest", s.rest?.let { JSONObject().put("exerciseId", it.exerciseId).put("total", it.totalSeconds).put("elapsed", it.elapsedSeconds).put("cued", it.cued) } ?: JSONObject.NULL)
             .put("stageIndex", p.stageIndex).put("finished", p.finished).put("endedEarly", p.endedEarly)
             .put("plan", JSONArray().also { a -> p.plan.forEach { a.put(it.plannedSeconds ?: JSONObject.NULL) } })
@@ -227,7 +233,9 @@ class RoutiveSessionStore(
             o.getLong("startedAt"), o.optBoolean("running"), o.optLong("checkpointAt"), progress,
             (0 until ivArr.length()).map { ivArr.getJSONArray(it).let { p -> p.getLong(0) to p.getLong(1) } },
             o.optBoolean("autoPaused"), o.optString("trackerToken"),
-            o.optJSONObject("rest")?.let { RestState(it.getString("exerciseId"), it.getLong("total"), it.getLong("elapsed"), it.optBoolean("cued")) }
+            o.optJSONObject("rest")?.let { RestState(it.getString("exerciseId"), it.getLong("total"), it.getLong("elapsed"), it.optBoolean("cued")) },
+            // Missing key (a session started before this existed) and JSON null both mean "no plan snapshot".
+            if (o.isNull("planSnapshot")) null else o.getString("planSnapshot").takeIf { it.isNotEmpty() }
         )
     } catch (_: Exception) { null }   // unreadable data is left in place, never overwritten or deleted by a read
 
