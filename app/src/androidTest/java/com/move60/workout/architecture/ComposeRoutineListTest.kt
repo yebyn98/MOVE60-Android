@@ -1,6 +1,7 @@
 package com.move60.workout.architecture
 
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasAnyAncestor
@@ -57,7 +58,9 @@ class ComposeRoutineListTest {
         inItem("목표 60분 · 운동 3개").assertIsDisplayed()
         inItem("2분 30초").assertIsDisplayed()                         // custom 2.5 minutes kept, not rounded
         inItem("30분").assertIsDisplayed()
-        inItem("미정").assertIsDisplayed()                             // strength time unknown: never 0 or a default
+        // Strength and cool-down have no known time: two "미정" rows, never 0 or a default.
+        val unknown = rule.onAllNodes(hasText("미정") and hasAnyAncestor(hasTestTag("routine_item_$id")))
+        unknown.assertCountEquals(2)
         capture("compose-routine-list.png")
         rule.onNodeWithTag("routine_list_back").performClick()
         waitTag("dashboard_compose_routine")
