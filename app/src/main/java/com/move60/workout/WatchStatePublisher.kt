@@ -12,6 +12,8 @@ object WatchStatePublisher {
         Wearable.getDataClient(context).putDataItem(createRequest(context,snapshot).asPutDataRequest().setUrgent())
     }
     fun createRequest(context: Context, snapshot: String): PutDataMapRequest {
+        // A ROUTIVE_4 session that is not older than the legacy one is what the watch shows; the legacy flow is untouched.
+        RoutiveWatchSync.current(context)?.let { return RoutiveWatchSync.createRequest(context, it) }
         val state = JSONObject(snapshot)
         val current = SessionStore(context, WorkoutData(context))
         // Enrich only the matching session. Older service callbacks must never publish an old stage.

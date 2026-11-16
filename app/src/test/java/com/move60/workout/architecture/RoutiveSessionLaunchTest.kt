@@ -136,4 +136,14 @@ class RoutiveSessionLaunchTest {
         assertFalse(restFollowsSet(3, 3)); assertFalse("extra set beyond target", restFollowsSet(3, 4))
         assertTrue("unknown target cannot tell", restFollowsSet(null, 5))
     }
+
+    @Test fun heartRateShowsOnlyAFreshValidSampleOtherwiseWaiting() {
+        val s = session(300L, null, 900L, null)
+        assertEquals("수신 대기", buildRoutiveUi(s, emptyList(), emptyList(), null).heartText)                       // never received
+        assertEquals("120 bpm", buildRoutiveUi(s, emptyList(), emptyList(), null, 120, 9_000L).heartText)
+        assertEquals("수신 대기", buildRoutiveUi(s, emptyList(), emptyList(), null, 120, 10_001L).heartText)          // older than 10 s
+        assertEquals("수신 대기", buildRoutiveUi(s, emptyList(), emptyList(), null, 29, 1_000L).heartText)            // out of range
+        assertEquals("수신 대기", buildRoutiveUi(s, emptyList(), emptyList(), null, 241, 1_000L).heartText)
+        assertEquals("수신 대기", buildRoutiveUi(s, emptyList(), emptyList(), null, 120, -5L).heartText)             // from the future
+    }
 }

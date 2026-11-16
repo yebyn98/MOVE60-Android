@@ -79,8 +79,11 @@ class RoutiveSessionService : Service() {
     private fun update() {
         handler.removeCallbacks(tick)
         val s = try { store.reconcile() } catch (_: Exception) { null }
-        if (s == null || s.over) { stop(); return }
-        try { if (store.consumeRestCue()) RoutiveCue.vibrateOnce(this) } catch (_: Exception) { }
+        if (s == null) { stop(); return }
+        // Watch and widgets follow the same stored session; the final "over" state is published before the service stops.
+        if (RoutiveWatchSync.publishIfChanged(this, s)) try { com.move60.workout.WorkoutWidget.refresh(this) } catch (_: Exception) { }
+        if (s.over) { stop(); return }
+        try { if (store.consumeRestCue() && !RoutiveCue.watchHandlesCue(this)) RoutiveCue.vibrateOnce(this) } catch (_: Exception) { }
         val notification = build(s)
         if (!foreground) {
             try {

@@ -57,12 +57,15 @@ data class RoutiveSessionUiState(
     val exercises: List<RoutiveExerciseUi> = emptyList(),
     val outcome: RoutiveOutcome? = null,
     val autoPaused: Boolean = false,
-    val rest: RoutiveRestUi? = null
+    val rest: RoutiveRestUi? = null,
+    /** Watch heart rate: a value only while it is valid (30..240) and at most 10 s old, otherwise "수신 대기". Never gates the workout. */
+    val heartText: String = com.move60.workout.domain.HeartRateFreshness.WAITING_LABEL
 ) { val paused: Boolean get() = load == RoutiveLoad.ACTIVE && !running && !over }
 
 /** Pure mapping of the stored session + saved plan + completed sets to what the screen shows. */
 internal fun buildRoutiveUi(
-    session: RoutiveSession, exercises: List<RoutineExerciseInput>, completed: List<SetRecordStore.CompletedSet>, outcome: RoutiveOutcome?
+    session: RoutiveSession, exercises: List<RoutineExerciseInput>, completed: List<SetRecordStore.CompletedSet>, outcome: RoutiveOutcome?,
+    heartBpm: Int = 0, heartAgeMs: Long = Long.MAX_VALUE
 ): RoutiveSessionUiState {
     val p = session.progress
     val kind = p.kind
@@ -81,7 +84,8 @@ internal fun buildRoutiveUi(
         elapsedSeconds = p.elapsedSeconds[p.stageIndex], remainingSeconds = p.remainingSeconds(), overtimeSeconds = p.overtimeSeconds(),
         totalSeconds = p.totalElapsedSeconds, isLast = p.isLast, readiness = p.readiness(allSetsDone),
         exercises = ui, outcome = outcome, autoPaused = session.autoPaused,
-        rest = session.rest?.takeIf { kind == StageKind.STRENGTH }?.let { RoutiveRestUi(it.exerciseId, it.remainingSeconds, it.totalSeconds, it.done) }
+        rest = session.rest?.takeIf { kind == StageKind.STRENGTH }?.let { RoutiveRestUi(it.exerciseId, it.remainingSeconds, it.totalSeconds, it.done) },
+        heartText = com.move60.workout.domain.HeartRateFreshness.display(heartBpm, heartAgeMs)
     )
 }
 
@@ -109,7 +113,7 @@ class RoutiveSessionViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             while (isActive) {
-                try { if (store.consumeRestCue()) RoutiveCue.vibrateOnce(context); publish(store.reconcile()) } catch (c: CancellationException) { throw c } catch (_: Exception) { /* keep last state */ }
+                try { if (store.consumeRestCue() && !RoutiveCue.watchHandlesCue(context)) RoutiveCue.vibrateOnce(context); publish(store.reconcile()) } catch (c: CancellationException) { throw c } catch (_: Exception) { /* keep last state */ }
                 delay(1000)
             }
         }
@@ -164,8 +168,10 @@ class RoutiveSessionViewModel @Inject constructor(
             outcome = null; committing = false
         }
         if (session.over && outcome == null && !committing) commit(session)
+        val heart = context.getSharedPreferences("preferences", Context.MODE_PRIVATE)
         _state.value = buildRoutiveUi(session, stageExercises[session.progress.kind].orEmpty(),
-            sets.completedSetsForSession(session.startedAtEpochMs), outcome)
+            sets.completedSetsForSession(session.startedAtEpochMs), outcome,
+            heart.getInt("watch_heart_rate", 0), System.currentTimeMillis() - heart.getLong("watch_heart_rate_at", 0L))
     }
 
     /** Buffer first (durable), then drain through the idempotent commit; the result is shown only for a confirmed outcome. */

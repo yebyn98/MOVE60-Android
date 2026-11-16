@@ -160,6 +160,8 @@ private fun ActiveContent(state: RoutiveSessionUiState, vm: RoutiveSessionViewMo
                 modifier = Modifier.testTag("routive_overtime"))
             else -> Text("남은 시간 ${formatMmSs(remaining)}", modifier = Modifier.testTag("routive_remaining"))
         }
+        Text("♥ ${state.heartText}", color = MaterialTheme.colorScheme.tertiary, style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.testTag("routive_heart"))
         readinessHint(state.readiness, state.isLast)?.let {
             Text(it, color = secondary, style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("routive_hint"))
         }
