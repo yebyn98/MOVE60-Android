@@ -47,7 +47,8 @@ android {
     androidTest.assets.srcDirs += files("$projectDir/schemas")
   }
 }
-ksp { arg('room.schemaLocation', "$projectDir/schemas".toString()) }
+// CI may point this at an empty directory (-ProomSchemaOut=...) so Room writes every schema file fresh instead of keeping committed ones.
+ksp { arg('room.schemaLocation', (project.findProperty('roomSchemaOut') ?: "$projectDir/schemas").toString()) }
 
 dependencies {
     // Keep versions compatible with the existing compileSdk 35 and AGP 8.7.3.
