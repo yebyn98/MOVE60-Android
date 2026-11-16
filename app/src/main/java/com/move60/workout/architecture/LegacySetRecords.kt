@@ -20,7 +20,10 @@ data class ShownSet(
     val exerciseId: String, val setNumber: Int, val kg: String, val reps: String,
     val origin: SetOrigin,
     /** A legacy value that differs from the stored session's value for the same exercise and set. Both are kept. */
-    val differsFromStored: Boolean = false
+    val differsFromStored: Boolean = false,
+    /** The stored original when this value was corrected (policy 6); null = never corrected. */
+    val originalKg: String? = null,
+    val originalReps: String? = null
 )
 
 data class LegacySetGroup(val day: Int, val token: Long, val sessionId: String?, val sets: List<ShownSet>) {

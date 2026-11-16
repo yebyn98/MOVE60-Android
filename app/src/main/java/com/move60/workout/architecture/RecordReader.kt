@@ -45,7 +45,11 @@ data class DayRecord(
 
 data class ExerciseSets(val exerciseId: String, val sets: List<ShownSet>)
 
-data class SessionDetail(val date: LocalDate, val session: RecordSession, val exercises: List<ExerciseSets>)
+data class SessionDetail(
+    val date: LocalDate, val session: RecordSession, val exercises: List<ExerciseSets>,
+    /** Corrections of this session, oldest first (policy 6). The originals above stay as stored. */
+    val history: List<CorrectionEntry> = emptyList()
+)
 
 class RecordReader(
     private val db: WorkoutDatabase,
@@ -87,9 +91,20 @@ class RecordReader(
         val shown = legacy.forDate(date).groups.firstOrNull { it.sessionId == sessionId }?.sets
             ?: dao.sets(sessionId).filter { it.state == SetState.COMPLETED.name }
                 .map { ShownSet(it.exerciseId, it.setNumber, it.weightKg, it.repetitions, SetOrigin.STORED) }
-        val exercises = shown.groupBy { it.exerciseId }.toSortedMap()
+        // Corrections are shown on top of the untouched stored original; v58 values come from SharedPreferences and are not corrected here.
+        val corrections = SessionCorrectionService(db)
+        val overlay = corrections.overlay(sessionId)
+        val corrected = shown.map { s ->
+            val o = if (s.origin == SetOrigin.STORED) overlay[s.exerciseId to s.setNumber] else null
+            if (o == null || (o.kg == null && o.reps == null)) s
+            else s.copy(
+                kg = o.kg ?: s.kg, reps = o.reps ?: s.reps,
+                originalKg = if (o.kg != null) s.kg else null, originalReps = if (o.reps != null) s.reps else null
+            )
+        }
+        val exercises = corrected.groupBy { it.exerciseId }.toSortedMap()
             .map { (id, sets) -> ExerciseSets(id, sets.sortedWith(compareBy({ it.setNumber }, { it.origin }))) }
-        return SessionDetail(date, row(entity, date), exercises)
+        return SessionDetail(date, row(entity, date), exercises, corrections.history(sessionId))
     }
 }
 

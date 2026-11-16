@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -23,13 +25,18 @@ import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -37,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -178,7 +186,7 @@ fun RecordSessionScreen(
                 RecordLoad.Loading -> Text("기록을 불러오고 있어요.", color = MaterialTheme.colorScheme.secondary)
                 RecordLoad.Missing -> RecordMessage("기록을 찾을 수 없어요", "목록에서 다시 선택해 주세요.")
                 RecordLoad.Failed -> RecordMessage("기록을 불러오지 못했어요.", "저장된 데이터는 유지되며 다시 확인할 수 있어요.", viewModel::load)
-                is RecordLoad.Ready -> SessionContent(s.value, viewModel::exerciseName)
+                is RecordLoad.Ready -> SessionContent(s.value, viewModel::exerciseName, viewModel::saveCorrections)
             }
             Spacer(Modifier.height(16.dp))
         }
@@ -186,7 +194,10 @@ fun RecordSessionScreen(
 }
 
 @Composable
-private fun SessionContent(detail: SessionDetail, name: (String) -> String) {
+private fun SessionContent(
+    detail: SessionDetail, name: (String) -> String,
+    onSaveCorrections: (List<SetCorrection>, (CorrectionResult) -> Unit) -> Unit
+) {
     val s = detail.session
     RecordHeading(
         "ACTIVITY / SESSION", "운동 세션",
@@ -199,6 +210,7 @@ private fun SessionContent(detail: SessionDetail, name: (String) -> String) {
     }
     Text("수행한 운동", style = MaterialTheme.typography.titleMedium)
     StrengthStageCard(detail.exercises, name)
+    CorrectionSection(detail, name, onSaveCorrections)
     Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.testTag("record_session_footnote")) {
         Text("유효 기록은 시간형 활성 합계 60초↑ 또는 근력 1세트 완료↑", color = MaterialTheme.colorScheme.secondary,
             style = MaterialTheme.typography.bodySmall)
@@ -261,6 +273,11 @@ private fun ExerciseCard(ex: ExerciseSets, name: (String) -> String) {
             modifier = Modifier.testTag("record_exercise_sets_${ex.exerciseId}"))
         if (legacyCount > 0) Text("이전 버전 기록 ${legacyCount}세트 포함", color = MaterialTheme.colorScheme.secondary,
             style = MaterialTheme.typography.bodySmall)
+        // Policy 6: a corrected value is shown with the stored original beside it.
+        base.filter { it.originalKg != null || it.originalReps != null }.forEach {
+            Text("${it.setNumber}세트 수정됨 · 원본 ${it.originalKg ?: it.kg}kg × ${it.originalReps ?: it.reps}회",
+                color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall)
+        }
         differing.forEach {
             Text("${it.setNumber}세트: 이전 버전 값 ${it.kg}kg × ${it.reps}회 · 저장된 값과 달라요",
                 color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall)
@@ -281,4 +298,141 @@ internal fun RecordDaySummaryCard(record: DayRecord, onOpen: () -> Unit) {
         Text("운동시간 ${RecordFormat.duration(record.sessionSeconds)}", color = MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.Medium)
     }
+}
+
+/** Policy 6 (P-22/P-23): correct weight/reps of completed sets, and read the correction history. Originals are never changed. */
+@Composable
+private fun CorrectionSection(
+    detail: SessionDetail, name: (String) -> String,
+    onSave: (List<SetCorrection>, (CorrectionResult) -> Unit) -> Unit
+) {
+    var editing by rememberSaveable { mutableStateOf(false) }
+    var showHistory by rememberSaveable { mutableStateOf(false) }
+    // Only sets stored in this session can be corrected; v58 values live in SharedPreferences and stay as they were saved.
+    val editable = detail.exercises.flatMap { it.sets }.filter { it.origin == SetOrigin.STORED }
+    Column(Modifier.fillMaxWidth().testTag("record_correction_section"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (editable.isNotEmpty()) {
+            Move60Button(onClick = { editing = true }, primary = false,
+                modifier = Modifier.fillMaxWidth().testTag("record_edit_open")) { Text("실제 운동 기록 수정") }
+            Text("기록을 수정하면 이전 값과 수정 내역이 보존돼요.", color = MaterialTheme.colorScheme.secondary,
+                style = MaterialTheme.typography.bodySmall)
+        }
+        Move60Button(onClick = { showHistory = true }, primary = false,
+            modifier = Modifier.fillMaxWidth().testTag("record_history_open")) { Text("수정 이력 보기") }
+    }
+    if (editing) CorrectionDialog(editable, name, onDismiss = { editing = false }, onSave = onSave)
+    if (showHistory) HistoryDialog(detail.history, name) { showHistory = false }
+}
+
+@Composable
+private fun CorrectionDialog(
+    sets: List<ShownSet>, name: (String) -> String, onDismiss: () -> Unit,
+    onSave: (List<SetCorrection>, (CorrectionResult) -> Unit) -> Unit
+) {
+    fun keyOf(s: ShownSet) = "${s.exerciseId}#${s.setNumber}"
+    val kg = remember { mutableStateMapOf<String, String>().also { m -> sets.forEach { m[keyOf(it)] = it.kg } } }
+    val reps = remember { mutableStateMapOf<String, String>().also { m -> sets.forEach { m[keyOf(it)] = it.reps } } }
+    var message by remember { mutableStateOf<String?>(null) }
+    var saving by remember { mutableStateOf(false) }
+
+    // Only values that differ from what is shown become corrections.
+    val pending = sets.mapNotNull { s ->
+        val k = kg[keyOf(s)].orEmpty().trim()
+        val r = reps[keyOf(s)].orEmpty().trim()
+        val kChanged = k != s.kg
+        val rChanged = r != s.reps
+        if (!kChanged && !rChanged) null
+        else SetCorrection(s.exerciseId, s.setNumber, if (kChanged) k else null, if (rChanged) r else null)
+    }
+    val valid = pending.all {
+        (it.weightKg == null || CorrectionRules.weight(it.weightKg) != null) &&
+            (it.repetitions == null || CorrectionRules.reps(it.repetitions) != null)
+    }
+
+    AlertDialog(
+        onDismissRequest = { if (!saving) onDismiss() },
+        modifier = Modifier.testTag("record_edit_dialog"),
+        title = { Text("실제 운동 기록 수정") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("기록을 수정하면 이전 값과 수정 내역이 보존돼요.", color = MaterialTheme.colorScheme.secondary,
+                    style = MaterialTheme.typography.bodySmall)
+                sets.forEach { s ->
+                    val key = keyOf(s)
+                    val k = kg[key].orEmpty().trim()
+                    val r = reps[key].orEmpty().trim()
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("${name(s.exerciseId)} · ${s.setNumber}세트", fontWeight = FontWeight.Medium)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                kg[key].orEmpty(), { kg[key] = it.filter { c -> c.isDigit() || c == '.' }.take(6); message = null },
+                                label = { Text("중량(kg)") }, singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                isError = k != s.kg && CorrectionRules.weight(k) == null,
+                                modifier = Modifier.weight(1f).testTag("record_edit_kg_$key")
+                            )
+                            OutlinedTextField(
+                                reps[key].orEmpty(), { reps[key] = it.filter { c -> c.isDigit() }.take(3); message = null },
+                                label = { Text("횟수") }, singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                isError = r != s.reps && CorrectionRules.reps(r) == null,
+                                modifier = Modifier.weight(1f).testTag("record_edit_reps_$key")
+                            )
+                        }
+                    }
+                }
+                message?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("record_edit_message"))
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = pending.isNotEmpty() && valid && !saving,
+                onClick = {
+                    saving = true
+                    onSave(pending) { result ->
+                        saving = false
+                        when (result) {
+                            is CorrectionResult.Saved -> onDismiss()
+                            CorrectionResult.Unchanged -> message = "바뀐 값이 없어요."
+                            else -> message = "수정을 저장하지 못했어요. 기존 기록은 그대로예요."
+                        }
+                    }
+                },
+                modifier = Modifier.heightIn(min = 48.dp).testTag("record_edit_save")
+            ) { Text("수정 저장") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !saving, modifier = Modifier.heightIn(min = 48.dp).testTag("record_edit_cancel")) { Text("취소") }
+        }
+    )
+}
+
+@Composable
+private fun HistoryDialog(history: List<CorrectionEntry>, name: (String) -> String, onClose: () -> Unit) {
+    val zone = remember { java.time.ZoneId.systemDefault() }
+    val format = remember { java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm") }
+    AlertDialog(
+        onDismissRequest = onClose,
+        modifier = Modifier.testTag("record_history_dialog"),
+        title = { Text("수정 이력 보기") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (history.isEmpty()) Text("수정 이력이 없어요.", modifier = Modifier.testTag("record_history_empty"))
+                // Newest first; each row keeps the value before and after the change and when it was saved.
+                history.asReversed().forEach { h ->
+                    val weight = h.attribute == CorrectionField.WEIGHT
+                    val unit = if (weight) "kg" else "회"
+                    Column(Modifier.testTag("record_history_item"), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("${name(h.exerciseId)} · ${h.setNumber}세트 · ${if (weight) "중량" else "횟수"}", fontWeight = FontWeight.Medium)
+                        Text("${h.oldValue.orEmpty()}$unit → ${h.newValue.orEmpty()}$unit", modifier = Modifier.testTag("record_history_change"))
+                        Text(java.time.Instant.ofEpochMilli(h.createdAtEpochMs).atZone(zone).format(format),
+                            color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onClose, modifier = Modifier.heightIn(min = 48.dp)) { Text("닫기") } }
+    )
 }
