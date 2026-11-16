@@ -180,4 +180,54 @@ class ComposeMyTest {
             } finally { db.close() }
         } finally { cleanE2e(includeHome = false) }
     }
+
+    /** Figma 10 trend/stats/milestones and Figma 68 report from a REAL stored session (yesterday 20:35, 720 s, one completed set). */
+    @Test fun hubTrendAndReportShowTheStoredSession() {
+        val zone = java.time.ZoneId.of("Asia/Seoul")
+        val id = "record-my-a"
+        val date = java.time.LocalDate.now(zone).minusDays(1)
+        val db = Room.databaseBuilder(context, WorkoutDatabase::class.java, dbFile).build()
+        try {
+            runBlocking {
+                val start = date.atTime(20, 35).atZone(zone).toEpochSecond()
+                val session = SessionEntity(id, null, zone.id, start * 1000, (start + 720) * 1000,
+                    SessionCompletion.COMPLETED.name, 720, 1, false, null, 0L)
+                SessionCommitter(db).commit(SessionBundle(session, listOf(SessionActiveIntervalEntity(id, 0, start, start + 720)),
+                    listOf(SessionSetEntity(id, "legPress", 1, SetState.COMPLETED.name, "40", "12", null))))
+            }
+            db.close()
+            ActivityScenario.launch(ComposeActivity::class.java).use {
+                rule.onNodeWithTag("tab_settings").performClick()
+                rule.waitUntil(10_000) { rule.onAllNodesWithTag("my_trend").fetchSemanticsNodes().isNotEmpty() }
+                rule.onNodeWithTag("my_trend").performScrollTo().assertIsDisplayed()
+                rule.onNodeWithTag("my_trend_minutes").performClick()
+                rule.onNodeWithTag("my_stat_sessions").performScrollTo().assertIsDisplayed()
+                rule.onNodeWithTag("my_stat_challenges").assertIsDisplayed()
+                rule.onNodeWithTag("my_milestone_first").performScrollTo().assertIsDisplayed()
+                capture("compose-my-home-full.png")
+
+                rule.onNodeWithTag("my_report_open").performScrollTo().performClick()
+                rule.waitUntil(10_000) { rule.onAllNodesWithTag("my_report_latest").fetchSemanticsNodes().isNotEmpty() }
+                rule.onNodeWithTag("my_report_chart").assertIsDisplayed()
+                rule.onNodeWithTag("my_report_latest").assertIsDisplayed()
+                rule.onNodeWithText("12분 00초 · 운동 기록 상세 보기").assertIsDisplayed()
+                rule.onNodeWithTag("my_report_composition").performScrollTo().assertIsDisplayed()
+                rule.onNodeWithTag("my_report_ex_legPress").performScrollTo().assertIsDisplayed()
+                rule.onNodeWithText("40kg × 12회 (1세트)").assertIsDisplayed()
+                capture("compose-my-report.png")
+                // The latest-session card opens the real session detail.
+                rule.onNodeWithTag("my_report_latest").performScrollTo().performClick()
+                rule.waitUntil(10_000) { rule.onAllNodesWithTag("record_exercise_sets_legPress").fetchSemanticsNodes().isNotEmpty() }
+            }
+        } finally {
+            if (db.isOpen) db.close()
+            val clean = Room.databaseBuilder(context, WorkoutDatabase::class.java, dbFile).build()
+            try {
+                val raw = clean.openHelper.writableDatabase
+                for (table in listOf("session_adjustments", "session_sets", "session_active_intervals", "session_day_slices", "session_segments"))
+                    raw.execSQL("DELETE FROM `$table` WHERE sessionId LIKE 'record-my-%'")
+                raw.execSQL("DELETE FROM sessions WHERE sessionId LIKE 'record-my-%'")
+            } finally { clean.close() }
+        }
+    }
 }

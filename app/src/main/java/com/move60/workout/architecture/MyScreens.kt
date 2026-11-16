@@ -1,8 +1,10 @@
 package com.move60.workout.architecture
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -10,14 +12,19 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CheckBox
 import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
 import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.EmojiEvents
+import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -68,7 +75,7 @@ private fun NavRow(title: String, supporting: String, tag: String, onClick: () -
 
 /** Figma 10 · 마이 / 나의 성장. */
 @Composable
-fun MyHomeScreen(onOpenSpaces: () -> Unit, onOpenSettings: () -> Unit, viewModel: MyHomeViewModel = hiltViewModel()) {
+fun MyHomeScreen(onOpenSpaces: () -> Unit, onOpenSettings: () -> Unit, onOpenReport: () -> Unit = {}, viewModel: MyHomeViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     androidx.compose.runtime.LaunchedEffect(Unit) { viewModel.load() }
     Scaffold(containerColor = MaterialTheme.colorScheme.background, topBar = {
@@ -100,8 +107,19 @@ fun MyHomeScreen(onOpenSpaces: () -> Unit, onOpenSettings: () -> Unit, viewModel
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary
                 )
             }
+            state.weekly?.let { TrendCard(it) }
+            NavRow("운동 성과 리포트", "주간 변화와 실제 수행 기록 자세히 보기", "my_report_open", onOpenReport)
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                StatCard("저장된 운동 세션", state.sessionCount?.let { "${it}회" } ?: "-", "my_stat_sessions", Modifier.weight(1f))
+                StatCard("완료한 도전", state.completedChallenges?.let { "${it}개" } ?: "-", "my_stat_challenges", Modifier.weight(1f))
+            }
             Text("나의 운동 설정", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Medium)
             NavRow("내 운동 공간", state.defaultSpaceName ?: "아직 등록하지 않았어요", "my_spaces_open", onOpenSpaces)
+            val milestones = state.milestones
+            if (milestones.isNotEmpty()) {
+                Text("나의 마일스톤", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
+                Column(Modifier.testTag("my_milestones"), verticalArrangement = Arrangement.spacedBy(8.dp)) { milestones.forEach { MilestoneRow(it) } }
+            }
             Spacer(Modifier.height(16.dp))
         }
     }
@@ -258,4 +276,139 @@ private fun ModelDialog(
         },
         confirmButton = { TextButton(onClick = onDismiss, modifier = Modifier.heightIn(min = 48.dp).testTag("my_model_done")) { Text("확인") } }
     )
+}
+
+@Composable
+private fun StatCard(label: String, value: String, tag: String, modifier: Modifier) {
+    Move60Card(modifier.testTag(tag)) {
+        Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+        Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun MilestoneRow(m: Milestone) {
+    val icon = when (m.id) { "first" -> Icons.Outlined.EmojiEvents; "days20" -> Icons.Outlined.LocalFireDepartment; else -> Icons.Outlined.Flag }
+    Move60Card(Modifier.testTag("my_milestone_${m.id}")) {
+        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, contentDescription = null, tint = if (m.achieved) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline)
+            Spacer(Modifier.size(12.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(m.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                Text(if (m.achieved) m.supporting else "아직 달성하지 않았어요", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+            }
+            Text(if (m.achieved) "달성" else "", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+        }
+    }
+}
+
+/** Bars for [labels]/[values]; every bar also shows its number so the chart never depends on color or height alone. */
+@Composable
+private fun BarChart(labels: List<String>, values: List<Long>, unit: String, tag: String) {
+    val max = (values.maxOrNull() ?: 0L).coerceAtLeast(1L)
+    Row(Modifier.fillMaxWidth().height(132.dp).testTag(tag), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Bottom) {
+        labels.forEachIndexed { i, label ->
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
+                Text("${values[i]}$unit", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                Box(Modifier.fillMaxWidth().height(maxOf(4f, 72f * values[i] / max).dp)
+                    .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(6.dp)))
+                Spacer(Modifier.height(4.dp))
+                Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+            }
+        }
+    }
+}
+
+/** Figma 10 · 성취 흐름: the last 4 weeks, days or minutes. */
+@Composable
+private fun TrendCard(weekly: List<WeekPoint>) {
+    var tab by rememberSaveable { mutableStateOf(0) }
+    Move60Card(Modifier.testTag("my_trend")) {
+        Text("성취 흐름", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
+        Text("최근 4주 · 주간 기록", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TabChip("운동일수", tab == 0, "my_trend_days") { tab = 0 }
+            TabChip("운동시간", tab == 1, "my_trend_minutes") { tab = 1 }
+        }
+        BarChart(
+            weekly.indices.map { MyInsights.weekLabel(it, weekly.size) },
+            weekly.map { if (tab == 0) it.days.toLong() else it.minutes }, if (tab == 0) "일" else "분", "my_trend_chart"
+        )
+    }
+}
+
+@Composable
+private fun TabChip(label: String, selected: Boolean, tag: String, onClick: () -> Unit) {
+    Box(Modifier.heightIn(min = 48.dp).clickable(role = Role.Tab, onClick = onClick).semantics { stateDescription = if (selected) "선택됨" else "선택 안 됨" }.testTag(tag),
+        contentAlignment = Alignment.Center) {
+        Box(Modifier.background(if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface, RoundedCornerShape(10.dp))
+            .padding(horizontal = 16.dp, vertical = 6.dp)) {
+            Text(label, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium)
+        }
+    }
+}
+
+/** Figma 68 · 운동 성과 리포트: real numbers only (the Figma values are examples). */
+@Composable
+fun MyReportScreen(onBack: () -> Unit, onOpenSession: (String) -> Unit, viewModel: MyReportViewModel = hiltViewModel()) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    Scaffold(containerColor = MaterialTheme.colorScheme.background, topBar = { ScreenTopBar("운동 성과 리포트", onBack, "my_back") }) { inner ->
+        Column(Modifier.fillMaxSize().padding(inner).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).testTag("my_report"),
+            verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            when (val s = state) {
+                RecordLoad.Loading -> Text("리포트를 불러오고 있어요.", color = MaterialTheme.colorScheme.secondary)
+                RecordLoad.Missing, RecordLoad.Failed -> Move60Card(Modifier.testTag("my_report_failed")) {
+                    Text("리포트를 불러오지 못했어요.", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("저장된 기록은 그대로예요. 다시 확인해 주세요.", color = MaterialTheme.colorScheme.secondary)
+                    Move60Button(onClick = viewModel::load, modifier = Modifier.fillMaxWidth().testTag("my_report_retry")) { Text("다시 불러오기") }
+                }
+                is RecordLoad.Ready -> ReportContent(s.value, viewModel::exerciseName, onOpenSession)
+            }
+            Spacer(Modifier.height(16.dp))
+        }
+    }
+}
+
+@Composable
+private fun ReportContent(report: MyReport, name: (String) -> String, onOpenSession: (String) -> Unit) {
+    Text("이번 주 운동 흐름", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+    Text("주간 운동한 날과 실제 운동 내역을 함께 확인해요.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+    Move60Card(Modifier.testTag("my_report_weeks")) {
+        Text("주간 운동한 날", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
+        BarChart(listOf("지난 주", "이번 주"), listOf(report.lastWeek.days.toLong(), report.thisWeek.days.toLong()), "일", "my_report_chart")
+    }
+    Text("최근 수행 세션", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
+    val latest = report.latest
+    if (latest == null) {
+        Move60Card(Modifier.testTag("my_report_no_session")) {
+            Text("저장된 운동 세션이 아직 없어요.", color = MaterialTheme.colorScheme.secondary)
+        }
+        return
+    }
+    val title = "${latest.date.monthValue}월 ${latest.date.dayOfMonth}일 · ${latest.session.routineName ?: "운동 세션"}"
+    Move60Card(Modifier.clickable(role = Role.Button) { onOpenSession(latest.session.sessionId) }.testTag("my_report_latest")) {
+        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
+                Text("${RecordFormat.duration(latest.session.totalActiveSeconds)} · 운동 기록 상세 보기", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+            }
+            Icon(Icons.Outlined.ChevronRight, contentDescription = null)
+        }
+    }
+    val cardio = latest.stages.firstOrNull { it.kind == SegmentKind.CARDIO_STEADY }?.actualSeconds ?: 0L
+    val parts = buildList {
+        if (latest.session.completedSets > 0) add("근력 ${latest.session.completedSets}세트")
+        if (cardio > 0) add("유산소 ${RecordFormat.compact(cardio)}")
+    }
+    if (parts.isNotEmpty()) Text("세션 구성 · ${parts.joinToString(" / ")}", style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.secondary, modifier = Modifier.testTag("my_report_composition"))
+    Text("종목별 수행 기록", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
+    if (latest.exercises.isEmpty()) Text("저장된 세트 기록이 없어요.", color = MaterialTheme.colorScheme.secondary)
+    latest.exercises.forEach { ex ->
+        Move60Card(Modifier.testTag("my_report_ex_${ex.exerciseId}"), spacing = 6.dp) {
+            Text(name(ex.exerciseId), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+            Text(RecordFormat.setSummary(ex.sets), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+        }
+    }
 }

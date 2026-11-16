@@ -46,6 +46,12 @@ interface RoutiveDao {
     @Query("SELECT DISTINCT date FROM session_day_slices WHERE date >= :from AND date <= :to ORDER BY date")
     suspend fun sessionDatesBetween(from: String, to: String): List<String>
 
+    /** MY tab numbers. Read-only. */
+    @Query("SELECT COUNT(*) FROM sessions") suspend fun sessionCount(): Int
+    @Query("SELECT COUNT(*) FROM challenges WHERE status = 'COMPLETE'") suspend fun completedChallengeCount(): Int
+    @Query("SELECT sessionId FROM sessions ORDER BY COALESCE(startedAtEpochMs, committedAtEpochMs) DESC, sessionId DESC LIMIT 1")
+    suspend fun latestSessionId(): String?
+
     /** Every session-zone ISO date that has stored session time (MY tab lifetime count). Read-only. */
     @Query("SELECT DISTINCT date FROM session_day_slices ORDER BY date")
     suspend fun allSessionDates(): List<String>

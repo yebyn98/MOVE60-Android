@@ -151,8 +151,10 @@ fun Move60ComposeApp(showIntro: Boolean = false, openCalendar: Boolean = false, 
                     composable("record_session/{sessionId}") { RecordSessionScreen(onBack = { nav.popBackStack() }) }
                     composable("my") { MyHomeScreen(
                         onOpenSpaces = { nav.navigate("my_spaces") },
-                        onOpenSettings = { nav.navigate("settings") }
+                        onOpenSettings = { nav.navigate("settings") },
+                        onOpenReport = { nav.navigate("my_report") }
                     ) }
+                    composable("my_report") { MyReportScreen(onBack = { nav.popBackStack() }, onOpenSession = { nav.navigate("record_session/$it") }) }
                     composable("my_spaces") { MySpacesScreen(onBack = { nav.popBackStack() }, onOpenSpace = { nav.navigate("my_space/$it") }) }
                     composable("my_space/{spaceId}") { SpaceEquipmentScreen(onBack = { nav.popBackStack() }) }
     composable("settings") { WorkoutSettings(onBack = { nav.popBackStack() }) }

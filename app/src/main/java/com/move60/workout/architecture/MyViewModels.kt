@@ -21,19 +21,41 @@ object MyGrowth {
     fun cumulativeDays(legacy: Set<LocalDate>, stored: Set<LocalDate>): Int = (legacy + stored).size
 }
 
-data class MyHomeUi(val cumulativeDays: Int?, val defaultSpaceName: String?)
+data class MyHomeUi(
+    val cumulativeDays: Int? = null,
+    val defaultSpaceName: String? = null,
+    /** Oldest first; null = could not be read (never shown as zeros). */
+    val weekly: List<WeekPoint>? = null,
+    val sessionCount: Int? = null,
+    val completedChallenges: Int? = null
+) {
+    val milestones: List<Milestone> get() = MyInsights.milestones(cumulativeDays, completedChallenges)
+}
+
+private val SEOUL = java.time.ZoneId.of("Asia/Seoul")
+
+/** The last [weeks] weeks (v58 history + stored sessions). Throws on a read failure so callers can show "unknown". */
+internal suspend fun loadWeekly(db: WorkoutDatabase, history: WorkoutHistory, weeks: Int): List<WeekPoint> {
+    val today = LocalDate.now(SEOUL)
+    val from = MyInsights.weekStart(today).minusWeeks((weeks - 1).toLong())
+    val legacy = generateSequence(from) { it.plusDays(1) }.takeWhile { !it.isAfter(today) }
+        .associateWith { history.record(it).activeSeconds }.filterValues { it / 60 >= 1L }
+    val stored = db.routiveDao().sessionSecondsByDate(from.toString(), today.toString())
+        .mapNotNull { row -> runCatching { LocalDate.parse(row.date) }.getOrNull()?.let { it to row.seconds } }.toMap()
+    return MyInsights.weekly(today, weeks, legacy, stored)
+}
 
 @HiltViewModel
 class MyHomeViewModel @Inject constructor(
     private val db: WorkoutDatabase,
     private val history: WorkoutHistory
 ) : ViewModel() {
-    private val _state = MutableStateFlow(MyHomeUi(null, null))
+    private val _state = MutableStateFlow(MyHomeUi())
     val state: StateFlow<MyHomeUi> = _state.asStateFlow()
 
     init { load() }
 
-    /** A failed read shows "no value" (null), never 0. */
+    /** Each number is read on its own: a failed read shows "unknown" (null), never 0. */
     fun load() {
         viewModelScope.launch {
             val days = try {
@@ -41,7 +63,39 @@ class MyHomeViewModel @Inject constructor(
                 MyGrowth.cumulativeDays(history.trainedDates(), stored)
             } catch (_: Exception) { null }
             val space = try { db.spaceDao().spaces().firstOrNull { it.isDefault }?.name } catch (_: Exception) { null }
-            _state.value = MyHomeUi(days, space)
+            val weekly = try { loadWeekly(db, history, 4) } catch (_: Exception) { null }
+            val sessions = try { db.routiveDao().sessionCount() } catch (_: Exception) { null }
+            val challenges = try { db.routiveDao().completedChallengeCount() } catch (_: Exception) { null }
+            _state.value = MyHomeUi(days, space, weekly, sessions, challenges)
+        }
+    }
+}
+
+/** Figma 68 data: this week vs last week, and the latest stored session with its real sets. */
+data class MyReport(val thisWeek: WeekPoint, val lastWeek: WeekPoint, val latest: SessionDetail?)
+
+@HiltViewModel
+class MyReportViewModel @Inject constructor(
+    private val db: WorkoutDatabase,
+    private val history: WorkoutHistory,
+    private val sets: com.move60.workout.SetRecordStore,
+    private val data: com.move60.workout.WorkoutData
+) : ViewModel() {
+    private val _state = MutableStateFlow<RecordLoad<MyReport>>(RecordLoad.Loading)
+    val state: StateFlow<RecordLoad<MyReport>> = _state.asStateFlow()
+
+    init { load() }
+
+    fun exerciseName(id: String): String = data.exerciseName(id) ?: id
+
+    fun load() {
+        viewModelScope.launch {
+            _state.value = try {
+                val weeks = loadWeekly(db, history, 2)
+                val latestId = db.routiveDao().latestSessionId()
+                val latest = latestId?.let { RecordReader(db) { sets.completedStoredSets() }.session(it) }
+                RecordLoad.Ready(MyReport(weeks[1], weeks[0], latest))
+            } catch (_: Exception) { RecordLoad.Failed }
         }
     }
 }
