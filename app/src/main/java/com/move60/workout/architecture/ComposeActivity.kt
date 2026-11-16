@@ -7,6 +7,7 @@ import android.provider.Settings
 import android.content.pm.PackageManager
 import androidx.activity.ComponentActivity
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.move60.workout.health.HealthConnectGateway
 import javax.inject.Inject
@@ -75,6 +76,7 @@ class ComposeActivity : ComponentActivity() {
         setContent { Move60ComposeApp(
             showIntro = savedInstanceState == null && !animationsDisabled() && !intent.getBooleanExtra("move60_open_calendar", false),
             openCalendar = intent.getBooleanExtra("move60_open_calendar", false),
+            forceFirstRun = intent.getBooleanExtra("move60_force_first_run", false),
             openResultId = intent.getStringExtra("move60_open_result"),
             openSessionRequest = sessionOpenRequest
         ) }
@@ -92,7 +94,7 @@ class ComposeActivity : ComponentActivity() {
 }
 
 @Composable
-fun Move60ComposeApp(showIntro: Boolean = false, openCalendar: Boolean = false, openResultId: String? = null, openSessionRequest: Int = 0) {
+fun Move60ComposeApp(showIntro: Boolean = false, openCalendar: Boolean = false, forceFirstRun: Boolean = false, openResultId: String? = null, openSessionRequest: Int = 0) {
     val nav = rememberNavController()
     var introVisible by rememberSaveable { mutableStateOf(showIntro) }
     var workoutRunning by rememberSaveable { mutableStateOf(false) }
@@ -105,6 +107,14 @@ fun Move60ComposeApp(showIntro: Boolean = false, openCalendar: Boolean = false, 
         }
     }
     val route = nav.currentBackStackEntryAsState().value?.destination?.route
+    // 최초 운동 설정: only for a user with no history and no space (see FirstRunPolicy); the check never blocks the normal start.
+    val firstRun: FirstRunViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+    val needsSetup by firstRun.needsSetup.collectAsStateWithLifecycle()
+    androidx.compose.runtime.LaunchedEffect(Unit) { firstRun.decide(forceFirstRun) }
+    // Keyed on the decision only (not the route): finishing the setup returns to "dashboard" and must not start it again.
+    androidx.compose.runtime.LaunchedEffect(needsSetup) {
+        if (needsSetup == true && nav.currentDestination?.route == "dashboard") nav.navigate("setup_purpose") { popUpTo("dashboard") { inclusive = true } }
+    }
     androidx.compose.runtime.LaunchedEffect(openResultId) {
         // Deep link used by tests and by re-opening the last result; never required for the normal flow.
         if (openResultId != null) nav.navigate("result/$openResultId") { launchSingleTop = true }
@@ -152,16 +162,24 @@ fun Move60ComposeApp(showIntro: Boolean = false, openCalendar: Boolean = false, 
                     composable("my") { MyHomeScreen(
                         onOpenSpaces = { nav.navigate("my_spaces") },
                         onOpenSettings = { nav.navigate("settings") },
-                        onOpenReport = { nav.navigate("my_report") }
+                        onOpenReport = { nav.navigate("my_report") },
+                        onOpenPurpose = { nav.navigate("my_purpose") }
                     ) }
                     composable("my_report") { MyReportScreen(onBack = { nav.popBackStack() }, onOpenSession = { nav.navigate("record_session/$it") }) }
+                    composable("setup_purpose") { FirstRunPurposeScreen(onContinue = { nav.navigate("setup_space") }, viewModel = firstRun) }
+                    composable("setup_space") { FirstRunSpaceScreen(viewModel = firstRun, onDone = { id ->
+                        // The setup screens leave the back stack; the new space's equipment list opens on top of the normal start.
+                        nav.navigate("dashboard") { popUpTo("setup_purpose") { inclusive = true } }
+                        nav.navigate("my_space/$id")
+                    }) }
+                    composable("my_purpose") { MyPurposeScreen(onBack = { nav.popBackStack() }, viewModel = firstRun) }
                     composable("my_spaces") { MySpacesScreen(onBack = { nav.popBackStack() }, onOpenSpace = { nav.navigate("my_space/$it") }) }
                     composable("my_space/{spaceId}") { SpaceEquipmentScreen(onBack = { nav.popBackStack() }) }
     composable("settings") { WorkoutSettings(onBack = { nav.popBackStack() }) }
                 }
                 // Provisional rule (pending policy confirmation): hide the tab bar while a workout is running
                 // so it never competes with the workout dock.
-                if (route != "workout" && route != "routive_session" && !(workoutRunning && route == "dashboard")) {
+                if (route != "workout" && route != "routive_session" && route?.startsWith("setup_") != true && !(workoutRunning && route == "dashboard")) {
                     Move60TabBar(route) { tab ->
                         nav.navigate(tab.route) {
                             popUpTo("dashboard") { saveState = true }
