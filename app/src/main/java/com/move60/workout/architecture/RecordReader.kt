@@ -89,6 +89,11 @@ class RecordReader(
             )
         }.sortedBy { it.index }
 
+    /** Stored session seconds per date of [month]. Dates without stored sessions are absent. */
+    suspend fun monthSeconds(month: YearMonth): Map<LocalDate, Long> =
+        dao.sessionSecondsByDate(month.atDay(1).toString(), month.atEndOfMonth().toString())
+            .mapNotNull { r -> runCatching { LocalDate.parse(r.date) }.getOrNull()?.let { it to r.seconds } }.toMap()
+
     private suspend fun row(s: SessionEntity, date: LocalDate): RecordSession {
         val completed = dao.sets(s.sessionId).filter { it.state == SetState.COMPLETED.name }
         val plan = RoutivePlanSnapshot.parse(s.planSnapshotJson)

@@ -483,7 +483,11 @@ fun WorkoutCalendar(
             }
             item { MonthGrid(viewModel, month, selected, sessionDates, onDayClick) }
             item {
-                val summary = viewModel.monthSummary(month)
+                val legacyMonth = viewModel.monthSummary(month)
+                // Stored sessions are counted too (v58 and stored time are never added on one date); no calories (policy 7).
+                val summary by androidx.compose.runtime.produceState(MonthSummaryUi(legacyMonth.trainedDays, legacyMonth.activeMinutes), month) {
+                    value = viewModel.monthSummaryCombined(month)
+                }
                 Column(Modifier.fillMaxWidth().testTag("calendar_summary"),
                     verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
@@ -494,10 +498,10 @@ fun WorkoutCalendar(
                             LegendDot(lowerDot, "하체")
                             LegendDot(null, "부위 미기록")
                         }
-                        Text("이번 달 ${summary.trainedDays}일 · ${summary.activeMinutes}분 · 약 ${summary.kcal} kcal",
+                        Text("이번 달 ${summary.trainedDays}일 · ${summary.activeMinutes}분",
                             color = secondary, style = MaterialTheme.typography.bodySmall)
                     }
-                    if (summary.trainedDays == 0 && sessionDates.isEmpty()) {
+                    if (summary.trainedDays == 0) {
                         Text("이 달의 운동 기록이 없어요.", color = secondary, style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier.testTag("calendar_month_empty"))
                     }

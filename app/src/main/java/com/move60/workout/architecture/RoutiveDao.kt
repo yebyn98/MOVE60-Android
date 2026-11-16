@@ -53,6 +53,10 @@ interface RoutiveDao {
     )
     suspend fun sessionsOn(date: String): List<SessionEntity>
 
+    /** Stored session seconds per session-zone date in [from, to] (month summary). Read-only. */
+    @Query("SELECT date AS date, SUM(activeSecondsOnDate) AS seconds FROM session_day_slices WHERE date >= :from AND date <= :to GROUP BY date")
+    suspend fun sessionSecondsByDate(from: String, to: String): List<DaySeconds>
+
     @Query("SELECT activeSecondsOnDate FROM session_day_slices WHERE sessionId = :sessionId AND date = :date")
     suspend fun sliceSeconds(sessionId: String, date: String): Long?
 
@@ -116,3 +120,6 @@ interface RoutiveDao {
     @Query("SELECT * FROM routine_exercises WHERE routineId = :id ORDER BY stageIndex, orderIndex") suspend fun routineExercises(id: String): List<RoutineExerciseEntity>
     @Query("SELECT * FROM routine_plans ORDER BY updatedAtEpochMs DESC") suspend fun routinePlans(): List<RoutinePlanEntity>
 }
+
+/** Query result: stored session seconds on one date. */
+data class DaySeconds(val date: String, val seconds: Long)
