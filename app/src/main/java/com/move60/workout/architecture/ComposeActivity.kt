@@ -80,7 +80,7 @@ class ComposeActivity : ComponentActivity() {
         ) }
     }
 
-    override fun onNewIntent(intent: android.content.Intent) {
+    public override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         if (intent.getBooleanExtra(RoutiveSessionService.EXTRA_OPEN_SESSION, false)) sessionOpenRequest++

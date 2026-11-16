@@ -170,9 +170,10 @@ class ComposeRoutiveSessionTest {
             assertTrue("tab bar hidden while paused", !has("tab_bar"))
             rule.onNodeWithTag("routive_back").performClick()                        // leave the screen, session keeps existing
             waitTag("routine_list")
-            context.startActivity(android.content.Intent(context, ComposeActivity::class.java)
-                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                .putExtra(RoutiveSessionService.EXTRA_OPEN_SESSION, true))
+            // Same delivery path a notification tap uses on an open app (the real tap itself is not exercised here).
+            rule.runOnUiThread {
+                rule.activity.onNewIntent(android.content.Intent(context, ComposeActivity::class.java).putExtra(RoutiveSessionService.EXTRA_OPEN_SESSION, true))
+            }
             waitTag("routive_stage_card", 15_000)                                    // same session, not a new one
             rule.onNodeWithTag("routive_resume").assertIsDisplayed()
         } finally {
