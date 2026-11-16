@@ -43,13 +43,13 @@ jobs:
         run: python3 scripts/verify-v36-ui.py
       - name: Verify weekday durations and cycling intervals
         run: node scripts/verify-plan.cjs
-      - name: Verify versionCodes will be accepted by the release publish step
+      # PRs validate the version comparison policy but do not publish an update.
+      # The published-version preflight is enforced by the manual release job.
+      - name: Unit-test release version policy (no PR version bump needed)
         if: github.event_name == 'pull_request'
-        run: |
-          python3 scripts/test_verify_release_version.py
-          python3 scripts/verify-release-version.py
+        run: python3 scripts/test_verify_release_version.py
       - name: Pre-merge release lint and phone / Watch4 debug builds
-        run: gradle --no-daemon :app:lintVitalRelease :wear:lintVitalRelease :app:assembleDebug :wear:assembleDebug :app:assembleDebugAndroidTest :wear:assembleDebugAndroidTest
+        run: gradle --no-daemon :app:lintVitalRelease :wear:lintVitalRelease :app:testDebugUnitTest :app:assembleDebug :wear:assembleDebug :app:assembleDebugAndroidTest :wear:assembleDebugAndroidTest
       - name: Enable KVM access for emulator
         run: |
           if test -e /dev/kvm; then sudo chmod 666 /dev/kvm; fi

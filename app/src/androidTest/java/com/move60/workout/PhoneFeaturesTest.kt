@@ -362,8 +362,12 @@ class PhoneFeaturesTest {
         }
     }
     @Test fun movingToAnotherItemKeepsActiveTime() {
-        val store = SessionStore(context, WorkoutData(context))
+        val data = WorkoutData(context)
+        val store = SessionStore(context, data)
         store.resetAll()
+        // Pin a weekday whose cardio stage has several items. The routine depends on the weekday (Mon/Wed have only
+        // 1-2 cardio items), so without pinning this test passed or failed depending on the day CI ran.
+        store.setDay(2)
         store.start()
         store.jumpTo(1)
         val before = store.elapsed()
@@ -376,6 +380,7 @@ class PhoneFeaturesTest {
         assertEquals(0, store.phase()?.first)
         assertEquals("no overtime inside the target", 0, store.overtimeSeconds())
         store.resetAll()
+        store.setDay(data.todayDay())
     }
     @Test fun dailyEnergyIsIdempotentAndRecalculatesCompletedSetInputs() {
         val ledger = EnergyLedger(context)

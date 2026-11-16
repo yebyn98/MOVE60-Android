@@ -288,4 +288,98 @@ class WatchDisplayTest {
             capture("watch-idle.png")
         }
     }
+
+    @Test fun routiveFourStagesShowFourOfFourOrderAndTheLastButtonCompletes() {
+        ActivityScenario.launch(WatchActivity::class.java).use { scenario ->
+            listOf("준비운동", "근력운동", "유산소", "마무리").forEachIndexed { index, name ->
+                scenario.onActivity { activity ->
+                    activity.applyWorkoutState(WatchWorkoutState(protocol = 27, running = true, hasSession = true, stageIndex = index, stageName = name,
+                        structure = STRUCTURE_ROUTIVE_4, stageCount = ROUTIVE_STAGE_COUNT, remaining = 600, deadline = System.currentTimeMillis() + 600_000L))
+                }
+                instrumentation.waitForIdleSync()
+                scenario.onActivity { activity ->
+                    val v = activity.window.decorView
+                    assertEquals("${index + 1}/4 · $name", v.findViewWithTag<TextView>("watch_stage").text.toString())
+                    assertEquals(if (index == 3) "운동 완료" else "다음 단계", v.findViewWithTag<Button>("watch_next").text.toString())
+                    assertButtonInsideCircle(activity, v.findViewWithTag("watch_next"))
+                }
+            }
+            capture("watch-routive4-last-stage.png")
+        }
+    }
+
+    @Test fun routiveStageWithoutAPlanShowsElapsedTimeNotACountdown() {
+        ActivityScenario.launch(WatchActivity::class.java).use { scenario ->
+            scenario.onActivity { activity ->
+                activity.applyWorkoutState(WatchWorkoutState(protocol = 27, running = false, hasSession = true, stageIndex = 3, stageName = "마무리",
+                    structure = STRUCTURE_ROUTIVE_4, stageCount = ROUTIVE_STAGE_COUNT, plannedKnown = false, stageElapsed = 75))
+            }
+            instrumentation.waitForIdleSync()
+            scenario.onActivity { activity ->
+                val v = activity.window.decorView
+                assertEquals("01:15", v.findViewWithTag<TextView>("watch_timer").text.toString())
+                assertTrue(v.findViewWithTag<TextView>("watch_timer").contentDescription.contains("경과"))
+                assertEquals("일시정지", v.findViewWithTag<TextView>("watch_detail").text.toString())
+                assertEquals("시작", v.findViewWithTag<Button>("watch_play").text.toString())
+            }
+            capture("watch-routive4-paused-unplanned.png")
+        }
+    }
+
+    @Test fun routiveRestOffersSkipOnlyAndHeartRateWaitsWithoutASample() {
+        ActivityScenario.launch(WatchActivity::class.java).use { scenario ->
+            context.getSharedPreferences("live_heart_rate", 0).edit().clear().commit()
+            scenario.onActivity { activity ->
+                activity.applyWorkoutState(WatchWorkoutState(protocol = 27, running = true, hasSession = true, stageIndex = 1, stageName = "근력운동",
+                    structure = STRUCTURE_ROUTIVE_4, stageCount = ROUTIVE_STAGE_COUNT, restId = 5L, restDeadline = System.currentTimeMillis() + 60_000L))
+            }
+            instrumentation.waitForIdleSync()
+            scenario.onActivity { activity ->
+                val v = activity.window.decorView
+                assertEquals("건너뛰기", v.findViewWithTag<Button>("watch_next").text.toString())
+                assertEquals("휴식 · 타이머 탭해 건너뛰기", v.findViewWithTag<TextView>("watch_detail").text.toString())
+                assertFalse("no +15 s adjustment promised for ROUTIVE_4", v.findViewWithTag<TextView>("watch_timer").contentDescription.contains("15초"))
+                val heart = v.findViewWithTag<TextView>("watch_heart").text.toString()
+                // no sample: waiting text, or the disconnected notice when the phone link is down (as on this emulator); never a bpm value
+                assertTrue("no sample -> no invented bpm: $heart", !heart.contains("bpm") && (heart.contains("수신 대기") || heart.contains("연결 끊김")))
+            }
+            capture("watch-routive4-rest.png")
+        }
+    }
+
+    @Test fun structureIsParsedStoredAndDefaultsToTheFiveStageLayout() {
+        val routive = com.google.android.gms.wearable.DataMap().apply {
+            putInt("protocol", 27); putLong("sequence", 300L); putString("structure", "ROUTIVE_4"); putInt("stageCount", 4); putInt("stageIndex", 9)
+            putBoolean("hasSession", true); putBoolean("plannedKnown", false); putInt("stageElapsed", 40)
+        }
+        val parsed = WatchWorkoutState.fromData(routive)
+        assertEquals(3, parsed.stageIndex)                       // clamped to the last of 4 stages
+        assertTrue(parsed.isRoutive4); assertFalse(parsed.plannedKnown)
+        assertTrue(parsed.save(context))
+        val restored = WatchWorkoutState.load(context)
+        assertEquals(Triple("ROUTIVE_4", 4, false), Triple(restored.structure, restored.stageCount, restored.plannedKnown))
+        val legacy = com.google.android.gms.wearable.DataMap().apply { putInt("protocol", 26); putLong("sequence", 400L); putInt("stageIndex", 4) }
+        val old = WatchWorkoutState.fromData(legacy)
+        assertEquals(Triple("LEGACY_5", 5, 4), Triple(old.structure, old.stageCount, old.stageIndex))
+        assertTrue(old.plannedKnown)
+        val unknown = com.google.android.gms.wearable.DataMap().apply { putString("structure", "SOMETHING_NEW"); putInt("stageIndex", 4) }
+        assertEquals("an unknown structure never hides the legacy flow", "LEGACY_5", WatchWorkoutState.fromData(unknown).structure)
+    }
+
+    @Test fun routiveStrengthIsStageOneAndLegacyStrengthIsStageTwo() {
+        assertTrue(WatchWorkoutState(stageIndex = 1, structure = STRUCTURE_ROUTIVE_4, stageCount = 4).isStrength)
+        assertFalse(WatchWorkoutState(stageIndex = 2, structure = STRUCTURE_ROUTIVE_4, stageCount = 4).isStrength)
+        assertTrue(WatchWorkoutState(stageIndex = 2).isStrength)
+        assertFalse(WatchWorkoutState(stageIndex = 1).isStrength)
+        val routiveRunning = WatchWorkoutState(running = true, hasSession = true, structure = STRUCTURE_ROUTIVE_4, stageCount = 4,
+            plannedKnown = false, stageElapsed = 10, stageElapsedAt = 1_000L)
+        assertEquals(15, routiveRunning.elapsedSeconds(6_000L))
+    }
+
+    @Test fun restEndGivesASinglePulseOnTheWatchAndIsStillDeduplicated() {
+        // the vibration pattern itself is one 400 ms pulse; the dedupe contract is unchanged
+        val state = WatchWorkoutState(running = true, restId = 777L, restDeadline = 1_000L)
+        assertTrue(WatchRestAlert.deliver(context, state, 1_001L))
+        assertFalse(WatchRestAlert.deliver(context, state, 1_002L))
+    }
 }

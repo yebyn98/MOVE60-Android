@@ -131,7 +131,7 @@ def main():
         else:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(text, encoding="utf-8")
-    assert tokens["primary"].upper() == "#00E676" and tokens["heart"].upper() == "#FF6B81"
+    assert tokens["primary"].upper() == "#ABC5B1" and tokens["heart"].upper() == "#FF6B81"
     if drift:
         print("Logo assets drifted; rerun scripts/generate-logo-assets.py:\n  " + "\n  ".join(drift))
         sys.exit(1)

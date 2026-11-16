@@ -185,17 +185,19 @@ class WorkoutService : Service() {
     )
 
     private fun cue(now: Long): Cue {
-        val stage = snapshot.optInt("stage", 0).coerceIn(0, LAST_STAGE)
+        val structure = com.move60.workout.domain.StructureVersion.fromStored(snapshot.optString("structure").takeIf { it.isNotEmpty() })
+        val stage = snapshot.optInt("stage", 0).coerceIn(0, com.move60.workout.domain.WorkoutStructures.lastIndex(structure))
+        val kind = com.move60.workout.domain.WorkoutStructures.kindAt(structure, stage)
         val day = snapshot.optInt("day", 1).coerceIn(1, 5)
         val stageElapsed = snapshot.optInt("stageElapsedSeconds", 0).coerceAtLeast(0)
         val progress = snapshot.optInt("activeSeconds", 0).coerceAtLeast(0)
         val start = now - stageElapsed * 1000L
         val end = start + duration(stage) * 1000L
         var title = stageNames[stage]
-        var detail = when (stage) {
-            0 -> "관절을 천천히 풀고 호흡을 준비하세요"
-            1 -> "선택한 유산소 기구의 리듬을 유지하세요"
-            2 -> "운동 자세와 세트·횟수를 확인하세요"
+        var detail = when (kind) {
+            com.move60.workout.domain.StageKind.WARM_UP -> "관절을 천천히 풀고 호흡을 준비하세요"
+            com.move60.workout.domain.StageKind.CARDIO -> "선택한 유산소 기구의 리듬을 유지하세요"
+            com.move60.workout.domain.StageKind.STRENGTH -> "운동 자세와 세트·횟수를 확인하세요"
             else -> "호흡을 정리하며 천천히 스트레칭하세요"
         }
         // `round` is only an internal phase key (vibration/dedupe); it is never shown to the user.
@@ -221,7 +223,7 @@ class WorkoutService : Service() {
                 from = until
             }
         }
-        return Cue(stageNames[stage], title, detail, round, effort, countdownEnd, progress, dayNames[day - 1], countUp = stage == 2)
+        return Cue(stageNames[stage], title, detail, round, effort, countdownEnd, progress, dayNames[day - 1], countUp = kind == com.move60.workout.domain.StageKind.STRENGTH)
     }
 
     private fun builder(channel: String): Notification.Builder {
@@ -230,7 +232,7 @@ class WorkoutService : Service() {
         val pending = PendingIntent.getActivity(this, 0, open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         return Notification.Builder(this, channel)
             .setSmallIcon(R.drawable.ic_fitness)
-            .setColor(Color.rgb(180, 245, 110))
+            .setColor(Move60Theme.Colors.primary)
             .setContentIntent(pending)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setOnlyAlertOnce(true)
@@ -307,7 +309,10 @@ class WorkoutService : Service() {
         val now = System.currentTimeMillis()
         reconcile(now)
         if (!snapshot.optBoolean("running", false) || snapshot.optBoolean("finished", false)) {
-            if (snapshot.optBoolean("finished", false)) showComplete()
+            if (snapshot.optBoolean("finished", false)) {
+                showComplete()
+                try { (application as? Move60Application)?.syncTimerSessionAsync() } catch (_: Exception) { /* never block the timer flow */ }
+            }
             stopWork()
             return
         }

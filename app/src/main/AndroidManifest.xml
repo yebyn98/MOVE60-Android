@@ -20,7 +20,7 @@
         <activity android:name=".health.HealthConsentActivity" android:exported="false" />
         <activity android:name=".MainActivity" android:exported="true"
             android:configChanges="orientation|screenSize|keyboardHidden" />
-        <activity android:name=".architecture.ComposeActivity" android:exported="true">
+        <activity android:name=".architecture.ComposeActivity" android:exported="true" android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -53,6 +53,11 @@
             android:stopWithTask="false" android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="User-initiated 60-minute exercise interval timer with ongoing lock-screen countdown and phase notifications" />
+        </service>
+        <service android:name=".architecture.RoutiveSessionService" android:exported="false"
+            android:stopWithTask="false" android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="User-initiated workout session with an ongoing progress notification (stage, elapsed time, pause and resume)" />
         </service>
     </application>
 </manifest>

@@ -34,6 +34,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.RadioButton
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.semantics.Role
@@ -69,6 +71,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Today
 import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.ChevronRight
@@ -82,6 +87,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -115,14 +121,30 @@ private val muted: Color get() = Color(Move60Theme.Colors.textMuted)
 
 @Composable
 fun WorkoutDashboard(
-    onCalendar: () -> Unit,
-    onSettings: () -> Unit,
-    viewModel: WorkoutViewModel = hiltViewModel()
+    onRunningChanged: (Boolean) -> Unit = {},
+    onOpenChallenge: () -> Unit = {},
+    onComposeRoutine: () -> Unit = {},
+    onOpenRoutines: () -> Unit = {},
+    onWorkoutFinished: (sessionId: String) -> Unit = {},
+    onOpenWorkout: () -> Unit = {},
+    viewModel: WorkoutViewModel = hiltViewModel(),
+    challenges: ChallengeViewModel = hiltViewModel()
 ) {
+    val challengeState by challenges.state.collectAsStateWithLifecycle()
+    // The ViewModel outlives tab switches: reload whenever the home enters composition so a new/ended challenge shows up.
+    LaunchedEffect(Unit) { challenges.refresh() }
     val state by viewModel.state.collectAsStateWithLifecycle()
+    // Confirmed policy: while a workout is in progress or paused only the workout dock is shown; the tab bar returns after it ends.
+    val inProgress = state.running || (state.activeSeconds > 0 && !state.finished && !state.endedEarly)
+    LaunchedEffect(inProgress) { onRunningChanged(inProgress) }
+    // Same id TimerSessionSync commits under, so the result screen can find the stored session.
+    LaunchedEffect(state.finished, state.endedEarly, state.sessionId) {
+        if ((state.finished || state.endedEarly) && state.sessionId > 0 && state.recordDate.isNotEmpty())
+            onWorkoutFinished("timer-${state.recordDate}-d${state.day}-${state.sessionId}")
+    }
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
-    val openDetail = { context.startActivity(Intent(context, MainActivity::class.java)) }
+    val openDetail = onOpenWorkout
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
             if (event is WorkoutUiEvent.Message) snackbar.showSnackbar(event.message)
@@ -140,25 +162,38 @@ fun WorkoutDashboard(
             ) {
                 Move60LogoMark(Modifier.size(52.dp).testTag("home_logo")
                     .semantics { contentDescription = "MOVE60" })
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    IconButton(onClick = onCalendar, modifier = Modifier.testTag("compose_calendar_icon")) {
-                        Icon(Icons.Outlined.Today, contentDescription = "운동 달력",
-                            tint = MaterialTheme.colorScheme.primary)
-                    }
-                    IconButton(onClick = onSettings, modifier = Modifier.testTag("compose_settings_icon")) {
-                        Icon(Icons.Outlined.Settings, contentDescription = "앱 설정",
-                            tint = MaterialTheme.colorScheme.primary)
-                    }
-                }
             }
         },
-        bottomBar = { WorkoutDock(state, viewModel, openDetail) }
+        bottomBar = { WorkoutDock(state, viewModel, openDetail, insetBottom = inProgress) }
     ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding).testTag("dashboard_list"),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Figma 03: active challenge summary (real data from ChallengeService; hidden when none is active).
+            challengeState.active?.let { active ->
+                item {
+                    Move60Card(Modifier.clickable(onClick = onOpenChallenge).testTag("dashboard_challenge_card")) {
+                        Text("진행 중 도전", color = secondary, style = MaterialTheme.typography.bodySmall)
+                        Text(active.name, style = cardTitle)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("${active.creditedDays} / ${active.targetDays}일", fontWeight = FontWeight.Bold)
+                            Text("${(active.rate * 100).toInt()}% 달성", color = secondary)
+                        }
+                        LinearProgressIndicator(progress = { active.rate }, modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.primary, trackColor = MaterialTheme.colorScheme.outline)
+                    }
+                }
+            }
+            // Figma 03 → 41: entry to the custom routine composer (saved plans only; no recommendation is shown).
+            item {
+                Move60Card(Modifier.clickable(onClick = onComposeRoutine).testTag("dashboard_compose_routine")) {
+                    Text("루틴 직접 구성", style = cardTitle)
+                    Text("운동과 계획시간을 직접 골라 루틴을 만들어요.", color = secondary, style = MaterialTheme.typography.bodySmall)
+                    TextButton(onClick = onOpenRoutines, modifier = Modifier.heightIn(min = 48.dp).testTag("dashboard_saved_routines")) { Text("저장한 루틴 보기") }
+                }
+            }
             // Figma order: the weekly plan first, then today's routine.
             item {
                 Move60Card(Modifier.testTag("dashboard_plan_card")) {
@@ -228,13 +263,13 @@ fun WorkoutDashboard(
 
 /** Fixed bottom dock (Figma "FixedBottomDock"): stage/time/heart summary plus step controls. */
 @Composable
-private fun WorkoutDock(state: WorkoutUiState, viewModel: WorkoutViewModel, onOpenDetail: () -> Unit) {
+private fun WorkoutDock(state: WorkoutUiState, viewModel: WorkoutViewModel, onOpenDetail: () -> Unit, insetBottom: Boolean) {
     val context = LocalContext.current
     // Heart rate is only shown when the watch reported a fresh sample (never an old value).
     val prefs = context.getSharedPreferences("preferences", android.content.Context.MODE_PRIVATE)
     val heart = prefs.getInt("watch_heart_rate", 0)
     val heartAge = System.currentTimeMillis() - prefs.getLong("watch_heart_rate_at", 0L)
-    val heartText = if (heart in 30..240 && heartAge in 0L..10_000L) "$heart bpm" else "연결대기"
+    val heartText = com.move60.workout.domain.HeartRateFreshness.display(heart, heartAge)
     val lastStage = (state.stageNames.size - 1).coerceAtLeast(0)
     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).testTag("workout_dock")) {
     // Today's progress lives on the dock's top edge (replaces the former "운동 현황" card).
@@ -245,7 +280,8 @@ private fun WorkoutDock(state: WorkoutUiState, viewModel: WorkoutViewModel, onOp
         Box(Modifier.fillMaxWidth(progress).height(4.dp).background(MaterialTheme.colorScheme.primary))
     }
     Column(
-        Modifier.navigationBarsPadding()
+        // The tab bar owns the bottom system inset while visible; the dock only adds it when the tab bar is hidden.
+        (if (insetBottom) Modifier.navigationBarsPadding() else Modifier)
             .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -284,7 +320,7 @@ private fun WorkoutDock(state: WorkoutUiState, viewModel: WorkoutViewModel, onOp
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (started) Move60Button(
                 modifier = Modifier.weight(1f), primary = false, minHeight = 48,
-                enabled = state.stage > 0 && !state.finished,
+                enabled = state.stage > 0 && !state.finished && !state.endedEarly,
                 contentPadding = PaddingValues(horizontal = 8.dp),
                 onClick = viewModel::previous
             ) {
@@ -306,14 +342,14 @@ private fun WorkoutDock(state: WorkoutUiState, viewModel: WorkoutViewModel, onOp
                     contentDescription = null, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.size(6.dp))
                 Text(when {
-                    state.finished -> "새 운동 시작"
+                    state.finished || state.endedEarly -> "새 운동 시작"
                     state.running -> "일시정지"
                     else -> "운동 시작"
                 }, maxLines = 1)
             }
             if (started) Move60Button(
                 modifier = Modifier.weight(1f), primary = false, minHeight = 48,
-                enabled = !state.finished,
+                enabled = !state.finished && !state.endedEarly,
                 contentPadding = PaddingValues(horizontal = 8.dp),
                 onClick = viewModel::next
             ) {
@@ -328,19 +364,22 @@ private fun WorkoutDock(state: WorkoutUiState, viewModel: WorkoutViewModel, onOp
     }
 }
 
-private fun formatSeconds(value: Int): String = "%02d:%02d".format(
+internal fun formatSeconds(value: Int): String = "%02d:%02d".format(
     Locale.KOREA, value.coerceAtLeast(0) / 60, value.coerceAtLeast(0) % 60
 )
 
 /** Figma TopBar: 24dp back arrow (48dp touch target), 24sp bold screen title. */
 @Composable
-private fun ScreenTopBar(title: String, onBack: () -> Unit, backTag: String? = null) {
-    Row(Modifier.fillMaxWidth().statusBarsPadding().padding(start = 4.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
+internal fun ScreenTopBar(title: String, onBack: (() -> Unit)?, backTag: String? = null) {
+    // Top-level tab screens pass onBack = null: the tab bar is the navigation, so no back arrow is shown.
+    Row(Modifier.fillMaxWidth().statusBarsPadding().padding(start = if (onBack == null) 16.dp else 4.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onBack, modifier = if (backTag != null) Modifier.testTag(backTag) else Modifier) {
-            Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "뒤로 가기")
+        if (onBack != null) {
+            IconButton(onClick = onBack, modifier = if (backTag != null) Modifier.testTag(backTag) else Modifier) {
+                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "뒤로 가기")
+            }
+            Spacer(Modifier.size(4.dp))
         }
-        Spacer(Modifier.size(4.dp))
         Text(title, style = screenTitle, maxLines = 1)
     }
 }
@@ -354,6 +393,11 @@ fun WorkoutCalendar(
     val selected by viewModel.selected.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    var conflictItems by remember { mutableStateOf(viewModel.conflicts()) }
+    val conflicts = conflictItems.size
+    var showConflicts by rememberSaveable { mutableStateOf(false) }
+    var discardId by rememberSaveable { mutableStateOf<String?>(null) }
+    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) { conflictItems = viewModel.conflicts(); onPauseOrDispose { } }
     // Tapping a day selects it; a day without a record also shows a short toast (every tap, not only the first).
     val onDayClick: (java.time.LocalDate) -> Unit = { date ->
         viewModel.select(date)
@@ -361,6 +405,38 @@ fun WorkoutCalendar(
             snackbar.currentSnackbarData?.dismiss()
             snackbar.showSnackbar("운동한 기록이 없습니다.", duration = SnackbarDuration.Short)
         }
+    }
+    if (showConflicts) AlertDialog(
+        onDismissRequest = { showConflicts = false },
+        modifier = Modifier.testTag("calendar_conflict_dialog"),
+        title = { Text("확인이 필요한 기록") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("저장된 기록과 내용이 달라서 저장하지 않은 기록이에요. 운동 기록이나 도전 실적에는 포함되지 않아요.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                conflictItems.forEach { c ->
+                    Column(Modifier.fillMaxWidth().testTag("calendar_conflict_item_${c.id}")) {
+                        Text("${c.date} · ${c.activeSeconds / 60}분 ${c.activeSeconds % 60}초 · 완료 세트 ${c.setCount}개" +
+                            if (c.endedEarly) " · 일부 수행" else "", style = MaterialTheme.typography.bodyMedium)
+                        TextButton(onClick = { discardId = c.id }, modifier = Modifier.heightIn(min = 48.dp).testTag("calendar_conflict_discard_${c.id}")) { Text("충돌본 폐기") }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { showConflicts = false }, modifier = Modifier.heightIn(min = 48.dp).testTag("calendar_conflict_keep")) { Text("보관 유지") } }
+    )
+    discardId?.let { id ->
+        AlertDialog(
+            onDismissRequest = { discardId = null },
+            modifier = Modifier.testTag("calendar_conflict_discard_dialog"),
+            title = { Text("충돌본을 폐기할까요?") },
+            text = { Text("이 기록은 저장되지 않은 채 사라지고 되돌릴 수 없어요. 이미 저장된 운동 기록은 바뀌지 않아요.") },
+            confirmButton = { TextButton(onClick = {
+                viewModel.discardConflict(id); conflictItems = viewModel.conflicts(); discardId = null
+                if (conflictItems.isEmpty()) showConflicts = false
+            }, modifier = Modifier.heightIn(min = 48.dp).testTag("calendar_conflict_discard_confirm")) { Text("폐기") } },
+            dismissButton = { TextButton(onClick = { discardId = null }, modifier = Modifier.heightIn(min = 48.dp)) { Text("취소") } }
+        )
     }
     Scaffold(containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = {
@@ -371,11 +447,18 @@ fun WorkoutCalendar(
                     contentColor = MaterialTheme.colorScheme.secondary)
             }
         },
-        topBar = { ScreenTopBar("운동 달력", onBack) }
+        topBar = { ScreenTopBar("운동 달력", null) }
     ) { inner ->
         LazyColumn(Modifier.fillMaxSize().padding(inner).testTag("calendar_list"),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            if (conflicts > 0) item {
+                Move60Card(Modifier.clickable { showConflicts = true }.testTag("calendar_conflict_notice")) {
+                    Text("확인이 필요한 기록 ${conflicts}건", style = cardTitle)
+                    Text("같은 운동의 저장된 기록과 내용이 달라 자동으로 합치지 않았어요. 저장된 기록은 그대로예요. 눌러서 확인해 보세요.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                }
+            }
             item {
                 val summary = viewModel.monthSummary(month)
                 val week = viewModel.weekTrainedDays()
@@ -618,7 +701,7 @@ fun WorkoutSettings(
     }
     Scaffold(containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(message) },
-        topBar = { ScreenTopBar("앱 설정", onBack, backTag = "settings_back") }
+        topBar = { ScreenTopBar("앱 설정", null) }
     ) { inner ->
         LazyColumn(Modifier.fillMaxSize().padding(inner).testTag("settings_list"),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp),
@@ -861,5 +944,42 @@ private fun RatioLegend(name: String, minutes: Int, color: Color) {
             Text(name, color = secondary, style = MaterialTheme.typography.bodySmall)
         }
         Text("${minutes}분", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+    }
+}
+
+
+/** Top-level destinations of the 4-tab bar (Figma GNB). */
+enum class Move60Tab(val route: String, val label: String, val tag: String) {
+    TODAY("dashboard", "오늘", "tab_today"),
+    RECORD("calendar", "기록", "tab_calendar"),
+    CHALLENGE("challenge", "도전", "tab_challenge"),
+    MY("settings", "마이", "tab_settings")
+}
+
+/** Material 3 bottom navigation: 48dp+ targets, labels always shown, safe-area aware. */
+@Composable
+fun Move60TabBar(currentRoute: String?, onSelect: (Move60Tab) -> Unit) {
+    androidx.compose.material3.NavigationBar(
+        modifier = Modifier.testTag("tab_bar"),
+        containerColor = MaterialTheme.colorScheme.surface
+    ) {
+        Move60Tab.values().forEach { tab ->
+            NavigationBarItem(
+                selected = currentRoute == tab.route,
+                onClick = { onSelect(tab) },
+                modifier = Modifier.testTag(tab.tag),
+                icon = {
+                    Icon(
+                        when (tab) {
+                            Move60Tab.TODAY -> Icons.Outlined.Home
+                            Move60Tab.CHALLENGE -> Icons.Outlined.Flag
+                            Move60Tab.RECORD -> Icons.Outlined.Today
+                            Move60Tab.MY -> Icons.Outlined.Person
+                        }, contentDescription = null
+                    )
+                },
+                label = { Text(tab.label) }
+            )
+        }
     }
 }

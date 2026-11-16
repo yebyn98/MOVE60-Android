@@ -54,7 +54,7 @@ class ComposeCalendarTest {
     @Test fun calendarMarksTrainedDatesWithDotsAndNavigatesMonths() {
         WorkoutHistory(context).addActiveSeconds(today, 90)
         ActivityScenario.launch(ComposeActivity::class.java).use {
-            rule.onNodeWithContentDescription("운동 달력").performClick()
+            rule.onNodeWithTag("tab_calendar").performClick()
             // The day cell is a clickable that merges its children, so the dot only exists in the
             // unmerged tree; the merged cell exposes the same fact to accessibility services.
             // Six-week month grids can put the selected date below the initial viewport
@@ -82,7 +82,7 @@ class ComposeCalendarTest {
     @Test fun calendarShowsWeekStreakAndMonthGoalProgress() {
         WorkoutHistory(context).addActiveSeconds(today, 90 * 60)
         ActivityScenario.launch(ComposeActivity::class.java).use {
-            rule.onNodeWithContentDescription("운동 달력").performClick()
+            rule.onNodeWithTag("tab_calendar").performClick()
             rule.onNodeWithTag("calendar_list").performScrollToNode(hasTestTag("calendar_habit"))
             rule.onNodeWithTag("calendar_habit").assertIsDisplayed()
             rule.onNodeWithTag("calendar_week_progress", useUnmergedTree = true).assertExists()
@@ -95,7 +95,7 @@ class ComposeCalendarTest {
         // 30 s is 0 whole minutes: not a workout day, no dot, no entry in the recent list.
         WorkoutHistory(context).addActiveSeconds(today, 30)
         ActivityScenario.launch(ComposeActivity::class.java).use {
-            rule.onNodeWithContentDescription("운동 달력").performClick()
+            rule.onNodeWithTag("tab_calendar").performClick()
             rule.onNodeWithContentDescription("$today · 운동 기록 없음").assertIsDisplayed()
             rule.onNodeWithTag("calendar-dot-$today", useUnmergedTree = true).assertDoesNotExist()
             rule.onNodeWithText("최근 운동 기록").assertDoesNotExist()

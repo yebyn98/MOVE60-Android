@@ -43,10 +43,9 @@ class ComposeArchitectureTest {
         // Figma header: the logo mark (52dp) replaces the text wordmark.
         rule.onNodeWithContentDescription("MOVE60").assertIsDisplayed()
         capture("compose-dashboard.png")
-        rule.onNodeWithContentDescription("운동 달력").performClick()
+        rule.onNodeWithTag("tab_calendar").performClick()
         rule.onNodeWithText("운동 달력").assertIsDisplayed()
-        rule.onNodeWithContentDescription("뒤로 가기").performClick()
-        rule.onNodeWithContentDescription("앱 설정").performClick()
+        rule.onNodeWithTag("tab_settings").performClick()
         capture("compose-settings.png")
         // Settings is a long LazyColumn: scroll to each section before asserting it is visible.
         rule.onNodeWithTag("settings_list").performScrollToNode(hasTestTag("settings_version_row"))
@@ -54,8 +53,8 @@ class ComposeArchitectureTest {
     }
 
     @Test fun composeSettingsHasEverySettingInThreeGroups() {
-        rule.onNodeWithContentDescription("앱 설정").performClick()
-        rule.onNodeWithTag("settings_back").assertIsDisplayed()
+        rule.onNodeWithTag("tab_settings").performClick()
+        rule.onNodeWithTag("tab_bar").assertIsDisplayed()
         val list = rule.onNodeWithTag("settings_list")
         list.performScrollToNode(hasText("오늘 컨디션 루틴"))
         rule.onNodeWithText("피곤").assertIsDisplayed()
@@ -78,7 +77,7 @@ class ComposeArchitectureTest {
     }
 
     @Test fun ratioSliderShowsThreeIndividualSegmentsThatAlwaysSumToFifty() {
-        rule.onNodeWithContentDescription("앱 설정").performClick()
+        rule.onNodeWithTag("tab_settings").performClick()
         val list = rule.onNodeWithTag("settings_list")
         list.performScrollToNode(hasTestTag("settings_ratio"))
         rule.onNodeWithText("유산소 ①").assertIsDisplayed()
@@ -94,7 +93,7 @@ class ComposeArchitectureTest {
     }
 
     @Test fun turningNotificationsOnOpensTheDiagnostics() {
-        rule.onNodeWithContentDescription("앱 설정").performClick()
+        rule.onNodeWithTag("tab_settings").performClick()
         rule.onNodeWithTag("settings_list").performScrollToNode(hasTestTag("settings_sound_toggle"))
         // Off then On: only the Off -> On change leads to the diagnostics dialog.
         if (rule.onAllNodesWithText("운동 알림 진단").fetchSemanticsNodes().isEmpty()) {

@@ -31,6 +31,15 @@ class WatchCommandService : WearableListenerService() {
         android.os.Handler(mainLooper).post {
             val request = try { org.json.JSONObject(command) } catch (_: Exception) { return@post }
             val resync = request.optString("op") == "resync"
+            // A ROUTIVE_4 session answers its own buttons; every other command continues through the legacy processor below.
+            val routive = if (resync) null else com.move60.workout.architecture.RoutiveWatchCommands.handle(this, request)
+            if (routive != null) {
+                WatchStatePublisher.publishSnapshot(this, SessionStore(this, WorkoutData(this)).snapshot())
+                val ack = org.json.JSONObject().put("id", request.optString("id")).put("accepted", routive).put("version", 0L).toString()
+                com.google.android.gms.wearable.Wearable.getMessageClient(this)
+                    .sendMessage(message.sourceNodeId, "/move60/ack", ack.toByteArray(Charsets.UTF_8))
+                return@post
+            }
             val accepted = resync || WatchCommandProcessor.apply(this, request)
             val store = SessionStore(this, WorkoutData(this))
             // Rejected commands also receive the current authoritative state.

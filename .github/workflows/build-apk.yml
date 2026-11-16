@@ -191,13 +191,18 @@ jobs:
           path: smoke-debug/
           if-no-files-found: ignore
           retention-days: 14
+  # Main pushes run CI; distribution requires explicit manual workflow_dispatch on main.
   publish:
     needs: [build, runtime-smoke, wear-gate]
-    if: needs.build.result == 'success' && needs.runtime-smoke.result == 'success' && needs.wear-gate.result == 'success' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && needs.build.result == 'success' && needs.runtime-smoke.result == 'success' && needs.wear-gate.result == 'success' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - name: Verify published versionCodes before manual distribution
+        run: |
+          python3 scripts/test_verify_release_version.py
+          python3 scripts/verify-release-version.py
       - uses: actions/download-artifact@v4
         with:
           name: MOVE60-signed-release-APK

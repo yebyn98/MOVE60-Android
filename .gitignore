@@ -12,3 +12,6 @@ local.properties
 signing.env
 signing-bundle.zip
 *SIGNING_BUNDLE_BASE64*
+
+# Kotlin Gradle plugin session data
+.kotlin/

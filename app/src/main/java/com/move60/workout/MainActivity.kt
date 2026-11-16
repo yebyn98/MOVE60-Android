@@ -279,7 +279,7 @@ class MainActivity : Activity() {
         info.addView(dockStage)
         info.addView(dockTime)
         state.addView(info, LinearLayout.LayoutParams(0, -2, 1f))
-        dockHeartRate = label("♥ 연결대기", 12, true, Theme.Colors.heart).apply {
+        dockHeartRate = label("♥ " + com.move60.workout.domain.HeartRateFreshness.WAITING_LABEL, 12, true, Theme.Colors.heart).apply {
             contentDescription = "하단 실시간 심박수"
             gravity = Gravity.CENTER
             includeFontPadding = false
@@ -312,7 +312,7 @@ class MainActivity : Activity() {
         val buttons = row().apply { isBaselineAligned = false; gravity = Gravity.CENTER_VERTICAL }
         previous = actionButton("이전", false) { session.jumpTo(session.stage - 1); afterAction() }.apply { tag = "phone_prev" }
         next = actionButton("다음", false) {
-            if (session.stage == LAST_STAGE && !session.finished) {
+            if (session.stage == session.lastStageIndex && !session.finished) {
                 MaterialAlertDialogBuilder(this)
                     .setTitle("운동을 종료할까요?")
                     .setMessage("현재까지 수행한 시간을 기록하고 운동 결과를 보여드려요.")
@@ -349,7 +349,7 @@ class MainActivity : Activity() {
         timerCueTitle = label("", 18, true)
         timerCueDetail = label("", 12, false, textSecondary)
         timerValue = label("", 26, true)
-        heartRateValue = label("연결대기", 12, true)
+        heartRateValue = label(com.move60.workout.domain.HeartRateFreshness.WAITING_LABEL, 12, true)
         timeMeta = label("", 12, false, textSecondary)
         progress = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             progressTintList = android.content.res.ColorStateList.valueOf(mint)
@@ -527,7 +527,7 @@ class MainActivity : Activity() {
         phaseList.removeAllViews()
         currentPhaseTime = null
         val tasks = session.routine.stages[session.stage].tasks
-        val strength = session.stage == 2
+        val strength = session.isStrengthStage
         val timed = phasesKeyForStage(session.stage) != null && tasks.all { it.seconds > 0 }
         val started = session.running || session.elapsed() > 0
         if ((!timed && !strength) || tasks.isEmpty() || session.finished || !started) { phaseList.visibility = View.GONE; return }
@@ -599,7 +599,7 @@ class MainActivity : Activity() {
 
     /** First strength exercise with unfinished sets; the last one once everything is done. */
     private fun currentStrengthTask(): WorkoutTask? {
-        val tasks = session.routine.stages[2].tasks
+        val tasks = session.routine.stages[LEGACY_STRENGTH_DATA_INDEX].tasks
         // A manual pick (tap on an exercise row) wins until that exercise has all its sets done.
         selectedStrengthId?.let { id ->
             val picked = tasks.firstOrNull { it.id == id }
@@ -613,7 +613,7 @@ class MainActivity : Activity() {
     private fun renderCurrentExercise() {
         if (!::currentSetPanel.isInitialized) return
         currentSetPanel.removeAllViews()
-        val task = if (session.stage == 2 && !session.finished) currentStrengthTask() else null
+        val task = if (session.isStrengthStage && !session.finished) currentStrengthTask() else null
         if (task == null) { currentSetPanel.visibility = View.GONE; return }
         currentSetPanel.visibility = View.VISIBLE
         addGap(currentSetPanel, Theme.Space.two)
@@ -804,7 +804,7 @@ class MainActivity : Activity() {
             .trim(' ', '·', ',')
 
     private fun showDetails(stage: Int, task: WorkoutTask) {
-        if (stage != 2) return // Guidance is only meaningful for strength exercises.
+        if (session.kindOf(stage) != com.move60.workout.domain.StageKind.STRENGTH) return // Guidance is only meaningful for strength exercises.
         val info = data.detail(task.id)
         val steps = info?.steps ?: listOf("운동 범위를 천천히 확인하고 무리 없는 자세를 유지하세요.")
         val panel = column().apply {
@@ -826,7 +826,7 @@ class MainActivity : Activity() {
         }
         val detailContent = column()
         scroll.addView(detailContent)
-        val strengthTasks = session.routine.stages[2].tasks
+        val strengthTasks = session.routine.stages[LEGACY_STRENGTH_DATA_INDEX].tasks
         val order = strengthTasks.indexOfFirst { it.id == task.id } + 1
         detailContent.addView(label("근력운동 · ${order}/${strengthTasks.size}종목 · 세트 완료 ${doneSets(task)} / ${strengthSetCount(task)}",
             12, false, textSecondary))
@@ -967,7 +967,7 @@ class MainActivity : Activity() {
         val heart = getSharedPreferences("preferences", MODE_PRIVATE).getInt("watch_heart_rate", 0)
         val heartAt = getSharedPreferences("preferences", MODE_PRIVATE).getLong("watch_heart_rate_at", 0L)
         val heartAge = System.currentTimeMillis() - heartAt
-        heartRateValue.text = if (heart in 30..240 && heartAge in 0L..10_000L) "${heart} bpm" else "연결대기"
+        heartRateValue.text = com.move60.workout.domain.HeartRateFreshness.display(heart, heartAge)
         dockHeartRate.text = "♥ ${heartRateValue.text}"
         val phase = session.phase()
         if (phase == null) {
@@ -996,7 +996,7 @@ class MainActivity : Activity() {
                 timerCueDetail.text = (if (upcoming != null) "다음 · ${upcoming.name}\n" else "") + displayDetail(task.description)
             }
             else -> {
-                val strengthTask = if (session.stage == 2) currentStrengthTask() else null
+                val strengthTask = if (session.isStrengthStage) currentStrengthTask() else null
                 timerCueTitle.text = when (session.stage) {
                     0 -> "워밍업으로 몸 깨우기"
                     2 -> strengthTask?.name ?: "근력 세트 완료"
@@ -1011,7 +1011,7 @@ class MainActivity : Activity() {
         }
         if (::restPanel.isInitialized) {
             val rest = session.restSeconds()
-            restPanel.visibility = if (rest > 0 && session.stage == 2 && !session.finished) View.VISIBLE else View.GONE
+            restPanel.visibility = if (rest > 0 && session.isStrengthStage && !session.finished) View.VISIBLE else View.GONE
             restValue.text = formatTime(rest) + if (!session.running) " · 일시정지" else " 남음"
         }
         // Dock: "대분류 · 현재 항목". Remaining time is the current item's (same number as the big timer);
@@ -1019,7 +1019,7 @@ class MainActivity : Activity() {
         val dockItem = when {
             session.finished -> null
             phase != null -> phase.second.name
-            session.stage == 2 -> currentStrengthTask()?.name
+            session.isStrengthStage -> currentStrengthTask()?.name
             else -> null
         }
         dockStage.text = if (session.finished) finishLabel else listOfNotNull(stageName.substringBefore(" · "), dockItem).joinToString(" · ")
@@ -1028,7 +1028,7 @@ class MainActivity : Activity() {
             session.finished -> "운동 완료 · $dockTotal"
             session.overtimeSeconds() > 0 -> "초과시간 +${formatTime(session.overtimeSeconds())} · $dockTotal"
             phase != null -> "남은시간 ${formatTime(session.phaseSecondsRemaining())} · $dockTotal"
-            session.stage == 2 -> dockTotal
+            session.isStrengthStage -> dockTotal
             else -> "남은시간 ${formatTime(session.remaining)} · $dockTotal"
         }
         // Figma dock: pause/play 20dp and arrows 18dp icons instead of text glyphs.
@@ -1036,7 +1036,7 @@ class MainActivity : Activity() {
             if (session.finished) R.drawable.ic_replay else if (session.running) R.drawable.ic_pause else R.drawable.ic_play, 20, true)
         dockButton(previous, "이전", R.drawable.ic_arrow_back, 18, true)
         previous.alpha = if (session.stage == 0) .4f else 1f
-        if (session.stage == LAST_STAGE) dockButton(next, "운동 종료", 0, 18, false)
+        if (session.stage == session.lastStageIndex) dockButton(next, "운동 종료", 0, 18, false)
         else dockButton(next, "다음", R.drawable.ic_arrow_forward, 18, false)
         next.isEnabled = !session.finished
         next.alpha = if (session.finished) .4f else 1f
@@ -1044,7 +1044,7 @@ class MainActivity : Activity() {
         val starting = !session.finished && !session.running && session.elapsed() == 0
         previous.visibility = if (starting || session.finished) View.GONE else View.VISIBLE
         next.visibility = if (starting || session.finished) View.GONE else View.VISIBLE
-        val strengthTasks = session.routine.stages[2].tasks
+        val strengthTasks = session.routine.stages[LEGACY_STRENGTH_DATA_INDEX].tasks
         val totalSets = strengthTasks.sumOf { task -> Regex("(\\d+)\\s*세트").find(task.detail)?.groupValues?.get(1)?.toIntOrNull() ?: 3 }
         val doneSets = strengthTasks.sumOf { task ->
             val count = Regex("(\\d+)\\s*세트").find(task.detail)?.groupValues?.get(1)?.toIntOrNull() ?: 3

@@ -19,17 +19,45 @@ assert not jobs['runtime-smoke'].get('if'), 'Basic test cannot be conditionally 
 assert not jobs['build'].get('if'), 'Full test cannot be conditionally bypassed'
 assert not jobs['wear-gate'].get('if'), 'Wear test cannot be conditionally bypassed'
 condition = jobs['publish']['if']
+# The publish job is intentionally manual-only; all three required checks must
+# succeed on main for an explicit workflow_dispatch. Validate non-release triggers.
 count = 0
-for build, basic, wear, branch in itertools.product(['success','failure','cancelled','skipped',''], repeat=4):
-    # Third axis is remapped to a real branch only in the positive case.
+for build, basic, wear, branch in itertools.product(
+    ['success','failure','cancelled','skipped',''], repeat=4
+):
     ref = 'refs/heads/main' if branch == 'success' else 'refs/heads/feature/test'
-    expr = condition.replace('needs.build.result',repr(build)).replace('needs.runtime-smoke.result',repr(basic)).replace('needs.wear-gate.result',repr(wear)).replace('github.ref',repr(ref)).replace('&&',' and ').replace('||',' or ')
-    tree = ast.parse(expr,mode='eval')
-    allowed = (ast.Expression,ast.BoolOp,ast.And,ast.Or,ast.Compare,ast.Eq,ast.NotEq,ast.Constant)
-    assert all(isinstance(n,allowed) for n in ast.walk(tree)), 'Unexpected/bypass expression'
-    actual = eval(compile(tree,'<release condition>','eval'),{'__builtins__':{}},{})
-    assert actual == (build == basic == wear == 'success' and ref == 'refs/heads/main'), (build,basic,wear,ref)
-    count += 1
+    for event_name in ('workflow_dispatch', 'push', 'pull_request', ''):
+        expr = (
+            condition.replace('needs.build.result', repr(build))
+                .replace('needs.runtime-smoke.result', repr(basic))
+                .replace('needs.wear-gate.result', repr(wear))
+                .replace('github.event_name', repr(event_name))
+                .replace('github.ref', repr(ref))
+                .replace('&&', ' and ').replace('||', ' or ')
+        )
+        tree = ast.parse(expr, mode='eval')
+        allowed = (
+            ast.Expression, ast.BoolOp, ast.And, ast.Or, ast.Compare,
+            ast.Eq, ast.NotEq, ast.Constant
+        )
+        assert all(isinstance(n, allowed) for n in ast.walk(tree)), 'Unexpected/bypass expression'
+        actual = eval(compile(tree, '<release condition>', 'eval'), {'__builtins__': {}}, {})
+        expected = (
+            event_name == 'workflow_dispatch'
+            and build == basic == wear == 'success'
+            and ref == 'refs/heads/main'
+        )
+        assert actual == expected, (build, basic, wear, ref, event_name)
+        count += 1
+assert any(
+    'python3 scripts/verify-release-version.py' in step.get('run', '')
+    for step in jobs['publish']['steps']
+), 'Manual publish must re-check the published version manifest'
+assert not any(
+    'python3 scripts/verify-release-version.py' in step.get('run', '')
+    for step in smoke['jobs']['runtime-smoke']['steps']
+), 'Development PR should not require a release version increment'
+
 for workflow in [release,smoke]:
     for job in workflow['jobs'].values():
         assert job.get('continue-on-error','false') == 'false'

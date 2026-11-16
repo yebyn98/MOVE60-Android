@@ -1,15 +1,32 @@
 package com.move60.workout
 
+import android.app.Activity
 import android.app.Application
+import android.os.Bundle
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
+import com.move60.workout.architecture.PendingSessionOutbox
+import com.move60.workout.architecture.SessionCommitter
+import com.move60.workout.architecture.RoutiveSessionStore
+import com.move60.workout.architecture.drain
+import com.move60.workout.architecture.isConfirmedFor
+import com.move60.workout.architecture.TimerSessionSync
+import com.move60.workout.architecture.timerSnapshot
 import dagger.hilt.android.HiltAndroidApp
+import java.time.ZoneId
 import javax.inject.Inject
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 /** Hilt application graph and WorkManager worker factory; existing crash handler is retained. */
 @HiltAndroidApp
 class Move60Application : Application(), Configuration.Provider {
     @Inject lateinit var workerFactory: HiltWorkerFactory
+    @Inject lateinit var committer: SessionCommitter
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var startedActivities = 0
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
@@ -19,5 +36,36 @@ class Move60Application : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
         CrashReporter.install(this)
+        registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
+            override fun onActivityStarted(activity: Activity) { if (startedActivities++ == 0) { syncTimerSessionAsync(settle = true); com.move60.workout.architecture.RoutiveSessionService.ensure(this@Move60Application) } }
+            override fun onActivityStopped(activity: Activity) { if (startedActivities > 0) startedActivities-- }
+            override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) = Unit
+            override fun onActivityResumed(activity: Activity) = Unit
+            override fun onActivityPaused(activity: Activity) = Unit
+            override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
+            override fun onActivityDestroyed(activity: Activity) = Unit
+        })
+    }
+
+    /**
+     * Commits a finished legacy-timer session to the Room v2 store (idempotent by session id) and, on foreground,
+     * settles challenges whose end boundary has passed. Failures never reach the workout flow.
+     */
+    fun syncTimerSessionAsync(settle: Boolean = false) {
+        scope.launch {
+            try {
+                val sync = TimerSessionSync(committer) { ZoneId.systemDefault().id }
+                val snapshot = SessionStore(this@Move60Application, WorkoutData(this@Move60Application)).timerSnapshot(com.move60.workout.SetRecordStore(this@Move60Application))
+                if (settle) sync.onForeground(snapshot) else sync.syncFinished(snapshot)
+                // P1-1: sessions copied to the outbox before their timer slot was replaced are retried here.
+                // A ROUTIVE_4 session that ended but was never confirmed committed is buffered, then drained (idempotent).
+                val outbox = PendingSessionOutbox(this@Move60Application)
+                val routive = RoutiveSessionStore(this@Move60Application)
+                val pending = routive.pendingCommit()
+                val pendingId = pending?.let { sync.sessionId(routive.snapshot(it)).also { _ -> outbox.enqueue(routive.snapshot(it)) } }
+                val outcomes = sync.drain(outbox)
+                if (pending != null && pendingId != null && outcomes.any { it.isConfirmedFor(pendingId) }) routive.markCommitted(pending.startedAtEpochMs)
+            } catch (_: Throwable) { /* retried on next foreground */ }
+        }
     }
 }

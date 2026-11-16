@@ -53,8 +53,9 @@ class WorkoutTileService : TileService() {
 
     private fun tileLayout(): LayoutElementBuilders.Box {
         val state = WatchWorkoutState.load(this)
-        val rest = state.restSeconds() > 0 && state.stageIndex == 2 && !state.finished
+        val rest = state.restSeconds() > 0 && state.isStrength && !state.finished
         val status = when {
+            state.finished && state.isRoutive4 -> "운동 종료"
             state.finished -> "오늘 운동 완료"
             rest -> "세트 간 휴식"
             state.running -> state.stageLabel
@@ -62,10 +63,11 @@ class WorkoutTileService : TileService() {
             else -> "운동 대기"
         }
         val info = when {
+            state.finished && state.isRoutive4 -> "총 ${(state.activeSeconds + 30) / 60}분 수행"   // no kcal or set total is invented
             state.finished -> "${state.completedSets}/${state.totalSets}세트 · 약 ${state.estimatedKcal.toInt()}kcal"
             rest -> "남은 약 ${(state.restSeconds()+59)/60}분"
-            state.stageIndex == 2 -> state.exerciseName.ifBlank { state.setLabel }.take(15)
-            isTimedStage(state.stageIndex) -> state.detail.ifBlank { "운동 진행" }
+            state.isStrength -> state.exerciseName.ifBlank { state.setLabel }.take(15)
+            state.isTimed -> state.detail.ifBlank { "운동 진행" }
             state.running -> state.detail
             else -> "휴대폰에서 운동을 시작"
         }
@@ -79,8 +81,8 @@ class WorkoutTileService : TileService() {
             .setOnClick(action).build()
         val ratio = when {
             state.finished -> 1f
-            state.stageIndex == 2 && state.totalSets > 0 -> state.completedSets.toFloat() / state.totalSets
-            state.running -> (state.stageIndex.coerceIn(0, LAST_STAGE) + 1) / STAGE_COUNT.toFloat()
+            state.isStrength && state.totalSets > 0 -> state.completedSets.toFloat() / state.totalSets
+            state.running -> (state.stageIndex.coerceIn(0, state.lastStageIndex) + 1) / state.stageCount.toFloat()
             else -> 0f
         }
         val center = LayoutElementBuilders.Column.Builder()

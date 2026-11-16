@@ -17,6 +17,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 
+/** One buffered session that conflicts with an already saved record (same id, different content). */
+data class ConflictUi(val id: String, val date: LocalDate, val startedAtEpochMs: Long, val activeSeconds: Long, val setCount: Int, val endedEarly: Boolean)
+
 /** Month summary shown under the calendar grid. */
 data class MonthSummary(val trainedDays: Int, val activeMinutes: Long, val kcal: Int)
 
@@ -45,8 +48,21 @@ class HistoryViewModel @Inject constructor(
     private val ledger: EnergyLedger,
     private val stageLog: StageLog,
     private val sets: SetRecordStore,
-    data: WorkoutData
+    data: WorkoutData,
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context
 ) : ViewModel() {
+    /** Number of buffered sessions that conflict with an already saved record and need the user's attention. */
+    /** Main facts of each conflicting buffered copy, for the "확인이 필요한 기록" dialog. Nothing here is shown as a saved record. */
+    fun conflicts(): List<ConflictUi> = try {
+        val box = PendingSessionOutbox(context)
+        box.conflicts().map { ConflictUi(box.sessionId(it), it.recordDate, it.startedAtEpochMs, it.accumulatedSeconds.toLong(), it.completedSets.size, it.endedEarly) }
+    } catch (_: Exception) { emptyList() }
+
+    /** Removes only the buffered conflicting copy after the user confirmed; the saved record is never changed. */
+    fun discardConflict(id: String): Boolean = try { PendingSessionOutbox(context).discardConflict(id) } catch (_: Exception) { false }
+
+    fun conflictCount(): Int = try { PendingSessionOutbox(context).conflicts().size } catch (_: Exception) { 0 }
+
     val days = repository.recentDays().stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList()
     )

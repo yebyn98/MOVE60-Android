@@ -14,15 +14,16 @@ import android.widget.TextView
  */
 object Move60Theme {
     object Colors {
-        val background = Color.parseColor("#000000")
-        val surface = Color.parseColor("#121212")
-        val surfaceElevated = Color.parseColor("#1E1E1E")
-        val outline = Color.parseColor("#303030")
-        val primary = Color.parseColor("#00E676")
-        val onPrimary = Color.parseColor("#000000")
-        val textHigh = Color.parseColor("#FFFFFF")
-        val textMedium = Color.parseColor("#B0B0B0")
-        val textMuted = Color.parseColor("#797979")
+        val background = Color.parseColor("#111813")
+        val surface = Color.parseColor("#1B2720")
+        val surfaceElevated = Color.parseColor("#26342B")
+        val surfaceSelected = Color.parseColor("#2B4436")
+        val outline = Color.parseColor("#3D4D42")
+        val primary = Color.parseColor("#ABC5B1")
+        val onPrimary = Color.parseColor("#16271D")
+        val textHigh = Color.parseColor("#F2F0E8")
+        val textMedium = Color.parseColor("#B8C2B7")
+        val textMuted = Color.parseColor("#8C9F90")
         val heart = Color.parseColor("#FF6B81")
     }
     object Type {
