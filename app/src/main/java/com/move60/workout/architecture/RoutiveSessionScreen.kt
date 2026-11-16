@@ -114,10 +114,10 @@ fun RoutiveSessionScreen(
     if (confirmEnd) AlertDialog(
         onDismissRequest = { confirmEnd = false },
         modifier = Modifier.testTag("routive_end_dialog"),
-        title = { Text("지금 운동을 종료할까요?") },
-        text = { Text("지금까지의 실제 운동 시간과 완료한 세트를 일부 수행으로 기록해요. 1분 미만이고 완료한 세트가 없으면 기록하지 않아요.") },
-        confirmButton = { TextButton(onClick = { confirmEnd = false; viewModel.endEarly() }, modifier = Modifier.heightIn(min = 48.dp).testTag("routive_end_confirm")) { Text("기록하고 종료") } },
-        dismissButton = { TextButton(onClick = { confirmEnd = false }, modifier = Modifier.heightIn(min = 48.dp)) { Text("계속하기") } }
+        title = { Text("운동을 종료할까요?") },
+        text = { Text("지금까지 수행한 내용이 기록돼요.") },
+        confirmButton = { TextButton(onClick = { confirmEnd = false; viewModel.endEarly() }, modifier = Modifier.heightIn(min = 48.dp).testTag("routive_end_confirm")) { Text("운동 종료") } },
+        dismissButton = { TextButton(onClick = { confirmEnd = false }, modifier = Modifier.heightIn(min = 48.dp)) { Text("계속 운동") } }
     )
 }
 

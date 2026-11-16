@@ -493,6 +493,10 @@ fun WorkoutCalendar(
                         Text("이번 달 ${summary.trainedDays}일 · ${summary.activeMinutes}분 · 약 ${summary.kcal} kcal",
                             color = secondary, style = MaterialTheme.typography.bodySmall)
                     }
+                    if (summary.trainedDays == 0 && sessionDates.isEmpty()) {
+                        Text("이 달의 운동 기록이 없어요.", color = secondary, style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.testTag("calendar_month_empty"))
+                    }
                     if (!viewModel.trained(selected) && !hasSessions) {
                         Row(Modifier.fillMaxWidth().testTag("calendar_day_empty"),
                             horizontalArrangement = Arrangement.SpaceBetween) {
@@ -591,7 +595,7 @@ internal fun SetRecordsSection(day: LegacySetDay, exerciseName: (String) -> Stri
             SetGroupCard("저장된 운동 기록", "linked", group, exerciseName)
         }
         day.unlinked.forEach { group ->
-            SetGroupCard("이전 버전에서 저장한 기록", "legacy", group, exerciseName,
+            SetGroupCard("이전 버전 운동 기록", "legacy", group, exerciseName,
                 note = "저장된 운동과 연결할 수 없어 시간 없이 보여줘요.")
         }
     }

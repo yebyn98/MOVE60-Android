@@ -46,8 +46,11 @@ fun RoutineListScreen(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = { ScreenTopBar("저장한 루틴", onBack, backTag = "routine_list_back") },
         bottomBar = {
-            Column(Modifier.navigationBarsPadding().padding(16.dp)) {
-                Move60Button(onClick = onCompose, modifier = Modifier.fillMaxWidth().testTag("routine_list_compose")) { Text("루틴 만들기") }
+            // Policy 10: with no saved routine the single CTA sits under the empty-state text, so the fixed one is hidden.
+            if (!(state.load == RoutineListLoad.READY && state.items.isEmpty())) {
+                Column(Modifier.navigationBarsPadding().padding(16.dp)) {
+                    Move60Button(onClick = onCompose, modifier = Modifier.fillMaxWidth().testTag("routine_list_compose")) { Text("루틴 만들기") }
+                }
             }
         }
     ) { inner ->
@@ -75,7 +78,7 @@ fun RoutineListScreen(
                 }
                 state.load == RoutineListLoad.READY && state.items.isEmpty() -> item {
                     Move60Card(Modifier.testTag("routine_list_empty")) {
-                        Text("아직 만든 운동 루틴이 없어요", style = MaterialTheme.typography.titleMedium)
+                        Text("아직 만든 운동 루틴이 없어요.", style = MaterialTheme.typography.titleMedium)
                         Text("운동을 추가하고 나만의 루틴을 만들어 보세요.", color = secondary, style = MaterialTheme.typography.bodySmall)
                         Move60Button(onClick = onCompose, modifier = Modifier.fillMaxWidth().testTag("routine_empty_cta")) { Text("루틴 만들기") }
                     }

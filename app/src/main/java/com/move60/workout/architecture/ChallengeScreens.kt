@@ -95,7 +95,7 @@ private fun ActiveChallenge(card: ChallengeCard, viewModel: ChallengeViewModel) 
         LinearProgressIndicator(progress = { card.rate }, modifier = Modifier.fillMaxWidth().testTag("challenge_progress"),
             color = MaterialTheme.colorScheme.primary, trackColor = MaterialTheme.colorScheme.outline)
         Text("${card.creditedDays} / ${card.targetDays}일 달성 (누적)", style = MaterialTheme.typography.titleMedium)
-        Text("하루 10분 이상 운동하면 1일로 인정돼요.", style = MaterialTheme.typography.bodySmall,
+        Text("하루 실제 운동시간 10분 이상이면 운동일 1일로 인정돼요.", style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (!editing) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Move60Button(onClick = { editing = true }, primary = false,
@@ -128,15 +128,26 @@ private fun CreateChallenge(viewModel: ChallengeViewModel) {
     val valid = name.isNotBlank() && targetN != null && daysN != null && targetN >= 1 && daysN >= 1 && targetN <= daysN
     Move60Card(Modifier.testTag("challenge_create")) {
         Text("새 도전 시작", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Text("시작일은 오늘로 고정돼요.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        // Policy 1: no start-date input. The start is the creation day (in the challenge time zone) and cannot change.
+        val zone = remember { java.time.ZoneId.systemDefault() }
+        val start = remember { java.time.LocalDate.now(zone) }
+        Text("시작일", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("$start · 도전을 만드는 날부터 시작해요.", modifier = Modifier.testTag("challenge_start_info"))
+        Text(
+            if (daysN != null && daysN >= 1) "종료 예정일 ${start.plusDays(daysN - 1L)}" else "종료 예정일 · 기간을 입력하면 계산돼요",
+            modifier = Modifier.testTag("challenge_end_info")
+        )
+        Text("도전 시간대 기준 ${zone.id}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         OutlinedTextField(name, { name = it.take(ChallengeService.MAX_NAME) }, label = { Text("도전 이름") },
             singleLine = true, modifier = Modifier.fillMaxWidth().testTag("challenge_new_name"))
         OutlinedTextField(days, { days = it.filter(Char::isDigit).take(3) }, label = { Text("기간 (일, 오늘 포함)") },
             singleLine = true, modifier = Modifier.fillMaxWidth().testTag("challenge_new_days"))
-        OutlinedTextField(target, { target = it.filter(Char::isDigit).take(3) }, label = { Text("목표 일수 (누적)") },
+        OutlinedTextField(target, { target = it.filter(Char::isDigit).take(3) }, label = { Text("목표 운동일수") },
             singleLine = true, isError = targetN != null && daysN != null && targetN > daysN,
-            supportingText = { if (targetN != null && daysN != null && targetN > daysN) Text("목표 일수는 기간보다 클 수 없어요.") },
+            supportingText = { if (targetN != null && daysN != null && targetN > daysN) Text("목표 운동일수는 기간보다 클 수 없어요.") },
             modifier = Modifier.fillMaxWidth().testTag("challenge_new_target"))
+        Text("하루 실제 운동시간 10분 이상이면 운동일 1일로 인정돼요.", style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
         Move60Button(
             onClick = { viewModel.create(name, targetN!!, LocalDate.now().plusDays(daysN!! - 1L)) },
             enabled = valid, modifier = Modifier.fillMaxWidth().testTag("challenge_start")

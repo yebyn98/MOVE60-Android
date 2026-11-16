@@ -91,7 +91,7 @@ fun RecordDayScreen(
             when (val s = state) {
                 RecordLoad.Loading -> Text("기록을 불러오고 있어요.", color = MaterialTheme.colorScheme.secondary)
                 RecordLoad.Missing -> RecordMessage("기록을 찾을 수 없어요", "날짜를 다시 선택해 주세요.")
-                RecordLoad.Failed -> RecordMessage("기록을 불러오지 못했어요", "저장된 기록은 그대로예요. 다시 시도해 주세요.", viewModel::load)
+                RecordLoad.Failed -> RecordMessage("기록을 불러오지 못했어요.", "저장된 데이터는 유지되며 다시 확인할 수 있어요.", viewModel::load)
                 is RecordLoad.Ready -> DayRecordContent(s.value, viewModel::exerciseName, onOpenSession)
             }
             Spacer(Modifier.height(16.dp))
@@ -117,14 +117,14 @@ private fun DayRecordContent(record: DayRecord, name: (String) -> String, onOpen
     }
     record.legacyActiveSeconds?.let { seconds ->
         Move60Card(Modifier.testTag("record_day_legacy")) {
-            Text("이전 버전 기록", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text("이전 버전 운동 기록", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Text("운동시간 ${RecordFormat.duration(seconds)}")
-            Text("앱 업데이트 이전에 저장된 하루 합계예요. 새 기록과 더하지 않아요.",
+            Text("이전에 저장한 운동 기록은 그대로 유지돼요. 하루 합계는 새 기록과 더하지 않아요.",
                 color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall)
         }
     }
     if (record.unlinkedLegacy.isNotEmpty()) SetRecordsSection(LegacySetDay(record.date, record.unlinkedLegacy), name)
-    if (record.isEmpty) RecordMessage("이 날짜에는 기록이 없어요", "운동을 마치면 여기에서 볼 수 있어요.")
+    if (record.isEmpty) RecordMessage("이날은 저장된 운동 기록이 없어요.", "운동을 마치면 여기에서 볼 수 있어요.")
 }
 
 @Composable
@@ -177,7 +177,7 @@ fun RecordSessionScreen(
             when (val s = state) {
                 RecordLoad.Loading -> Text("기록을 불러오고 있어요.", color = MaterialTheme.colorScheme.secondary)
                 RecordLoad.Missing -> RecordMessage("기록을 찾을 수 없어요", "목록에서 다시 선택해 주세요.")
-                RecordLoad.Failed -> RecordMessage("기록을 불러오지 못했어요", "저장된 기록은 그대로예요. 다시 시도해 주세요.", viewModel::load)
+                RecordLoad.Failed -> RecordMessage("기록을 불러오지 못했어요.", "저장된 데이터는 유지되며 다시 확인할 수 있어요.", viewModel::load)
                 is RecordLoad.Ready -> SessionContent(s.value, viewModel::exerciseName)
             }
             Spacer(Modifier.height(16.dp))
