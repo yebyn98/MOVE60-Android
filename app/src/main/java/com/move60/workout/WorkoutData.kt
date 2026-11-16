@@ -72,6 +72,9 @@ class WorkoutData(private val context: Context) {
     fun weekOrdinal(): Long = Math.floorDiv(weekMonday().toEpochDay(), 7L)
     fun todayDay(): Int = localToday().dayOfWeek.value.coerceIn(1, 5)
 
+    /** Curated display name of an exercise id, or null for an unknown id (callers then show the stored id as-is). */
+    fun exerciseName(id: String): String? = exercise.optJSONArray(id)?.optString(0)?.takeIf { it.isNotBlank() }
+
     fun detail(id: String): MovementDetails? {
         if (id.isEmpty()) return null
         val ex = exercise.optJSONArray(id) ?: return null

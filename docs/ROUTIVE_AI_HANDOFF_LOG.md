@@ -11,7 +11,7 @@ Two sections are kept strictly separate. Policy items are NOT decided by develop
 | Challenge lifecycle | `ChallengeRules` (pure decision) + `ChallengeService` (create / retro credit / refresh / settle / abandon) | Implemented, JVM-tested, NOT wired to the app |
 | Timer bridge | `SessionStore` records real active intervals; `TimerSessionSync` commits a FINISHED timer session (idempotent id) and settles challenges on app foreground; `WorkoutService` triggers the commit when the timer finishes | Implemented, JVM-tested; NOT verified on device/emulator |
 | Legacy data | `daily_workouts` kept as calendar record; `DayHistoryReader` returns legacy and session seconds separately | Implemented, JVM-tested |
-| Legacy import | SharedPreferences `SetRecordStore` import | NOT approved, NOT implemented |
+| Legacy import | SharedPreferences `SetRecordStore` import | 2026-11-16 PO 승인(정책 5 A). 읽기 전용 조회로 구현(`LegacySetReader`), CI 확인 대기, 실기기 미검증. `docs/v59-legacy-set-records.md` |
 | Device QA | Phone / Watch4 real-device upgrade from v58 | Not verified |
 
 ## B. Approval reflection status (2026-11-15 approved policies C-20261115-01..04, D-01 B, P-21)
@@ -55,7 +55,7 @@ no rows with those values were ever written by a shipped build).
 - Midnight settlement relies on lazy re-derivation (`settleDue`/`refreshActive`); the app must call it on start and
   foreground. Not wired yet.
 - Legacy and new records can overlap on one date; they are shown separately and never merged (reconstruction unapproved).
-- SetRecordStore (SharedPreferences) import is not approved; those records remain only in the old store.
+- SetRecordStore import: 2026-11-16 승인됨. 원본은 old store에 그대로 두고 읽기 전용으로 조회(복사 저장은 하지 않음, 이유는 docs/v59).
 - Figma FINAL screens (09/27/33/34/39/40/68) and the recommended UX copy are not implemented.
 - This work is not release-ready and must not be reported as complete.
 

@@ -14,7 +14,10 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.test.core.app.ActivityScenario
+import com.move60.workout.SetRecordStore
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.move60.workout.SessionStore
@@ -101,6 +104,44 @@ class ComposeCalendarTest {
             rule.onNodeWithText("최근 운동 기록").assertDoesNotExist()
             assertEquals(0, WorkoutHistory(context).trainedDays(java.time.YearMonth.from(today)))
             capture("compose-calendar-zero-minutes.png")
+        }
+    }
+
+    /**
+     * Policy 5 (A): v58-shaped completed sets are listed with their saved values under the day record, unlinked and
+     * without a time. Seeded under weekday key 9 (the app only uses 1..5) so no real draft or record is overwritten,
+     * and only those keys are removed afterwards.
+     */
+    @Test fun v58CompletedSetsAreListedUnderTheDayRecordAsSaved() {
+        val names = WorkoutData(context)
+        val chest = requireNotNull(names.exerciseName("chestPress")) { "chestPress must be a curated exercise" }
+        val leg = requireNotNull(names.exerciseName("legPress")) { "legPress must be a curated exercise" }
+        val token = 4_102_444_800_000L
+        val prefs = context.getSharedPreferences("move60_set_records_v1", 0)
+        WorkoutHistory(context).addActiveSeconds(today, 90 * 60)
+        try {
+            val store = SetRecordStore(context)
+            store.write(9, "chestPress", 1, SetRecordStore.Record("40", "10", "5", true), today, token)
+            store.write(9, "chestPress", 2, SetRecordStore.Record("42.5", "8", "5", true), today, token)
+            store.write(9, "legPress", 1, SetRecordStore.Record("80", "12", "5", true), today, token)
+            ActivityScenario.launch(ComposeActivity::class.java).use {
+                rule.onNodeWithTag("tab_calendar").performClick()
+                rule.onNodeWithTag("calendar_list").performScrollToNode(hasTestTag("calendar_day_detail"))
+                rule.waitUntil(10_000) { rule.onAllNodesWithTag("calendar_set_records").fetchSemanticsNodes().isNotEmpty() }
+                rule.onNodeWithTag("calendar_set_records").performScrollTo()
+                rule.onNodeWithTag("calendar_set_records").assertIsDisplayed()
+                rule.onNodeWithTag("calendar_set_group_legacy").assertIsDisplayed()
+                rule.onAllNodesWithTag("calendar_set_row").assertCountEquals(3)
+                rule.onNodeWithText("$chest · 1세트 · 40kg × 10회").assertIsDisplayed()
+                rule.onNodeWithText("$chest · 2세트 · 42.5kg × 8회").assertIsDisplayed()
+                rule.onNodeWithText("$leg · 1세트 · 80kg × 12회").assertIsDisplayed()
+                rule.onNodeWithText("저장된 운동과 연결할 수 없어 시간 없이 보여줘요.").assertIsDisplayed()
+                capture("compose-calendar-set-records.png")
+            }
+        } finally {
+            val edit = prefs.edit()
+            prefs.all.keys.filter { it.startsWith("set:$today:9:") }.forEach { edit.remove(it) }
+            edit.commit()
         }
     }
 

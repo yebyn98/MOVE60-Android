@@ -61,6 +61,29 @@ class SetRecordStore(context: Context) {
             if (!record.completed || !record.valid) null else CompletedSet(parts[4], number, record.kg, record.reps)
         }.sortedWith(compareBy({ it.exerciseId }, { it.setNumber }))
     }
+    /** A completed set parsed from its storage key, with the exact stored kg/reps strings. */
+    data class StoredSet(
+        val date: LocalDate, val day: Int, val token: Long,
+        val exerciseId: String, val setNumber: Int, val kg: String, val reps: String
+    )
+
+    /**
+     * READ-ONLY policy-5 view of every completed, valid set that belongs to a workout (token > 0). Drafts (token 0),
+     * uncompleted or invalid values and keys that do not parse exactly are left out; nothing is changed or deleted.
+     * Keys are unique, so one stored set can never appear twice.
+     */
+    fun completedStoredSets(): List<StoredSet> = prefs.all.mapNotNull { (key, value) ->
+        val parts = key.split(':')
+        if (parts.size != 6 || parts[0] != "set") return@mapNotNull null
+        val date = runCatching { LocalDate.parse(parts[1]) }.getOrNull() ?: return@mapNotNull null
+        val day = parts[2].toIntOrNull() ?: return@mapNotNull null
+        val token = parts[3].toLongOrNull()?.takeIf { it > 0L } ?: return@mapNotNull null
+        val exerciseId = parts[4].takeIf { it.isNotBlank() } ?: return@mapNotNull null
+        val number = parts[5].toIntOrNull()?.takeIf { it >= 1 } ?: return@mapNotNull null
+        val record = decode(value as? String)
+        if (!record.completed || !record.valid) null else StoredSet(date, day, token, exerciseId, number, record.kg, record.reps)
+    }.sortedWith(compareBy({ it.date }, { it.token }, { it.exerciseId }, { it.setNumber }))
+
     fun beginSession(day: Int, token: Long) {
         if (token <= 0L) return
         val prefix = "set:${today()}:$day:0:"

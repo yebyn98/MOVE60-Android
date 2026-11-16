@@ -48,9 +48,21 @@ class HistoryViewModel @Inject constructor(
     private val ledger: EnergyLedger,
     private val stageLog: StageLog,
     private val sets: SetRecordStore,
-    data: WorkoutData,
+    private val data: WorkoutData,
+    private val db: WorkoutDatabase,
     @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context
 ) : ViewModel() {
+    /**
+     * Policy 5: v58 completed sets for [date], read-only. A read failure shows nothing instead of an error and never
+     * touches the stored originals.
+     */
+    suspend fun legacySets(date: LocalDate): LegacySetDay = try {
+        LegacySetReader(db) { sets.completedStoredSets() }.forDate(date)
+    } catch (_: Exception) { LegacySetDay(date, emptyList()) }
+
+    /** Stored ids are shown as saved when the curated name is unknown. */
+    fun exerciseName(id: String): String = data.exerciseName(id) ?: id
+
     /** Number of buffered sessions that conflict with an already saved record and need the user's attention. */
     /** Main facts of each conflicting buffered copy, for the "확인이 필요한 기록" dialog. Nothing here is shown as a saved record. */
     fun conflicts(): List<ConflictUi> = try {
