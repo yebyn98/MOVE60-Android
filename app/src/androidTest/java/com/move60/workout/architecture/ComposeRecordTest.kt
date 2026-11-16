@@ -97,8 +97,9 @@ class ComposeRecordTest {
                 rule.waitUntil(10_000) { rule.onAllNodesWithTag("record_session_$b").fetchSemanticsNodes().isNotEmpty() }
                 rule.onNodeWithTag("record_day_screen").assertIsDisplayed()
                 rule.onNodeWithTag("record_day_total_time").assertTextEquals("25분 00초")
-                rule.onNodeWithTag("record_session_time_$a").assertTextEquals("10분 00초")
-                rule.onNodeWithTag("record_session_time_$b").assertTextEquals("15분 00초")
+                // Inside a clickable card the child tag exists only in the unmerged tree.
+                rule.onNodeWithTag("record_session_time_$a", useUnmergedTree = true).assertTextEquals("10분 00초")
+                rule.onNodeWithTag("record_session_time_$b", useUnmergedTree = true).assertTextEquals("15분 00초")
                 rule.onNodeWithText("20:35 시작").assertIsDisplayed()
                 rule.onNodeWithText("21:42 시작").assertIsDisplayed()
                 capture("compose-record-day.png")
@@ -108,7 +109,7 @@ class ComposeRecordTest {
                 rule.waitUntil(10_000) { rule.onAllNodesWithTag("record_session_screen").fetchSemanticsNodes().isNotEmpty() }
                 rule.waitUntil(10_000) { rule.onAllNodesWithTag("record_session_total_time").fetchSemanticsNodes().isNotEmpty() }
                 rule.onNodeWithTag("record_session_total_time").assertTextEquals("15분 00초")
-                rule.onNodeWithTag("record_stage_summary").assertTextEquals("2종목 · 3세트")
+                rule.onNodeWithTag("record_stage_summary", useUnmergedTree = true).assertTextEquals("2종목 · 3세트")
                 rule.onNodeWithTag("record_exercise_sets_legPress").assertTextEquals("40kg × 12회 · 45kg × 12회 (2세트)")
                 rule.onNodeWithTag("record_exercise_sets_legCurl").assertTextEquals("20kg × 12회 (1세트)")
                 rule.onNodeWithText(legPress).assertIsDisplayed()
