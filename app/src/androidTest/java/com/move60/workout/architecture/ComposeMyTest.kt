@@ -56,6 +56,8 @@ class ComposeMyTest {
                 rule.onNodeWithTag("my_settings_open").assertIsDisplayed()
                 capture("compose-my-home.png")
 
+                // The hub inserts its trend card once the data has loaded; tapping before that lets the layout shift under the tap.
+                rule.waitUntil(15_000) { rule.onAllNodesWithTag("my_trend").fetchSemanticsNodes().isNotEmpty() }
                 rule.onNodeWithTag("my_spaces_open").performScrollTo().performClick()
                 rule.onNodeWithTag("my_spaces").assertIsDisplayed()
                 rule.onNodeWithTag("my_add_gym").performScrollTo().performClick()
@@ -113,6 +115,8 @@ class ComposeMyTest {
         try {
             ActivityScenario.launch(ComposeActivity::class.java).use {
                 rule.onNodeWithTag("tab_settings").performClick()
+                // The hub inserts its trend card once the data has loaded; tapping before that lets the layout shift under the tap.
+                rule.waitUntil(15_000) { rule.onAllNodesWithTag("my_trend").fetchSemanticsNodes().isNotEmpty() }
                 rule.onNodeWithTag("my_spaces_open").performScrollTo().performClick()
                 rule.onNodeWithTag("my_add_home").performScrollTo().performClick()
                 rule.waitUntil(10_000) { rule.onAllNodesWithTag("my_default_space").fetchSemanticsNodes().isNotEmpty() }
@@ -157,6 +161,8 @@ class ComposeMyTest {
         try {
             ActivityScenario.launch(ComposeActivity::class.java).use {
                 rule.onNodeWithTag("tab_settings").performClick()
+                // The hub inserts its trend card once the data has loaded; tapping before that lets the layout shift under the tap.
+                rule.waitUntil(15_000) { rule.onAllNodesWithTag("my_trend").fetchSemanticsNodes().isNotEmpty() }
                 rule.onNodeWithTag("my_spaces_open").performScrollTo().performClick()
                 rule.waitUntil(10_000) { rule.onAllNodesWithTag("my_set_default_e2e-b").fetchSemanticsNodes().isNotEmpty() }
                 capture("compose-my-spaces-two.png")
