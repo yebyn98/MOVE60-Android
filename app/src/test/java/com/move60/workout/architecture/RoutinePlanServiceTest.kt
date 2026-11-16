@@ -89,4 +89,22 @@ class RoutinePlanServiceTest {
         assertTrue(service.save("e", "빈 루틴", null, emptyMap()) is RoutinePlanResult.Rejected)
         assertNull(service.load("e"))
     }
+
+    @Test fun strengthTargetsAreSavedExactlyAndUnsetStaysNull() = runBlocking {
+        val set = RoutineExerciseInput("legPress", "레그 프레스", null, 3, 10, 90L)
+        val unset = RoutineExerciseInput("row", "로우")
+        assertTrue(service.save("r1", "힘", null, mapOf(StageKind.STRENGTH to listOf(set, unset))) is RoutinePlanResult.Saved)
+        val loaded = service.load("r1")!!.exercises[StageKind.STRENGTH]!!
+        assertEquals(Triple(3, 10, 90L), Triple(loaded[0].targetSets, loaded[0].targetReps, loaded[0].restSeconds))
+        assertEquals("no automatic rest/sets/reps is ever generated", Triple<Int?, Int?, Long?>(null, null, null),
+            Triple(loaded[1].targetSets, loaded[1].targetReps, loaded[1].restSeconds))
+    }
+
+    @Test fun outOfRangeStrengthTargetsAreRejectedAndNothingIsStored() = runBlocking {
+        for (bad in listOf(RoutineExerciseInput("a", "a", null, 0, 10, 60L), RoutineExerciseInput("a", "a", null, 21, 10, 60L),
+            RoutineExerciseInput("a", "a", null, 3, 0, 60L), RoutineExerciseInput("a", "a", null, 3, 10, 4L), RoutineExerciseInput("a", "a", null, 3, 10, 901L))) {
+            assertTrue(service.save("bad", "x", null, mapOf(StageKind.STRENGTH to listOf(bad))) is RoutinePlanResult.Rejected)
+            assertNull(service.load("bad"))
+        }
+    }
 }

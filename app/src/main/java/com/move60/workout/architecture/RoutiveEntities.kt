@@ -223,5 +223,10 @@ data class RoutineExerciseEntity(
     /** Catalog id (e.g. a strength exercise id) or a cardio machine name. */
     val exerciseId: String,
     val name: String,
-    val plannedSeconds: Long?
+    val plannedSeconds: Long?,
+    /** Strength targets chosen by the user. null = not set; never a generated default (v5). */
+    val targetSets: Int? = null,
+    val targetReps: Int? = null,
+    /** Rest between sets in seconds; null = no rest timer (no automatic value is ever invented). */
+    val restSeconds: Long? = null
 )

@@ -82,7 +82,7 @@ class RoutiveMigrationTest {
 
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val db = Room.databaseBuilder(context, WorkoutDatabase::class.java, dbName)
-            .addMigrations(RoutiveMigrations.MIGRATION_1_2, RoutiveMigrations.MIGRATION_2_3, RoutiveMigrations.MIGRATION_3_4).allowMainThreadQueries().build()
+            .addMigrations(RoutiveMigrations.MIGRATION_1_2, RoutiveMigrations.MIGRATION_2_3, RoutiveMigrations.MIGRATION_3_4, RoutiveMigrations.MIGRATION_4_5).allowMainThreadQueries().build()
         try {
             val legacy = db.workoutDao()
             assertEquals(3540L, legacy.day("2026-11-04")?.activeSeconds)
@@ -139,6 +139,25 @@ class RoutiveMigrationTest {
             db.query("SELECT name, structure FROM routine_plans WHERE routineId='r1'").use { assertTrue(it.moveToFirst()); assertEquals("하체", it.getString(0)) }
             db.query("SELECT plannedSeconds FROM routine_stage_plans WHERE routineId='r1'").use { assertTrue(it.moveToFirst()); assertTrue(it.isNull(0)) }
             db.query("SELECT COUNT(*) FROM routine_exercises").use { assertTrue(it.moveToFirst()); assertEquals(0, it.getInt(0)) }
+            assertEquals(2, db.query("SELECT COUNT(*) FROM daily_workouts").use { it.moveToFirst(); it.getInt(0) })
+        }
+    }
+
+    @Test fun v4ToV5AddsNullableStrengthTargetsAndKeepsEveryExistingRow() {
+        helper.createDatabase(dbName, 1).use { seedV1(it) }
+        helper.runMigrationsAndValidate(dbName, 4, true, RoutiveMigrations.MIGRATION_1_2, RoutiveMigrations.MIGRATION_2_3, RoutiveMigrations.MIGRATION_3_4).use { db ->
+            db.execSQL("INSERT INTO routine_plans(routineId,name,structure,targetSeconds,createdAtEpochMs,updatedAtEpochMs) VALUES('r1','하체','ROUTIVE_4',NULL,1,1)")
+            db.execSQL("INSERT INTO routine_exercises(routineId,stageIndex,orderIndex,exerciseId,name,plannedSeconds) VALUES('r1',1,0,'legPress','레그 프레스',NULL)")
+            db.execSQL("INSERT INTO routine_exercises(routineId,stageIndex,orderIndex,exerciseId,name,plannedSeconds) VALUES('r1',2,0,'bike','실내 자전거',900)")
+        }
+        helper.runMigrationsAndValidate(dbName, 5, true, RoutiveMigrations.MIGRATION_4_5).use { db ->
+            db.query("SELECT exerciseId, plannedSeconds, targetSets, targetReps, restSeconds FROM routine_exercises ORDER BY stageIndex").use { c ->
+                assertTrue(c.moveToFirst()); assertEquals("legPress", c.getString(0))
+                assertTrue("old rows are unset, not defaulted", c.isNull(1) && c.isNull(2) && c.isNull(3) && c.isNull(4))
+                assertTrue(c.moveToNext()); assertEquals(900L, c.getLong(1)); assertTrue(c.isNull(4))
+            }
+            db.execSQL("UPDATE routine_exercises SET targetSets=3, targetReps=10, restSeconds=90 WHERE exerciseId='legPress'")
+            db.query("SELECT restSeconds FROM routine_exercises WHERE exerciseId='legPress'").use { assertTrue(it.moveToFirst()); assertEquals(90L, it.getLong(0)) }
             assertEquals(2, db.query("SELECT COUNT(*) FROM daily_workouts").use { it.moveToFirst(); it.getInt(0) })
         }
     }

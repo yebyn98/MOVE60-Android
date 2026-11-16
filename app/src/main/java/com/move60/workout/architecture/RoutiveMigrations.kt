@@ -59,4 +59,17 @@ object RoutiveMigrations {
             V3_TO_V4_STATEMENTS.forEach(db::execSQL)
         }
     }
+
+    /** Room v4 -> v5: three nullable columns on routine_exercises (existing rows keep NULL = unset). Copied from schemas/.../5.json. */
+    val V4_TO_V5_STATEMENTS: List<String> = listOf(
+        "ALTER TABLE `routine_exercises` ADD COLUMN `targetSets` INTEGER",
+        "ALTER TABLE `routine_exercises` ADD COLUMN `targetReps` INTEGER",
+        "ALTER TABLE `routine_exercises` ADD COLUMN `restSeconds` INTEGER"
+    )
+
+    val MIGRATION_4_5: Migration = object : Migration(4, 5) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            V4_TO_V5_STATEMENTS.forEach(db::execSQL)
+        }
+    }
 }

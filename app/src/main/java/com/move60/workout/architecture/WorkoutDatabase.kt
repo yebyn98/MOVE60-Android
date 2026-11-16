@@ -9,6 +9,7 @@ import androidx.room.RoomDatabase
  * [RoutiveMigrations.MIGRATION_1_2]. Legacy tables are never altered or dropped.
  * v3: routine_plans / routine_stage_plans (nullable planned seconds), added by [RoutiveMigrations.MIGRATION_2_3].
  * v4: routine_exercises (exercises chosen per stage), added by [RoutiveMigrations.MIGRATION_3_4].
+ * v5: nullable strength targets (sets, reps, rest seconds) on routine_exercises, [RoutiveMigrations.MIGRATION_4_5].
  */
 @Database(
     entities = [
@@ -19,7 +20,7 @@ import androidx.room.RoomDatabase
         SessionDraftEntity::class,
         RoutinePlanEntity::class, RoutineStagePlanEntity::class, RoutineExerciseEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = true
 )
 abstract class WorkoutDatabase : RoomDatabase() {

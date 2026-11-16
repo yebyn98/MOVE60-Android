@@ -10,7 +10,11 @@ import com.move60.workout.domain.StructureVersion
 import com.move60.workout.domain.WorkoutStructures
 
 /** An exercise chosen for a stage. `plannedSeconds` null = unknown (never 0). */
-data class RoutineExerciseInput(val id: String, val name: String, val plannedSeconds: Long? = null)
+data class RoutineExerciseInput(
+    val id: String, val name: String, val plannedSeconds: Long? = null,
+    /** Strength targets; null = not set (no automatic value is ever generated). */
+    val targetSets: Int? = null, val targetReps: Int? = null, val restSeconds: Long? = null
+)
 
 data class SavedRoutinePlan(
     val routineId: String, val name: String, val targetSeconds: Long?, val stages: List<StageTimePlan>,
@@ -45,6 +49,10 @@ class RoutinePlanService(private val db: WorkoutDatabase, private val clock: () 
         if (exercises.values.sumOf { it.size } < 1) return RoutinePlanResult.Rejected("at least one exercise is required")
         if (exercises.values.flatten().any { it.id.isBlank() || it.name.isBlank() || (it.plannedSeconds != null && it.plannedSeconds <= 0L) })
             return RoutinePlanResult.Rejected("invalid exercise")
+        if (exercises.values.flatten().any {
+                (it.targetSets != null && it.targetSets !in SETS_RANGE) || (it.targetReps != null && it.targetReps !in REPS_RANGE) ||
+                    (it.restSeconds != null && it.restSeconds !in REST_RANGE)
+            }) return RoutinePlanResult.Rejected("invalid strength target")
         val stages = WorkoutStructures.stages(StructureVersion.ROUTIVE_4)
         // E-02 B: unknown times do not block saving, but the known sum must pass the shared duration policy.
         // Every exercise is one entry (unique key), so the same exercise in two stages is never merged or double counted.
@@ -60,7 +68,7 @@ class RoutinePlanService(private val db: WorkoutDatabase, private val clock: () 
                 dao.insertRoutinePlan(RoutinePlanEntity(routineId, trimmed, StructureVersion.ROUTIVE_4.name, targetSeconds, now, now))
                 dao.insertRouteStages(stages.mapIndexed { i, s -> RoutineStagePlanEntity(routineId, i, s.kind.name, derivedStageSeconds(exercises[s.kind].orEmpty())) })
                 dao.insertRoutineExercises(stages.flatMapIndexed { si, st ->
-                    exercises[st.kind].orEmpty().mapIndexed { oi, e -> RoutineExerciseEntity(routineId, si, oi, e.id, e.name, e.plannedSeconds) }
+                    exercises[st.kind].orEmpty().mapIndexed { oi, e -> RoutineExerciseEntity(routineId, si, oi, e.id, e.name, e.plannedSeconds, e.targetSets, e.targetReps, e.restSeconds) }
                 })
                 RoutinePlanResult.Saved(routineId)
             }
@@ -74,12 +82,18 @@ class RoutinePlanService(private val db: WorkoutDatabase, private val clock: () 
         val plan = dao.routinePlan(routineId) ?: return null
         val stages = dao.routineStages(routineId).map { StageTimePlan(StageKind.valueOf(it.kind), it.plannedSeconds) }
         val order = com.move60.workout.domain.WorkoutStructures.stages(StructureVersion.ROUTIVE_4)
-        val ex = dao.routineExercises(routineId).groupBy({ order[it.stageIndex.coerceIn(order.indices)].kind }) { RoutineExerciseInput(it.exerciseId, it.name, it.plannedSeconds) }
+        val ex = dao.routineExercises(routineId).groupBy({ order[it.stageIndex.coerceIn(order.indices)].kind }) { RoutineExerciseInput(it.exerciseId, it.name, it.plannedSeconds, it.targetSets, it.targetReps, it.restSeconds) }
         return SavedRoutinePlan(plan.routineId, plan.name, plan.targetSeconds, stages, ex)
     }
 
     /** All saved routines, newest first. A row that cannot be read is skipped, never deleted. */
     suspend fun list(): List<SavedRoutinePlan> = dao.routinePlans().mapNotNull { runCatching { load(it.routineId) }.getOrNull() }
 
-    companion object { const val MAX_NAME = 30 }
+    companion object {
+        const val MAX_NAME = 30
+        val SETS_RANGE = 1..20
+        val REPS_RANGE = 1..200
+        /** Seconds. */
+        val REST_RANGE = 5L..900L
+    }
 }

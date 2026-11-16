@@ -22,6 +22,8 @@ data class RoutineComposeUiState(
     val targetMinutes: String = "",
     /** Raw minutes text per chosen exercise, keyed "STAGE:exerciseId". Blank = unknown (null), never 0. */
     val exerciseMinutes: Map<String, String> = emptyMap(),
+    /** Raw strength target texts per chosen strength exercise (keyed like [exerciseMinutes]). Blank = not set (null). */
+    val strengthTargets: Map<String, StrengthTargetText> = emptyMap(),
     val selected: Map<StageKind, List<RoutineExerciseInput>> = emptyMap(),
     val save: ComposeSaveState = ComposeSaveState.EDITING,
     val error: String? = null
@@ -37,7 +39,18 @@ data class RoutineComposeUiState(
     val canConfirm: Boolean get() = exerciseCount >= 1 && name.isNotBlank() && save != ComposeSaveState.SAVING && save != ComposeSaveState.SAVED
 }
 
+/** Raw text of one strength exercise's targets: sets, reps and rest seconds. Blank = not set (null, never a default). */
+data class StrengthTargetText(val sets: String = "", val reps: String = "", val rest: String = "")
+
 internal fun exKey(kind: StageKind, id: String) = "${kind.name}:$id"
+
+/** Blank -> null (not set). Otherwise a number inside [range] or a failure with a user-facing message. */
+internal fun boundedNumber(text: String, range: LongRange, label: String): Result<Long?> {
+    val t = text.trim()
+    if (t.isEmpty()) return Result.success(null)
+    val n = t.toLongOrNull() ?: return Result.failure(IllegalArgumentException("$label: 숫자만 입력해 주세요"))
+    return if (n in range) Result.success(n) else Result.failure(IllegalArgumentException("$label: ${range.first}~${range.last} 사이로 입력해 주세요"))
+}
 
 /** Maps a minutes text field to seconds. Blank -> null (unknown). Returns Result.failure for non-positive/garbage input. */
 internal fun minutesToSeconds(text: String): Result<Long?> {
@@ -77,6 +90,13 @@ class RoutineComposeViewModel @Inject constructor(
     fun setTarget(v: String) = _state.update { it.copy(targetMinutes = v.filter(Char::isDigit).take(4), error = null) }
     fun setExerciseMinutes(kind: StageKind, id: String, v: String) =
         _state.update { it.copy(exerciseMinutes = it.exerciseMinutes + (exKey(kind, id) to v.filter(Char::isDigit).take(4)), error = null) }
+    private fun updateTarget(kind: StageKind, id: String, change: (StrengthTargetText) -> StrengthTargetText) = _state.update {
+        val key = exKey(kind, id)
+        it.copy(strengthTargets = it.strengthTargets + (key to change(it.strengthTargets[key] ?: StrengthTargetText())), error = null)
+    }
+    fun setTargetSets(id: String, v: String) = updateTarget(StageKind.STRENGTH, id) { it.copy(sets = v.filter(Char::isDigit).take(2)) }
+    fun setTargetReps(id: String, v: String) = updateTarget(StageKind.STRENGTH, id) { it.copy(reps = v.filter(Char::isDigit).take(3)) }
+    fun setRestSeconds(id: String, v: String) = updateTarget(StageKind.STRENGTH, id) { it.copy(rest = v.filter(Char::isDigit).take(3)) }
     fun setSelection(kind: StageKind, items: List<RoutineExerciseInput>) =
         _state.update { it.copy(selected = it.selected + (kind to items), error = null) }
 
@@ -87,7 +107,13 @@ class RoutineComposeViewModel @Inject constructor(
         val withTimes = HashMap<StageKind, List<RoutineExerciseInput>>()
         for ((kind, items) in s.selected) {
             withTimes[kind] = items.map { e ->
-                e.copy(plannedSeconds = minutesToSeconds(s.exerciseMinutes[exKey(kind, e.id)].orEmpty()).getOrElse { return fail("${e.name} 계획시간: ${it.message}") })
+                val planned = minutesToSeconds(s.exerciseMinutes[exKey(kind, e.id)].orEmpty()).getOrElse { return fail("${e.name} 계획시간: ${it.message}") }
+                if (kind != StageKind.STRENGTH) return@map e.copy(plannedSeconds = planned)
+                val t = s.strengthTargets[exKey(kind, e.id)] ?: StrengthTargetText()
+                val sets = boundedNumber(t.sets, RoutinePlanService.SETS_RANGE.let { it.first.toLong()..it.last.toLong() }, "${e.name} 목표 세트").getOrElse { return fail(it.message.orEmpty()) }
+                val reps = boundedNumber(t.reps, RoutinePlanService.REPS_RANGE.let { it.first.toLong()..it.last.toLong() }, "${e.name} 목표 반복").getOrElse { return fail(it.message.orEmpty()) }
+                val rest = boundedNumber(t.rest, RoutinePlanService.REST_RANGE, "${e.name} 휴식(초)").getOrElse { return fail(it.message.orEmpty()) }
+                e.copy(plannedSeconds = planned, targetSets = sets?.toInt(), targetReps = reps?.toInt(), restSeconds = rest)
             }
         }
         _state.update { it.copy(save = ComposeSaveState.SAVING, error = null) }

@@ -124,7 +124,24 @@ fun RoutineComposeScreen(onBack: () -> Unit, viewModel: RoutineComposeViewModel 
                             label = { Text(if (kind == StageKind.STRENGTH) "${e.name} · 참고 시간(분)" else "${e.name} · 시간(분) · 비우면 미정") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth().testTag("routine_minutes_${kind.name}_${e.id}"))
+                        if (kind == StageKind.STRENGTH) {
+                            val t = state.strengthTargets[exKey(kind, e.id)] ?: StrengthTargetText()
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedTextField(t.sets, { viewModel.setTargetSets(e.id, it) }, singleLine = true, label = { Text("세트") },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    modifier = Modifier.weight(1f).testTag("routine_sets_${e.id}"))
+                                OutlinedTextField(t.reps, { viewModel.setTargetReps(e.id, it) }, singleLine = true, label = { Text("반복") },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    modifier = Modifier.weight(1f).testTag("routine_reps_${e.id}"))
+                                OutlinedTextField(t.rest, { viewModel.setRestSeconds(e.id, it) }, singleLine = true, label = { Text("휴식(초)") },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    modifier = Modifier.weight(1.2f).testTag("routine_rest_${e.id}"))
+                            }
+                        }
                     }
+                    if (kind == StageKind.STRENGTH && chosen.isNotEmpty())
+                        Text("세트·반복·휴식은 비워 두면 정하지 않은 값으로 저장돼요. 휴식을 비우면 휴식 타이머 없이 진행해요.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (chosen.isNotEmpty()) {
                         // Derived from the exercises above; there is no separate stage-time input.
                         val total = state.derivedStageMinutes(kind)
