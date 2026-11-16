@@ -46,6 +46,10 @@ interface RoutiveDao {
     @Query("SELECT DISTINCT date FROM session_day_slices WHERE date >= :from AND date <= :to ORDER BY date")
     suspend fun sessionDatesBetween(from: String, to: String): List<String>
 
+    /** Every session-zone ISO date that has stored session time (MY tab lifetime count). Read-only. */
+    @Query("SELECT DISTINCT date FROM session_day_slices ORDER BY date")
+    suspend fun allSessionDates(): List<String>
+
     /** Stored sessions with time on [date], earliest start first (record day list). Read-only. */
     @Query(
         "SELECT s.* FROM sessions s INNER JOIN session_day_slices d ON d.sessionId = s.sessionId " +

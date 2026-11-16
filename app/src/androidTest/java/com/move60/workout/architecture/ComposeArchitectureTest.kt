@@ -46,6 +46,7 @@ class ComposeArchitectureTest {
         rule.onNodeWithTag("tab_calendar").performClick()
         rule.onNodeWithText("운동 달력").assertIsDisplayed()
         rule.onNodeWithTag("tab_settings").performClick()
+        rule.onNodeWithTag("my_settings_open").performClick()
         capture("compose-settings.png")
         // Settings is a long LazyColumn: scroll to each section before asserting it is visible.
         rule.onNodeWithTag("settings_list").performScrollToNode(hasTestTag("settings_version_row"))
@@ -54,6 +55,7 @@ class ComposeArchitectureTest {
 
     @Test fun composeSettingsHasEverySettingInThreeGroups() {
         rule.onNodeWithTag("tab_settings").performClick()
+        rule.onNodeWithTag("my_settings_open").performClick()
         rule.onNodeWithTag("tab_bar").assertIsDisplayed()
         val list = rule.onNodeWithTag("settings_list")
         list.performScrollToNode(hasText("오늘 컨디션 루틴"))
@@ -78,6 +80,7 @@ class ComposeArchitectureTest {
 
     @Test fun ratioSliderShowsThreeIndividualSegmentsThatAlwaysSumToFifty() {
         rule.onNodeWithTag("tab_settings").performClick()
+        rule.onNodeWithTag("my_settings_open").performClick()
         val list = rule.onNodeWithTag("settings_list")
         list.performScrollToNode(hasTestTag("settings_ratio"))
         rule.onNodeWithText("유산소 ①").assertIsDisplayed()
@@ -94,6 +97,7 @@ class ComposeArchitectureTest {
 
     @Test fun turningNotificationsOnOpensTheDiagnostics() {
         rule.onNodeWithTag("tab_settings").performClick()
+        rule.onNodeWithTag("my_settings_open").performClick()
         rule.onNodeWithTag("settings_list").performScrollToNode(hasTestTag("settings_sound_toggle"))
         // Off then On: only the Off -> On change leads to the diagnostics dialog.
         if (rule.onAllNodesWithText("운동 알림 진단").fetchSemanticsNodes().isEmpty()) {

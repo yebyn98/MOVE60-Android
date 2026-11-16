@@ -1020,7 +1020,7 @@ enum class Move60Tab(val route: String, val label: String, val tag: String) {
     TODAY("dashboard", "오늘", "tab_today"),
     RECORD("calendar", "기록", "tab_calendar"),
     CHALLENGE("challenge", "도전", "tab_challenge"),
-    MY("settings", "마이", "tab_settings")
+    MY("my", "마이", "tab_settings")
 }
 
 /** Material 3 bottom navigation: 48dp+ targets, labels always shown, safe-area aware. */
@@ -1033,7 +1033,8 @@ fun Move60TabBar(currentRoute: String?, onSelect: (Move60Tab) -> Unit) {
         Move60Tab.values().forEach { tab ->
             NavigationBarItem(
                 // The record detail screens (day, session) belong to the 기록 tab.
-                selected = currentRoute == tab.route || (tab == Move60Tab.RECORD && currentRoute?.startsWith("record_") == true),
+                selected = currentRoute == tab.route || (tab == Move60Tab.RECORD && currentRoute?.startsWith("record_") == true) ||
+                    (tab == Move60Tab.MY && (currentRoute == "settings" || currentRoute?.startsWith("my_") == true)),
                 onClick = { onSelect(tab) },
                 modifier = Modifier.testTag(tab.tag),
                 icon = {
