@@ -144,7 +144,11 @@ fun Move60ComposeApp(showIntro: Boolean = false, openCalendar: Boolean = false, 
                         onOpenSession = { nav.navigate("routive_session") { launchSingleTop = true } }
                     ) }
                     composable("routive_session") { RoutiveSessionScreen(onBack = { nav.popBackStack() }, onResult = openResult) }
-                    composable("calendar") { WorkoutCalendar(onBack = { nav.popBackStack() }) }
+                    composable("calendar") { WorkoutCalendar(onBack = { nav.popBackStack() }, onOpenDay = { nav.navigate("record_day/$it") }) }
+                    composable("record_day/{date}") {
+                        RecordDayScreen(onBack = { nav.popBackStack() }, onOpenSession = { nav.navigate("record_session/$it") })
+                    }
+                    composable("record_session/{sessionId}") { RecordSessionScreen(onBack = { nav.popBackStack() }) }
                     composable("settings") { WorkoutSettings(onBack = { nav.popBackStack() }) }
                 }
                 // Provisional rule (pending policy confirmation): hide the tab bar while a workout is running

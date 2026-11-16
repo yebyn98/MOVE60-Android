@@ -63,6 +63,16 @@ class HistoryViewModel @Inject constructor(
     /** Stored ids are shown as saved when the curated name is unknown. */
     fun exerciseName(id: String): String = data.exerciseName(id) ?: id
 
+    /** Figma 11: dates of [month] with stored session time (extra calendar dots). A read failure adds none. */
+    suspend fun sessionDates(month: YearMonth): Set<LocalDate> = try {
+        RecordReader(db) { sets.completedStoredSets() }.sessionDates(month)
+    } catch (_: Exception) { emptySet() }
+
+    /** Figma 11: stored sessions of [date] for the selected-day card; null when they cannot be read. */
+    suspend fun dayRecord(date: LocalDate): DayRecord? = try {
+        RecordReader(db) { sets.completedStoredSets() }.day(date)
+    } catch (_: Exception) { null }
+
     /** Number of buffered sessions that conflict with an already saved record and need the user's attention. */
     /** Main facts of each conflicting buffered copy, for the "확인이 필요한 기록" dialog. Nothing here is shown as a saved record. */
     fun conflicts(): List<ConflictUi> = try {

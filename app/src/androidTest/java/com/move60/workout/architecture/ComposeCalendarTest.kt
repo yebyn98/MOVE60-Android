@@ -14,8 +14,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
-import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.test.core.app.ActivityScenario
 import com.move60.workout.SetRecordStore
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -121,21 +121,25 @@ class ComposeCalendarTest {
         WorkoutHistory(context).addActiveSeconds(today, 90 * 60)
         try {
             val store = SetRecordStore(context)
-            store.write(9, "chestPress", 1, SetRecordStore.Record("40", "10", "5", true), today, token)
-            store.write(9, "chestPress", 2, SetRecordStore.Record("42.5", "8", "5", true), today, token)
-            store.write(9, "legPress", 1, SetRecordStore.Record("80", "12", "5", true), today, token)
+            // Distinctive values: other emulator tests also leave completed sets on today's date, which the screen
+            // (correctly) lists too, so this test only looks for the rows it wrote itself.
+            store.write(9, "chestPress", 1, SetRecordStore.Record("41.5", "11", "5", true), today, token)
+            store.write(9, "chestPress", 2, SetRecordStore.Record("43.5", "9", "5", true), today, token)
+            store.write(9, "legPress", 1, SetRecordStore.Record("81", "13", "5", true), today, token)
             ActivityScenario.launch(ComposeActivity::class.java).use {
                 rule.onNodeWithTag("tab_calendar").performClick()
                 rule.onNodeWithTag("calendar_list").performScrollToNode(hasTestTag("calendar_day_detail"))
                 rule.waitUntil(10_000) { rule.onAllNodesWithTag("calendar_set_records").fetchSemanticsNodes().isNotEmpty() }
                 rule.onNodeWithTag("calendar_set_records").performScrollTo()
                 rule.onNodeWithTag("calendar_set_records").assertIsDisplayed()
-                rule.onNodeWithTag("calendar_set_group_legacy").assertIsDisplayed()
-                rule.onAllNodesWithTag("calendar_set_row").assertCountEquals(3)
-                rule.onNodeWithText("$chest · 1세트 · 40kg × 10회").assertIsDisplayed()
-                rule.onNodeWithText("$chest · 2세트 · 42.5kg × 8회").assertIsDisplayed()
-                rule.onNodeWithText("$leg · 1세트 · 80kg × 12회").assertIsDisplayed()
-                rule.onNodeWithText("저장된 운동과 연결할 수 없어 시간 없이 보여줘요.").assertIsDisplayed()
+                rule.onAllNodesWithTag("calendar_set_group_legacy")[0].assertExists()
+                for (row in listOf(
+                    "$chest · 1세트 · 41.5kg × 11회", "$chest · 2세트 · 43.5kg × 9회", "$leg · 1세트 · 81kg × 13회"
+                )) {
+                    rule.onNodeWithText(row).performScrollTo()
+                    rule.onNodeWithText(row).assertIsDisplayed()
+                }
+                rule.onAllNodesWithText("저장된 운동과 연결할 수 없어 시간 없이 보여줘요.")[0].assertExists()
                 capture("compose-calendar-set-records.png")
             }
         } finally {
