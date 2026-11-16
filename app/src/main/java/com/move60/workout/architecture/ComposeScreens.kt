@@ -494,7 +494,10 @@ fun WorkoutCalendar(
                 }
             }
             if (viewModel.trained(selected)) item(key = "day_detail_$selected") {
-                DayDetailCard(viewModel.dayDetail(selected))
+                val legacySets by androidx.compose.runtime.produceState<LegacySetDay?>(null, selected) {
+                    value = viewModel.legacySets(selected)
+                }
+                DayDetailCard(viewModel.dayDetail(selected), legacySets, viewModel::exerciseName)
             }
         }
     }
@@ -509,7 +512,7 @@ private fun formatStageTime(seconds: Long): String =
 
 /** Selected-day record (Figma "summary_card"): date, body-part chip, totals, then one row per workout stage. */
 @Composable
-private fun DayDetailCard(detail: DayDetail) {
+private fun DayDetailCard(detail: DayDetail, legacySets: LegacySetDay?, exerciseName: (String) -> String) {
     val weekday = listOf("월", "화", "수", "목", "금", "토", "일")[detail.date.dayOfWeek.value - 1]
     val focusLabel = when (detail.focus) { "upper" -> "상체"; "lower" -> "하체"; else -> "부위 미기록" }
     Move60Card(Modifier.testTag("calendar_day_detail"), spacing = 8.dp) {
@@ -559,6 +562,44 @@ private fun DayDetailCard(detail: DayDetail) {
                     Text("약 ${stage.kcal} kcal", color = secondary, style = MaterialTheme.typography.bodySmall)
                 }
             }
+        }
+        if (legacySets != null && !legacySets.isEmpty) SetRecordsSection(legacySets, exerciseName)
+    }
+}
+
+/**
+ * Policy 5: completed sets exactly as saved. Sets of a stored session sit under that session; sets that cannot be
+ * tied to one are listed separately with no time, and nothing here is counted as workout time or challenge credit.
+ */
+@Composable
+private fun SetRecordsSection(day: LegacySetDay, exerciseName: (String) -> String) {
+    Column(Modifier.fillMaxWidth().testTag("calendar_set_records"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("근력운동 세트 기록", style = MaterialTheme.typography.titleMedium)
+        day.linked.forEach { group ->
+            SetGroupCard("저장된 운동 기록", "linked", group, exerciseName)
+        }
+        day.unlinked.forEach { group ->
+            SetGroupCard("이전 버전에서 저장한 기록", "legacy", group, exerciseName,
+                note = "저장된 운동과 연결할 수 없어 시간 없이 보여줘요.")
+        }
+    }
+}
+
+@Composable
+private fun SetGroupCard(title: String, kind: String, group: LegacySetGroup, exerciseName: (String) -> String, note: String? = null) {
+    Column(Modifier.fillMaxWidth().testTag("calendar_set_group_$kind")
+        .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.small)
+        .padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(title, fontWeight = FontWeight.Bold)
+        if (note != null) Text(note, color = muted, style = MaterialTheme.typography.bodySmall)
+        group.sets.forEach { set ->
+            val suffix = when {
+                set.differsFromStored -> " · 이전 버전 값, 저장된 값과 달라요"
+                set.origin == SetOrigin.LEGACY && group.linked -> " · 이전 버전 기록"
+                else -> ""
+            }
+            Text("${exerciseName(set.exerciseId)} · ${set.setNumber}세트 · ${set.kg}kg × ${set.reps}회$suffix",
+                modifier = Modifier.testTag("calendar_set_row"), style = MaterialTheme.typography.bodyMedium)
         }
     }
 }
