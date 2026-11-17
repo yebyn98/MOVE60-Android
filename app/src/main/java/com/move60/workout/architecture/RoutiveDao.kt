@@ -36,6 +36,11 @@ interface RoutiveDao {
     suspend fun slices(sessionId: String): List<SessionDaySliceEntity>
     @Query("SELECT * FROM session_segments WHERE sessionId = :sessionId ORDER BY orderIndex")
     suspend fun segments(sessionId: String): List<SessionSegmentEntity>
+
+    /** Saved cardio values (docs/v71). Insert only; the DAO exposes no update or delete. */
+    @Insert(onConflict = OnConflictStrategy.ABORT) suspend fun insertCardioInputs(rows: List<SessionCardioInputEntity>)
+    @Query("SELECT * FROM session_cardio_inputs WHERE sessionId = :sessionId ORDER BY inputIndex, metricKey")
+    suspend fun cardioInputs(sessionId: String): List<SessionCardioInputEntity>
     @Query("SELECT * FROM session_sets WHERE sessionId = :sessionId ORDER BY exerciseId, setNumber")
     suspend fun sets(sessionId: String): List<SessionSetEntity>
     /** New-engine active seconds on a session-zone date. Kept separate from legacy `daily_workouts` (never summed). */

@@ -120,6 +120,31 @@ data class SessionAdjustmentEntity(
     val reason: String?
 )
 
+/**
+ * Cardio equipment value the user SAVED during a cardio stage (docs/v71). One row per input event and metric; the original row is
+ * never updated (a later correction is a new `session_adjustments` row). [atActiveSeconds] is session ACTIVE elapsed seconds, so a
+ * pause never counts. [valueText] is exactly what the user typed (a number); nothing is estimated or filled in.
+ */
+@Entity(
+    tableName = "session_cardio_inputs",
+    primaryKeys = ["sessionId", "inputIndex", "metricKey"],
+    foreignKeys = [ForeignKey(SessionEntity::class, ["sessionId"], ["sessionId"], onDelete = ForeignKey.CASCADE)]
+)
+data class SessionCardioInputEntity(
+    val sessionId: String,
+    val inputIndex: Int,
+    val stageIndex: Int,
+    val atActiveSeconds: Int,
+    /** `Equipment` enum name, e.g. INDOOR_CYCLE. */
+    val equipmentKey: String,
+    /** [com.move60.workout.domain.CardioMetric.key]. */
+    val metricKey: String,
+    val valueText: String,
+    /** Unit label shown with the value (null = none). */
+    val unit: String?,
+    val enteredAtEpochMs: Long
+)
+
 /** Period-limited challenge. Journey (open-ended) is a separate domain and is not modelled here. */
 @Entity(tableName = "challenges", indices = [Index(value = ["status"])])
 data class ChallengeEntity(

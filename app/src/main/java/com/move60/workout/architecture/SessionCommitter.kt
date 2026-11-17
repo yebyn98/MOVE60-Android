@@ -2,6 +2,8 @@ package com.move60.workout.architecture
 
 import androidx.room.withTransaction
 import com.move60.workout.domain.ActiveInterval
+import com.move60.workout.domain.CardioMetric
+import com.move60.workout.domain.CardioMetrics
 import com.move60.workout.domain.ChallengeRules
 import com.move60.workout.domain.WorkoutRecognitionPolicy
 import java.time.ZoneId
@@ -14,13 +16,15 @@ data class SessionBundle(
     val session: SessionEntity,
     val intervals: List<SessionActiveIntervalEntity>,
     val sets: List<SessionSetEntity> = emptyList(),
-    val segments: List<SessionSegmentEntity> = emptyList()
+    val segments: List<SessionSegmentEntity> = emptyList(),
+    /** Cardio values the user saved during the session (docs/v71); empty when none. */
+    val cardioInputs: List<SessionCardioInputEntity> = emptyList()
 )
 
 enum class RejectReason {
     BLANK_SESSION_ID, UNKNOWN_ENUM_VALUE, INVALID_ZONE, NEGATIVE_VALUE, INVALID_INTERVAL, DUPLICATE_INTERVAL,
     INTERVAL_OVERLAP, INTERVAL_SUM_OVERFLOW, INTERVAL_SUM_MISMATCH, DUPLICATE_SET, INVALID_SET,
-    COMPLETED_SET_COUNT_MISMATCH, COMPLETION_CONTRADICTS_ACTIVITY, DUPLICATE_SEGMENT, INVALID_SEGMENT, INVALID_LEGACY_TOKEN, CHILD_SESSION_ID_MISMATCH
+    COMPLETED_SET_COUNT_MISMATCH, COMPLETION_CONTRADICTS_ACTIVITY, DUPLICATE_SEGMENT, INVALID_SEGMENT, INVALID_LEGACY_TOKEN, CHILD_SESSION_ID_MISMATCH, INVALID_CARDIO_INPUT, DUPLICATE_CARDIO_INPUT
 }
 
 sealed interface CommitResult {
@@ -59,7 +63,7 @@ object SessionBundleValidator {
         if (s.totalActiveSeconds < 0L || s.completedStrengthSets < 0) return reject(RejectReason.NEGATIVE_VALUE, "session totals")
 
         if (bundle.intervals.any { it.sessionId != s.sessionId } || bundle.sets.any { it.sessionId != s.sessionId } ||
-            bundle.segments.any { it.sessionId != s.sessionId }
+            bundle.segments.any { it.sessionId != s.sessionId } || bundle.cardioInputs.any { it.sessionId != s.sessionId }
         ) return reject(RejectReason.CHILD_SESSION_ID_MISMATCH, "child rows must reference ${s.sessionId}")
 
         // Active intervals: ordered, positive, non-overlapping, and summing exactly to the measured active time.
@@ -111,6 +115,14 @@ object SessionBundleValidator {
             if (seg.actualSeconds <= 0L || (seg.plannedSeconds != null && seg.plannedSeconds <= 0L)) {
                 return reject(RejectReason.INVALID_SEGMENT, "segment ${seg.orderIndex} seconds must be > 0")
             }
+        }
+        // Cardio inputs: known metric, a finite non-negative number typed by the user, active seconds >= 0, no duplicate key.
+        val cardioKeys = HashSet<Triple<String, Int, String>>()
+        for (c in bundle.cardioInputs) {
+            if (c.inputIndex < 0 || c.stageIndex < 0 || c.atActiveSeconds < 0 || c.atActiveSeconds.toLong() > s.totalActiveSeconds ||
+                c.equipmentKey.isBlank() || CardioMetric.fromKey(c.metricKey) == null || CardioMetrics.parse(c.valueText) == null
+            ) return reject(RejectReason.INVALID_CARDIO_INPUT, "cardio #${c.inputIndex} ${c.metricKey}")
+            if (!cardioKeys.add(Triple(c.sessionId, c.inputIndex, c.metricKey))) return reject(RejectReason.DUPLICATE_CARDIO_INPUT, "cardio #${c.inputIndex} ${c.metricKey}")
         }
         return null
     }
@@ -180,6 +192,7 @@ class SessionCommitter(private val db: WorkoutDatabase, private val clock: () ->
                 if (normalized.slices.isNotEmpty()) dao.insertSlices(normalized.slices)
                 if (b.sets.isNotEmpty()) dao.insertSets(b.sets)
                 if (b.segments.isNotEmpty()) dao.insertSegments(b.segments)
+                if (b.cardioInputs.isNotEmpty()) dao.insertCardioInputs(b.cardioInputs)   // same transaction as the session
                 val touched = challenges.onSessionStored(b.intervals.map { ActiveInterval(it.startEpochSec, it.endEpochSec) }, nowMs)
                 if (draftId != null) dao.deleteDraft(draftId)
                 CommitResult.Committed(id, touched)
@@ -212,7 +225,8 @@ class SessionCommitter(private val db: WorkoutDatabase, private val clock: () ->
                 session = s.copy(validSession = valid, committedAtEpochMs = clock()),
                 intervals = intervals,
                 sets = bundle.sets.sortedWith(compareBy({ it.exerciseId }, { it.setNumber })),
-                segments = bundle.segments.sortedBy { it.orderIndex }
+                segments = bundle.segments.sortedBy { it.orderIndex },
+                cardioInputs = bundle.cardioInputs.sortedWith(compareBy({ it.inputIndex }, { it.metricKey }))
             ),
             valid, slices
         )
@@ -220,7 +234,7 @@ class SessionCommitter(private val db: WorkoutDatabase, private val clock: () ->
 
     /**
      * Idempotency check (docs/v61 D3). The CORE (session row without the plan snapshot, intervals, day slices, sets) must
-     * match exactly. The ENRICHMENT (plan snapshot, stage segments) is compared only when BOTH sides carry it: a session
+     * match exactly. The ENRICHMENT (plan snapshot, stage segments, cardio inputs) is compared only when BOTH sides carry it: a session
      * saved by an older build has none, so replaying it with enrichment (or the reverse) is an `AlreadyCommitted` no-op
      * instead of a `Conflict`, and the stored rows are never changed. Two different enrichments stay a `Conflict`.
      */
@@ -235,8 +249,10 @@ class SessionCommitter(private val db: WorkoutDatabase, private val clock: () ->
         if (!core) return false
         val storedSegments = dao.segments(existing.sessionId)
         val segmentsAgree = storedSegments.isEmpty() || b.segments.isEmpty() || storedSegments == b.segments
+        val storedCardio = dao.cardioInputs(existing.sessionId)
+        val cardioAgree = storedCardio.isEmpty() || b.cardioInputs.isEmpty() || storedCardio == b.cardioInputs
         val storedPlan = existing.planSnapshotJson
         val plansAgree = storedPlan == null || b.session.planSnapshotJson == null || storedPlan == b.session.planSnapshotJson
-        return segmentsAgree && plansAgree
+        return segmentsAgree && plansAgree && cardioAgree
     }
 }

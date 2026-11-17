@@ -17,7 +17,15 @@ data class TimerSnapshot(
     /** Per-stage planned and ACTUAL seconds of a ROUTIVE_4 session (docs/v61 D2); empty for the legacy 5-stage timer. */
     val stages: List<TimerStage> = emptyList(),
     /** Plan at session start as JSON (docs/v61 D1); null when there was none. Never read from the live routine. */
-    val planSnapshotJson: String? = null
+    val planSnapshotJson: String? = null,
+    /** Cardio values the user saved during the workout (docs/v71, phone input only); empty when none. Never estimated. */
+    val cardioInputs: List<TimerCardioInput> = emptyList()
+)
+
+/** One saved cardio value: input [inputIndex] at [atActiveSeconds] of stage [stageIndex] set [metricKey] to the typed [valueText]. */
+data class TimerCardioInput(
+    val inputIndex: Int, val stageIndex: Int, val atActiveSeconds: Int, val equipmentKey: String,
+    val metricKey: String, val valueText: String, val unit: String?, val enteredAtEpochMs: Long
 )
 
 data class TimerSet(val exerciseId: String, val setNumber: Int, val weightKg: String, val repetitions: String)
@@ -80,7 +88,10 @@ class TimerSessionSync(private val committer: SessionCommitter, private val zone
         )
         // Only COMPLETED sets are stored; the committer recomputes validity (>=60 s OR >=1 completed set, P-26 B).
         val sets = s.completedSets.map { SessionSetEntity(id, it.exerciseId, it.setNumber, SetState.COMPLETED.name, it.weightKg, it.repetitions, null) }
-        return SessionBundle(session, rows, sets, stageSegments(id, s))
+        val cardio = s.cardioInputs.map {
+            SessionCardioInputEntity(id, it.inputIndex, it.stageIndex, it.atActiveSeconds, it.equipmentKey, it.metricKey, it.valueText, it.unit, it.enteredAtEpochMs)
+        }
+        return SessionBundle(session, rows, sets, stageSegments(id, s), cardio)
     }
 
     suspend fun syncFinished(s: TimerSnapshot): SyncOutcome {
