@@ -14,7 +14,7 @@ android {
     targetSdk 35
     versionCode 58
     versionName '58.0'
-    testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+    testInstrumentationRunner 'com.move60.workout.Move60TestRunner'
   }
   signingConfigs {
     stable {

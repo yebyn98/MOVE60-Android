@@ -9,8 +9,9 @@ import java.time.ZoneId
 class SetRecordStore(context: Context) {
     private val prefs = context.getSharedPreferences("move60_set_records_v1", Context.MODE_PRIVATE)
     data class Record(val kg: String = "", val reps: String = "", val rpe: String = "5", val completed: Boolean = false) {
-        val valid: Boolean get() = kg.toDoubleOrNull()?.let { it in 0.0..500.0 } == true &&
-            reps.toIntOrNull()?.let { it in 1..100 } == true && rpe.toIntOrNull()?.let { it in 1..10 } == true
+        val valid: Boolean get() = kg.toDoubleOrNull()?.let { it in 0.0..com.move60.workout.domain.SetLimits.MAX_KG } == true &&
+            reps.toIntOrNull()?.let { it in com.move60.workout.domain.SetLimits.MIN_REPS..com.move60.workout.domain.SetLimits.MAX_REPS } == true &&
+            rpe.toIntOrNull()?.let { it in 1..10 } == true
         val volume: Double get() = if (completed && valid) kg.toDouble() * reps.toInt() else 0.0
     }
     fun today() = LocalDate.now(ZoneId.of("Asia/Seoul"))

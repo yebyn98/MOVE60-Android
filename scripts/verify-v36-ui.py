@@ -42,8 +42,9 @@ assert '"새 운동"' in (root/"wear/src/main/java/com/move60/watch/WatchActivit
 assert "jumpToPhase" in (root/"app/src/main/java/com/move60/workout/MainActivity.kt").read_text(), "Item rows of the running stage are tappable"
 assert "phone_current_guide" in main and "phone_rest" in main, "Figma: detail = rest card + current-exercise card with set entry"
 assert "fun buildSetTable" in main and "phone_current_exercise" in main and "buildSetTable(task)" in main.split("fun showDetails")[1], "Set entry: current-exercise card + exercise popup"
-for feature in ("운동 알림 진단", "notificationDiagnostics(", "updateManager.check(true)", "peekAvailability", "settings_ratio", "오늘 컨디션 루틴", "칼로리 계산 체중"):
+for feature in ("운동 알림 진단", "notificationDiagnostics(", "updateManager.check(true)", "peekAvailability", "settings_ratio", "오늘 컨디션 루틴"):
     assert feature in compose, f"Compose settings lost: {feature}"
+assert "칼로리 계산 체중" not in compose and "settings_weight_field" not in compose, "calorie weight setting must stay hidden (docs/v66 PO decision 5-2)"
 # 4-tab bar replaced the top-bar icons (no duplicated controls): every tab keeps an icon and a visible label.
 assert 'Icons.Outlined.Home' in compose and 'Icons.Outlined.Today' in compose and 'Icons.Outlined.Flag' in compose and 'Icons.Outlined.Person' in compose
 assert 'fun Move60TabBar' in compose and 'label = { Text(tab.label) }' in compose and 'compose_calendar_icon' not in compose

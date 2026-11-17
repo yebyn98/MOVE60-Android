@@ -206,12 +206,13 @@ class PhoneFeaturesTest {
         WatchKcal.save(context, WatchKcal.Sample(123L, 10.0, now - 5_000L))
         assertEquals("older replay cannot overwrite", 45.5, WatchKcal.fresh(context, 123L, now + 1_000L)!!.totalKcal, 0.0001)
     }
-    @Test fun dockHidesWatchKcalUntilAFreshSampleExistsForTheRunningSession() {
+    /** v66 PO decision 1: kcal is hidden everywhere, also while a fresh watch sample exists. The stored sample is untouched (see watchKcalMessage...). */
+    @Test fun dockNeverShowsWatchKcalEvenWhenAFreshSampleExists() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             scenario.onActivity { it.window.decorView.findViewWithTag<TextView>("phone_play").performClick() }
             instrumentation.waitForIdleSync()
             scenario.onActivity { activity ->
-                assertEquals("no watch data: line stays hidden", View.GONE,
+                assertEquals("no watch data: line is hidden", View.GONE,
                     activity.window.decorView.findViewWithTag<View>("phone_watch_kcal").visibility)
             }
             val token = JSONObject(SessionStore(context, WorkoutData(context)).snapshot()).optLong("sessionStartedAt")
@@ -221,10 +222,10 @@ class PhoneFeaturesTest {
             Thread.sleep(2_500)
             scenario.onActivity { activity ->
                 val line = activity.window.decorView.findViewWithTag<TextView>("phone_watch_kcal")
-                assertEquals(View.VISIBLE, line.visibility)
-                assertTrue(line.text.toString().contains("기초대사 포함"))
+                assertEquals("a fresh sample must not bring the kcal line back", View.GONE, line.visibility)
+                assertEquals("no placeholder text either", "", line.text.toString())
             }
-            screenshot("phone-v57-watch-kcal-line-FIXTURE.png")
+            screenshot("phone-kcal-hidden-with-fresh-sample.png")
         }
     }
     @Test fun guideImagesExistForEveryLicensedExercise() {
@@ -232,8 +233,14 @@ class PhoneFeaturesTest {
         val ids = files.filter { it.endsWith("_0.jpg") }.map { it.removeSuffix("_0.jpg") }
         assertEquals(29, ids.size)
         ids.forEach { assertTrue("missing second frame for $it", "${it}_1.jpg" in files) }
-        assertTrue(ExerciseGuide.create(context, "legPress").tag == "exercise_guide_loop")
-        assertTrue(ExerciseGuide.create(context, "birdDog") is ExerciseDiagram)
+        // docs/v67 (PO decision B): no exercise has a verified guidance record yet, so none is shown, but nothing is deleted.
+        assertTrue(com.move60.workout.domain.ExerciseContentApproval.APPROVED.isEmpty())
+        for (id in ids + listOf("birdDog", "wallPushup", "bandRow", "clamshell", "heelSlide", "march")) {
+            assertFalse("$id has no verified record", ExerciseGuide.hasGuide(context, id))
+            val view = ExerciseGuide.create(context, id)
+            assertEquals(ExerciseGuide.EMPTY_TAG, view.tag)
+            assertEquals("이 운동의 동작 안내는 아직 제공되지 않아요.", (view as TextView).text.toString())
+        }
     }
     @Test fun lastStageHasEnabledFinishAction() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
@@ -443,7 +450,8 @@ class PhoneFeaturesTest {
         assertEquals("First session remains intact",firstKcal,ledger.estimateSession(first),0.000001)
     }
 
-    @Test fun dockShowsTodayOnly() {
+    /** v66 PO decision 1: the energy data keeps being recorded, but the dock shows no kcal. */
+    @Test fun dockHidesKcalWhileTheEnergyDataIsStillRecorded() {
         val ledger = EnergyLedger(context)
         val start = today.atTime(9, 0).atZone(ZoneId.of("Asia/Seoul")).toInstant().toEpochMilli()
         ledger.add(today,start,start+120_000L,JSONObject().put("stage",1).put("running",true))
@@ -452,11 +460,8 @@ class PhoneFeaturesTest {
             scenario.onActivity { activity ->
                 val root = activity.window.decorView
                 val kcal = root.findViewWithTag<TextView>("phone_session_calories")
-                assertTrue("Dock must include today's earlier workouts",
-                    kcal.text.toString().contains("오늘 누적"))
-                val expectedCalories = "%.1f".format(ledger.estimate(today))
-                assertTrue("Dock must show the exact current-date total",
-                    kcal.text.toString().contains("$expectedCalories kcal"))
+                assertEquals("the kcal line is hidden", View.GONE, kcal.visibility)
+                assertEquals("no '0 kcal' or other placeholder text", "", kcal.text.toString())
             }
             screenshot("phone-v32-session-energy-spacing.png")
         }

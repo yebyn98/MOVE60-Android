@@ -42,14 +42,16 @@ class MyInsightsTest {
         assertEquals(WeekPoint(d("2026-11-16"), 1, 5L), w[1])
     }
 
-    @Test fun milestonesFollowTheFigmaThresholdsAndOmitWhatCouldNotBeRead() {
-        fun achieved(days: Int?, challenges: Int?) = MyInsights.milestones(days, challenges).filter { it.achieved }.map { it.id }
-        assertEquals(emptyList<String>(), achieved(0, 0))
-        assertEquals(listOf("first"), achieved(1, 0))
-        assertEquals(listOf("first", "days20"), achieved(20, 0))
-        assertEquals(listOf("first", "challenge1"), achieved(19, 1))
-        assertEquals(listOf("challenge1"), MyInsights.milestones(null, 2).map { it.id })
-        assertEquals(listOf("first", "days20"), MyInsights.milestones(3, null).map { it.id })
+    @Test fun milestonesFollowTheConfirmedThresholdsAndKeepUnreadableApartFromNotAchieved() {
+        fun statuses(days: Int?, challenges: Int?) = MyInsights.milestones(days, challenges).associate { it.id to it.status }
+        val a = MilestoneStatus.ACHIEVED; val n = MilestoneStatus.NOT_ACHIEVED; val u = MilestoneStatus.UNKNOWN
+        assertEquals(mapOf("first" to n, "days20" to n, "challenge1" to n), statuses(0, 0))
+        assertEquals(mapOf("first" to a, "days20" to n, "challenge1" to n), statuses(1, 0))
+        assertEquals(mapOf("first" to a, "days20" to n, "challenge1" to a), statuses(19, 1))
+        assertEquals(mapOf("first" to a, "days20" to a, "challenge1" to n), statuses(20, 0))
+        assertEquals("a failed read is UNKNOWN, never not-achieved", mapOf("first" to u, "days20" to u, "challenge1" to a), statuses(null, 2))
+        assertEquals(mapOf("first" to a, "days20" to n, "challenge1" to u), statuses(3, null))
+        assertEquals(listOf("첫 운동", "운동 20일 달성", "첫 도전 완료"), MyInsights.milestones(0, 0).map { it.title })
     }
 
     @Test fun labelsReadFromThisWeekBackwards() {

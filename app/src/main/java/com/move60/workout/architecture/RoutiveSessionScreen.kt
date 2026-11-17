@@ -168,7 +168,7 @@ private fun ActiveContent(state: RoutiveSessionUiState, vm: RoutiveSessionViewMo
     }
 
     if (state.stageKind == StageKind.STRENGTH) state.rest?.let { RestCard(it, state.running, vm) }
-    if (state.stageKind == StageKind.STRENGTH) state.exercises.forEach { StrengthExercise(it, vm) }
+    if (state.stageKind == StageKind.STRENGTH) state.exercises.forEach { StrengthExercise(it, vm, state.setError) }
     else state.exercises.forEach { e ->
         Move60Card(Modifier.testTag("routive_exercise_${e.id}")) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -202,7 +202,7 @@ private fun readinessHint(r: StageReadiness, isLast: Boolean): String? {
 }
 
 @Composable
-private fun StrengthExercise(e: RoutiveExerciseUi, vm: RoutiveSessionViewModel) {
+private fun StrengthExercise(e: RoutiveExerciseUi, vm: RoutiveSessionViewModel, setError: RoutiveSetError?) {
     val secondary = MaterialTheme.colorScheme.onSurfaceVariant
     Move60Card(Modifier.testTag("routive_exercise_${e.id}")) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -217,12 +217,24 @@ private fun StrengthExercise(e: RoutiveExerciseUi, vm: RoutiveSessionViewModel) 
             e.targetReps?.let { append(" · 목표 ${it}회") }
             e.restSeconds?.let { append(" · 휴식 ${formatMmSs(it)}") }
         }, color = secondary, style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("routive_target_${e.id}"))
+        val error = setError?.takeIf { it.exerciseId == e.id }?.error
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            OutlinedTextField(kg, { kg = it.filter { c -> c.isDigit() || c == '.' }.take(5) }, singleLine = true, label = { Text("kg") },
+            OutlinedTextField(kg, { kg = it.filter { c -> c.isDigit() || c == '.' }.take(5); vm.clearSetError() }, singleLine = true, label = { Text("kg") },
+                isError = error == com.move60.workout.domain.SetInputError.WEIGHT,
                 modifier = Modifier.weight(1f).testTag("routive_kg_${e.id}"))
-            OutlinedTextField(reps, { reps = it.filter(Char::isDigit).take(3) }, singleLine = true, label = { Text("회") },
+            OutlinedTextField(reps, { reps = it.filter(Char::isDigit).take(3); vm.clearSetError() }, singleLine = true, label = { Text("회") },
+                isError = error == com.move60.workout.domain.SetInputError.REPS,
                 modifier = Modifier.weight(1f).testTag("routive_reps_${e.id}"))
         }
+        if (error != null) Text(
+            when (error) {
+                com.move60.workout.domain.SetInputError.WEIGHT -> "무게는 0~${com.move60.workout.domain.SetLimits.MAX_KG.toInt()}kg 사이의 숫자로 입력해 주세요."
+                com.move60.workout.domain.SetInputError.REPS -> "횟수는 ${com.move60.workout.domain.SetLimits.MIN_REPS}~${com.move60.workout.domain.SetLimits.MAX_REPS}회 사이의 정수로 입력해 주세요."
+                com.move60.workout.domain.SetInputError.NOT_STORED -> "세트를 저장하지 못했어요. 다시 시도해 주세요."
+            },
+            color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.testTag("routive_set_error_${e.id}")
+        )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (e.done.isNotEmpty()) Move60Button(onClick = { vm.undoLastSet(e.id) }, primary = false,
                 modifier = Modifier.weight(1f).testTag("routive_set_undo_${e.id}")) { Text("마지막 세트 취소") }

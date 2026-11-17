@@ -323,4 +323,56 @@ class RoutiveSessionStoreTest {
         st.startRest("legPress", 20L); t += 5_000; st.pause(); t += 600_000
         assertFalse("a paused rest does not finish", st.consumeRestCue())
     }
+
+    // ---- review item 3: the previous record is kept when it cannot be copied to the outbox ----------------------------------
+
+    /** A copy that fails the way a full or broken disk does: either "false" or an exception. */
+    private class FailingOutbox(context: Context, private val throwing: Boolean) : PendingSessionOutbox(context) {
+        override fun enqueue(s: TimerSnapshot): Boolean = if (throwing) throw IllegalStateException("disk full") else false
+    }
+    private fun failingStore(throwing: Boolean) = RoutiveSessionStore(context, { t }, { date }, outbox = FailingOutbox(context, throwing))
+
+    private fun endedWithASet(): RoutiveSession {
+        val st = store(); val first = started(st)
+        SetRecordStore(context).write(first.day, "chestPress", 1, SetRecordStore.Record("40", "10", "5", true), date, first.startedAtEpochMs)
+        t += 120_000; st.endEarly()
+        return st.active()!!
+    }
+
+    @Test fun aFailedOutboxCopyKeepsTheOldSessionIntactAndTheNewStartCanBeRetried() {
+        val old = endedWithASet()
+        t += 5_000
+        for (throwing in listOf(false, true)) {
+            assertEquals("throwing=$throwing", RoutiveStart.PreserveFailed, failingStore(throwing).start(plan("r2")))
+            val kept = store().active()!!
+            assertEquals(old.startedAtEpochMs, kept.startedAtEpochMs); assertEquals("r1", kept.routineId)
+            assertTrue(kept.over); assertEquals(120L, kept.accumulatedSeconds); assertEquals(old.intervals, kept.intervals)
+            assertEquals("its sets are intact", 1, SetRecordStore(context).completedSetsForSession(old.startedAtEpochMs).size)
+            assertEquals("nothing was half-written to the outbox", 0, PendingSessionOutbox(context).size())
+        }
+        // The user tries again once the copy can be written: the old record moves to the outbox and the new session starts.
+        val second = (store().start(plan("r2")) as RoutiveStart.Started).session
+        assertNotEquals(old.startedAtEpochMs, second.startedAtEpochMs)
+        val queued = PendingSessionOutbox(context).pending().single()
+        assertEquals(120, queued.accumulatedSeconds); assertEquals(1, queued.completedSets.size)
+    }
+
+    @Test fun anOverSessionThatNeverHadTimeCannotBeCommittedSoItDoesNotBlockANewStart() {
+        val st = store(); started(st); st.endEarly()      // ended at the same instant: no interval, nothing a commit could use
+        assertTrue(st.active()!!.intervals.isEmpty())
+        t += 1_000
+        assertTrue(failingStore(false).start(plan("r2")) is RoutiveStart.Started)
+    }
+
+    @Test fun anAlreadyConfirmedSessionNeedsNoCopyEither() {
+        val old = endedWithASet()
+        store().markCommitted(old.startedAtEpochMs)
+        t += 1_000
+        assertTrue(failingStore(true).start(plan("r2")) is RoutiveStart.Started)
+    }
+
+    @Test fun aRunningOrPausedSessionIsStillNeverReplaced() {
+        started()
+        assertEquals(RoutiveStart.AlreadyActive, failingStore(false).start(plan("r2")))
+    }
 }

@@ -117,6 +117,7 @@ fun RoutineListScreen(
                             LaunchResult.LegacyActive -> notice = "legacy"
                             LaunchResult.NotFound -> { notice = "missing"; viewModel.refresh() }
                             LaunchResult.InvalidPlan -> notice = "invalid"
+                            LaunchResult.PreserveFailed -> notice = "preserve"
                             LaunchResult.Failed -> notice = "failed"
                         }
                     }
@@ -131,6 +132,7 @@ fun RoutineListScreen(
             "legacy" -> "기존 방식으로 진행 중인 운동이 있어요. 먼저 마치거나 종료해 주세요."
             "missing" -> "저장한 루틴을 찾지 못했어요. 목록을 새로 불러왔어요."
             "invalid" -> "이 루틴은 4단계 형태가 아니라 시작할 수 없어요."
+            "preserve" -> "이전 운동 기록을 안전하게 보관하지 못해 새 운동을 시작하지 않았어요. 이전 기록은 그대로예요. 잠시 후 다시 시도해 주세요."
             else -> "운동을 시작하지 못했어요. 잠시 후 다시 시도해 주세요."
         }
         AlertDialog(

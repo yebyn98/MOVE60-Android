@@ -93,10 +93,11 @@ class SessionCorrectionServiceTest {
         store("s1", two("s1"))
         for (w in listOf("-1", "abc", "501", "", " ", "1e2", "NaN", "Infinity", "4 0", "40,5"))
             assertTrue("weight '$w' must be rejected", corrections.apply("s1", listOf(SetCorrection("bench", 1, w, null))) is CorrectionResult.InvalidValue)
-        for (r in listOf("0", "101", "1.5", "", "-3", "abc"))
+        // The repetition bound is the routine plan's (1..200, SetLimits): 201 is the first rejected value.
+        for (r in listOf("0", "201", "1.5", "", "-3", "abc"))
             assertTrue("reps '$r' must be rejected", corrections.apply("s1", listOf(SetCorrection("bench", 1, null, r))) is CorrectionResult.InvalidValue)
         assertEquals(0, dao.adjustments("s1").size)
-        assertTrue(corrections.apply("s1", listOf(SetCorrection("bench", 1, "0", "100"))) is CorrectionResult.Saved)
+        assertTrue(corrections.apply("s1", listOf(SetCorrection("bench", 1, "0", "200"))) is CorrectionResult.Saved)
         assertTrue(corrections.apply("s1", listOf(SetCorrection("bench", 2, "500", "1"))) is CorrectionResult.Saved)
     }
 

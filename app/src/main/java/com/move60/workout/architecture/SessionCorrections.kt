@@ -63,20 +63,20 @@ internal object CorrectionRules {
     private val WEIGHT = Regex("^\\d+(\\.\\d+)?$")
     private val REPS = Regex("^\\d+$")
 
-    /** Same bounds as live input (0..500 kg). Blank is not accepted: a correction never removes a recorded value. */
+    /** Same bounds as live input ([SetLimits.MAX_KG]). Blank is not accepted: a correction never removes a recorded value. */
     fun weight(raw: String): String? {
         val t = raw.trim()
         if (!WEIGHT.matches(t)) return null
         val v = t.toDoubleOrNull() ?: return null
-        return if (v in 0.0..500.0) t else null
+        return if (v in 0.0..com.move60.workout.domain.SetLimits.MAX_KG) t else null
     }
 
-    /** Same bounds as live input (1..100 reps). */
+    /** Same bounds as live input and plan ([SetLimits.MIN_REPS]..[SetLimits.MAX_REPS]). */
     fun reps(raw: String): String? {
         val t = raw.trim()
         if (!REPS.matches(t)) return null
         val v = t.toIntOrNull() ?: return null
-        return if (v in 1..100) t else null
+        return if (v in com.move60.workout.domain.SetLimits.MIN_REPS..com.move60.workout.domain.SetLimits.MAX_REPS) t else null
     }
 }
 

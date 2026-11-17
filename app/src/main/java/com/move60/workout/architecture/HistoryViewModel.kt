@@ -60,6 +60,19 @@ class HistoryViewModel @Inject constructor(
         LegacySetReader(db) { sets.completedStoredSets() }.forDate(date)
     } catch (_: Exception) { LegacySetDay(date, emptyList()) }
 
+    private val kcalNotice = KcalNoticeStore(context)
+
+    /**
+     * v66 decision 1: show the "kcal is no longer shown" banner once to a user who already has records. A read failure shows
+     * nothing (a new user must not get a notice about something they never had).
+     */
+    suspend fun kcalNoticeVisible(): Boolean {
+        if (kcalNotice.seen) return false
+        val existing = try { history.trainedDates().isNotEmpty() || db.routiveDao().sessionCount() > 0 } catch (_: Exception) { false }
+        return KcalNoticePolicy.show(kcalNotice.seen, existing)
+    }
+    fun kcalNoticeShown() = kcalNotice.markSeen()
+
     /** Stored ids are shown as saved when the curated name is unknown. */
     fun exerciseName(id: String): String = data.exerciseName(id) ?: id
 

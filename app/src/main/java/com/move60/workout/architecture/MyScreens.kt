@@ -2,6 +2,16 @@ package com.move60.workout.architecture
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.border
+import androidx.compose.material3.RadioButton
+import androidx.compose.material.icons.outlined.TrackChanges
+import androidx.compose.material.icons.outlined.ShowChart
+import androidx.compose.material.icons.outlined.FitnessCenter
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Box
@@ -35,6 +45,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,13 +55,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.graphics.Color
+import com.move60.workout.Move60Theme
 import com.move60.workout.ui.Move60Button
 import com.move60.workout.ui.Move60Card
 
@@ -75,7 +91,7 @@ private fun NavRow(title: String, supporting: String, tag: String, onClick: () -
 
 /** Figma 10 · 마이 / 나의 성장. */
 @Composable
-fun MyHomeScreen(onOpenSpaces: () -> Unit, onOpenSettings: () -> Unit, onOpenReport: () -> Unit = {}, viewModel: MyHomeViewModel = hiltViewModel()) {
+fun MyHomeScreen(onOpenSpaces: () -> Unit, onOpenSettings: () -> Unit, onOpenReport: () -> Unit = {}, onOpenPurpose: () -> Unit = {}, viewModel: MyHomeViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     androidx.compose.runtime.LaunchedEffect(Unit) { viewModel.load() }
     Scaffold(containerColor = MaterialTheme.colorScheme.background, topBar = {
@@ -114,6 +130,7 @@ fun MyHomeScreen(onOpenSpaces: () -> Unit, onOpenSettings: () -> Unit, onOpenRep
                 StatCard("완료한 도전", state.completedChallenges?.let { "${it}개" } ?: "-", "my_stat_challenges", Modifier.weight(1f))
             }
             Text("나의 운동 설정", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Medium)
+            NavRow("운동 목적", state.purposeLabel ?: "아직 선택하지 않았어요", "my_purpose_open", onOpenPurpose)
             NavRow("내 운동 공간", state.defaultSpaceName ?: "아직 등록하지 않았어요", "my_spaces_open", onOpenSpaces)
             val milestones = state.milestones
             if (milestones.isNotEmpty()) {
@@ -131,10 +148,20 @@ fun MySpacesScreen(onBack: () -> Unit, onOpenSpace: (String) -> Unit, viewModel:
     val spaces by viewModel.spaces.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
     var addGym by rememberSaveable { mutableStateOf(false) }
+    var renaming by rememberSaveable { mutableStateOf<String?>(null) }
+    // The message (e.g. "same name already exists") sits below the list; scroll it into view when it appears so the user always sees why
+    // nothing happened, however long the list is or whether the keyboard is still closing.
+    val spacesScroll = rememberScrollState()
+    LaunchedEffect(message) {
+        if (message != null) {
+            withFrameNanos { }                       // let the message take its place in the layout first
+            spacesScroll.animateScrollTo(spacesScroll.maxValue)
+        }
+    }
     Scaffold(containerColor = MaterialTheme.colorScheme.background, topBar = { ScreenTopBar("내 운동 공간", onBack, "my_back") }) { inner ->
-        Column(Modifier.fillMaxSize().padding(inner).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).testTag("my_spaces"),
+        Column(Modifier.fillMaxSize().padding(inner).verticalScroll(spacesScroll).padding(horizontal = 16.dp).testTag("my_spaces"),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("공간별 기구를 등록하면 추천·직접 구성에 적용돼요.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+            Text("공간별로 실제 이용할 기구를 등록해요.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
             val list = spaces
             if (list == null) Text("운동 공간을 불러오고 있어요.", color = MaterialTheme.colorScheme.secondary)
             else {
@@ -151,11 +178,13 @@ fun MySpacesScreen(onBack: () -> Unit, onOpenSpace: (String) -> Unit, viewModel:
                             Text(default.space.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                             Text(equipmentSummary(default.equipmentCount), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
                         }
-                        Text("등록된 기구를 루틴 추천·직접 구성에 적용", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                        Text("이 공간에서 이용할 보유 기구를 관리해요.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
                     }
                 }
+                if (default != null && default.space.kind == SpaceKind.GYM.name) RenameButton(default.space) { renaming = default.space.spaceId }
                 list.filter { !it.space.isDefault }.forEach { s ->
                     NavRow(s.space.name, "${kindLabel(s.space.kind)} · ${equipmentSummary(s.equipmentCount)} · 보유 기구 관리", "my_space_${s.space.spaceId}") { onOpenSpace(s.space.spaceId) }
+                    if (s.space.kind == SpaceKind.GYM.name) RenameButton(s.space) { renaming = s.space.spaceId }
                     TextButton(onClick = { viewModel.setDefault(s.space.spaceId) }, modifier = Modifier.heightIn(min = 48.dp).testTag("my_set_default_${s.space.spaceId}")) {
                         Text("‘${s.space.name}’ 기본 운동 공간으로 설정")
                     }
@@ -164,31 +193,48 @@ fun MySpacesScreen(onBack: () -> Unit, onOpenSpace: (String) -> Unit, viewModel:
                     NavRow("집 · 개인 운동 공간 등록", "집에서 쓰는 기구를 직접 등록", "my_add_home") { viewModel.addHome() }
                 NavRow("헬스장 추가 등록", "헬스장 이름을 직접 등록", "my_add_gym") { addGym = true }
             }
-            message?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("my_spaces_message")) }
+            message?.let {
+                Text(it, color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }.testTag("my_spaces_message"))
+            }
             Spacer(Modifier.height(16.dp))
         }
     }
     if (addGym) AddGymDialog(onDismiss = { addGym = false }, onConfirm = { viewModel.addGym(it); addGym = false })
+    renaming?.let { id ->
+        val current = spaces?.firstOrNull { it.space.spaceId == id }?.space?.name.orEmpty()
+        GymNameDialog("헬스장 이름 수정", current, "저장", "my_rename", { renaming = null }) { viewModel.rename(id, it); renaming = null }
+    }
     androidx.compose.runtime.LaunchedEffect(message) { if (message != null) { kotlinx.coroutines.delay(4_000); viewModel.messageShown() } }
+}
+
+@Composable
+private fun RenameButton(space: WorkoutSpaceEntity, onClick: () -> Unit) {
+    TextButton(onClick = onClick, modifier = Modifier.heightIn(min = 48.dp).testTag("my_rename_${space.spaceId}")) { Text("이름 수정") }
 }
 
 private fun kindLabel(kind: String) = if (kind == SpaceKind.HOME.name) "집" else "헬스장"
 private fun equipmentSummary(count: Int) = if (count == 0) "등록된 기구 없음" else "등록된 기구 ${count}종"
 
 @Composable
-private fun AddGymDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
-    var name by rememberSaveable { mutableStateOf("") }
+internal fun AddGymDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) =
+    GymNameDialog("헬스장 직접 등록", "", "등록", "my_add_gym", onDismiss, onConfirm)
+
+/** One text field for a gym name (1..[SpaceService.MAX_NAME] characters); the button stays disabled for a blank name. */
+@Composable
+private fun GymNameDialog(title: String, initial: String, confirmLabel: String, tag: String, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
+    var name by rememberSaveable { mutableStateOf(initial) }
     val valid = name.trim().length in 1..SpaceService.MAX_NAME
     AlertDialog(
         onDismissRequest = onDismiss,
-        modifier = Modifier.testTag("my_add_gym_dialog"),
-        title = { Text("헬스장 직접 등록") },
+        modifier = Modifier.testTag("${tag}_dialog"),
+        title = { Text(title) },
         text = {
             OutlinedTextField(name, { if (it.length <= SpaceService.MAX_NAME) name = it }, singleLine = true,
                 label = { Text("헬스장 이름") }, supportingText = { Text("${name.length}/${SpaceService.MAX_NAME}") },
-                modifier = Modifier.fillMaxWidth().testTag("my_add_gym_name"))
+                modifier = Modifier.fillMaxWidth().testTag("${tag}_name"))
         },
-        confirmButton = { TextButton(onClick = { onConfirm(name) }, enabled = valid, modifier = Modifier.heightIn(min = 48.dp).testTag("my_add_gym_confirm")) { Text("등록") } },
+        confirmButton = { TextButton(onClick = { onConfirm(name) }, enabled = valid, modifier = Modifier.heightIn(min = 48.dp).testTag("${tag}_confirm")) { Text(confirmLabel) } },
         dismissButton = { TextButton(onClick = onDismiss, modifier = Modifier.heightIn(min = 48.dp)) { Text("취소") } }
     )
 }
@@ -223,6 +269,9 @@ fun SpaceEquipmentScreen(onBack: () -> Unit, viewModel: SpaceEquipmentViewModel 
                     Text(if (isGym) "선택한 헬스장에서 실제 이용할 기구만 등록해요." else "집에서 실제 사용할 수 있는 기구만 등록해요.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
                     Text(l.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
+                    if (isGym) TextButton(onClick = viewModel::selectAll, modifier = Modifier.heightIn(min = 48.dp).testTag("my_eq_select_all")) {
+                        Text("전체 선택")
+                    }
                     Move60Card(spacing = 6.dp) {
                         Equipment.choices(l.kind).forEach { eq ->
                             val on = eq.name in selected
@@ -295,7 +344,13 @@ private fun MilestoneRow(m: Milestone) {
             Spacer(Modifier.size(12.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(m.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                Text(if (m.achieved) m.supporting else "아직 달성하지 않았어요", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                Text(
+                    when (m.status) {
+                        MilestoneStatus.ACHIEVED -> m.supporting
+                        MilestoneStatus.NOT_ACHIEVED -> "아직 달성하지 않았어요."
+                        MilestoneStatus.UNKNOWN -> "불러오지 못했어요."
+                    }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary
+                )
             }
             Text(if (m.achieved) "달성" else "", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
         }
@@ -409,6 +464,112 @@ private fun ReportContent(report: MyReport, name: (String) -> String, onOpenSess
         Move60Card(Modifier.testTag("my_report_ex_${ex.exerciseId}"), spacing = 6.dp) {
             Text(name(ex.exerciseId), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
             Text(RecordFormat.setSummary(ex.sets), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+        }
+    }
+}
+
+// ---- 최초 운동 설정 (Figma FINAL/01, FINAL/02) ----
+
+private fun purposeIcon(p: WorkoutPurpose) = when (p) {
+    WorkoutPurpose.WEIGHT_MANAGEMENT -> Icons.Outlined.TrackChanges
+    WorkoutPurpose.STRENGTH -> Icons.Outlined.FitnessCenter
+    WorkoutPurpose.FITNESS -> Icons.Outlined.ShowChart
+    WorkoutPurpose.HABIT -> Icons.Outlined.CalendarMonth
+}
+
+/** Single choice (radio), nothing preselected. */
+@Composable
+private fun PurposeChoices(selected: WorkoutPurpose?, onSelect: (WorkoutPurpose) -> Unit) {
+    Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        WorkoutPurpose.entries.forEach { p ->
+            val on = p == selected
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 72.dp)
+                    .background(if (on) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface, RoundedCornerShape(16.dp))
+                    .border(1.dp, if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface, RoundedCornerShape(16.dp))
+                    .selectable(selected = on, role = Role.RadioButton, onClick = { onSelect(p) })
+                    .padding(12.dp).testTag("purpose_${p.name}"),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(Modifier.size(48.dp).background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(14.dp)), contentAlignment = Alignment.Center) {
+                    Icon(purposeIcon(p), contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                }
+                Spacer(Modifier.size(12.dp))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(p.label, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                    Text(p.supporting, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                }
+                RadioButton(selected = on, onClick = null)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SetupHeader(eyebrow: String, title: String, description: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("ROUTIVE", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, letterSpacing = 1.4.sp)
+        Spacer(Modifier.height(8.dp))
+        Text(eyebrow, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Medium)
+        Text(title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        Text(description, color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+/** Figma 01 · 최초 운동 목적 설정. The button stays disabled until a purpose is chosen. */
+@Composable
+fun FirstRunPurposeScreen(onContinue: () -> Unit, viewModel: FirstRunViewModel = hiltViewModel()) {
+    val purpose by viewModel.purpose.collectAsStateWithLifecycle()
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        bottomBar = {
+            Move60Button(onClick = { if (viewModel.savePurpose()) onContinue() }, enabled = purpose != null,
+                modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp).testTag("setup_purpose_continue")) { Text("운동 공간 선택") }
+        }
+    ) { inner ->
+        Column(Modifier.fillMaxSize().padding(inner).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 24.dp).testTag("setup_purpose"),
+            verticalArrangement = Arrangement.spacedBy(20.dp)) {
+            SetupHeader("YOUR FIRST MOVE", "오늘, 어떤 변화를\n만들고 싶나요?", "운동 목적 하나면 충분해요.\n나중에 언제든 변경할 수 있어요.")
+            PurposeChoices(purpose, viewModel::choose)
+        }
+    }
+}
+
+/** Figma 02 · 첫 운동 공간 선택. A space is required: the setup is done only after one is saved. */
+@Composable
+fun FirstRunSpaceScreen(onDone: (String) -> Unit, viewModel: FirstRunViewModel = hiltViewModel()) {
+    val error by viewModel.error.collectAsStateWithLifecycle()
+    var addGym by rememberSaveable { mutableStateOf(false) }
+    Scaffold(containerColor = MaterialTheme.colorScheme.background) { inner ->
+        Column(Modifier.fillMaxSize().padding(inner).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 24.dp).testTag("setup_space"),
+            verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            SetupHeader("02 / YOUR SPACE", "주로 어디에서\n운동하시나요?", "처음 운동할 공간을 반드시 선택해요.\n선택 전에는 운동을 시작할 수 없어요.")
+            NavRow("집에서 운동하기", "집에 있는 기구를 선택해요", "setup_home") { viewModel.finishWithSpace(SpaceKind.HOME, onSaved = onDone) }
+            NavRow("헬스장에서 운동하기", "이용하는 헬스장을 등록해요", "setup_gym") { addGym = true }
+            error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("setup_space_error")) }
+            Text("확정한 공간이 기본 운동 공간이 돼요.\n기구와 모델은 나중에 등록할 수 있어요.", style = MaterialTheme.typography.bodySmall, color = Color(Move60Theme.Colors.textMuted))   // Figma 02 #8C9F90 (the border color was too dark to read)
+        }
+    }
+    if (addGym) AddGymDialog(onDismiss = { addGym = false }, onConfirm = { name -> addGym = false; viewModel.finishWithSpace(SpaceKind.GYM, name, onDone) })
+}
+
+/** 마이 > 운동 목적: the same choices, changed later (Figma 10 "나의 운동 설정"). */
+@Composable
+fun MyPurposeScreen(onBack: () -> Unit, viewModel: FirstRunViewModel = hiltViewModel()) {
+    val purpose by viewModel.purpose.collectAsStateWithLifecycle()
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = { ScreenTopBar("운동 목적", onBack, "my_back") },
+        bottomBar = {
+            Move60Button(onClick = { if (viewModel.savePurpose()) onBack() }, enabled = purpose != null,
+                modifier = Modifier.fillMaxWidth().padding(16.dp).testTag("my_purpose_save")) { Text("저장") }
+        }
+    ) { inner ->
+        Column(Modifier.fillMaxSize().padding(inner).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).testTag("my_purpose"),
+            verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text("운동 목적 하나면 충분해요. 나중에 언제든 변경할 수 있어요.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+            PurposeChoices(purpose, viewModel::choose)
+            Spacer(Modifier.height(16.dp))
         }
     }
 }

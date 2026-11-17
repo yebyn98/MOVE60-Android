@@ -14,14 +14,23 @@ import org.json.JSONObject
  * Committed, AlreadyCommitted or DiscardedBelowThreshold; any other outcome keeps it for the next retry.
  * Nothing is invented: the entry is a verbatim copy of the timer snapshot.
  */
-class PendingSessionOutbox(context: Context) {
+open class PendingSessionOutbox(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences(NAME, Context.MODE_PRIVATE)
 
     fun sessionId(s: TimerSnapshot) = "timer-${s.recordDate}-d${s.day}-${s.startedAtEpochMs}"
 
-    /** Stores the snapshot once; an existing entry (and its retry bookkeeping) is kept. Returns true when stored or present. */
-    fun enqueue(s: TimerSnapshot): Boolean {
-        if (!(s.finished || s.endedEarly) || s.startedAtEpochMs <= 0L || s.intervals.isEmpty()) return false
+    /** Only a finished/ended session with a verifiable interval record can ever be committed, so only such a session is buffered. */
+    fun isRecordable(s: TimerSnapshot): Boolean = (s.finished || s.endedEarly) && s.startedAtEpochMs > 0L && s.intervals.isNotEmpty()
+
+    /** True when an entry for this session is in the outbox. */
+    fun contains(s: TimerSnapshot): Boolean = prefs.contains(sessionId(s))
+
+    /**
+     * Stores the snapshot once; an existing entry (and its retry bookkeeping) is kept. Returns true when stored or present, false
+     * when the session is not recordable ([isRecordable]) or the write failed.
+     */
+    open fun enqueue(s: TimerSnapshot): Boolean {
+        if (!isRecordable(s)) return false
         val id = sessionId(s)
         if (prefs.contains(id)) return true
         val json = JSONObject()

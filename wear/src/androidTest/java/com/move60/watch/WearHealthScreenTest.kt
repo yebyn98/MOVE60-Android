@@ -34,7 +34,7 @@ class WearHealthScreenTest {
         org.junit.Assert.assertFalse(state.healthConsent)
     }
 
-    @Test fun watchCaloriesAreOffUntilTheUserTurnsThemOn() {
+    @Test fun watchCaloriesAreOffAndNoCalorieControlIsOfferedUntilThePolicyIsDecided() {
         rule.activity.getSharedPreferences("move60_watch_kcal_v1", 0).edit().clear().commit()
         org.junit.Assert.assertFalse(com.move60.watch.health.WatchExerciseCalories.isOptedIn(rule.activity))
         org.junit.Assert.assertFalse(WearHealthActivity.HealthState().kcalOptIn)
@@ -49,10 +49,10 @@ class WearHealthScreenTest {
             }
         }
         var shown = false
-        for (step in 0..9) {
+        for (step in 0..4) {
             shown = try { rule.onNodeWithTag("wear_kcal_chip").assertIsDisplayed(); true } catch (_: AssertionError) { false }
             capture("watch-v57-health-scroll-$step.png")
-            if (shown) break
+            org.junit.Assert.assertFalse("no kcal control for a user who never opted in (docs/v66)", shown)
             // Start inside the round display: the default swipeUp() begins on the bottom edge, which the round screen ignores.
             rule.onNodeWithTag("wear_health_root").performTouchInput {
                 swipe(androidx.compose.ui.geometry.Offset(centerX, height * 0.78f),
@@ -60,6 +60,6 @@ class WearHealthScreenTest {
             }
             rule.waitForIdle()
         }
-        org.junit.Assert.assertTrue("kcal opt-in chip must be scrolled into view", shown)
+        org.junit.Assert.assertFalse(shown)
     }
 }

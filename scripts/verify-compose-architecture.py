@@ -33,8 +33,14 @@ assert "fun Move60Card(" in components and "fun Move60Button(" in components
 assert "com.google.android.material:material" in gradle
 screens=read("app/src/main/java/com/move60/workout/architecture/ComposeScreens.kt")
 for marker in ("@Composable","WorkoutDashboard(","WorkoutCalendar(","WorkoutSettings(",
-               "collectAsStateWithLifecycle()","오늘 누적","state.itemName","hiltViewModel()"):
+               "collectAsStateWithLifecycle()","state.itemName","hiltViewModel()"):
     assert marker in screens,marker
+# v66 PO decision 1: no kcal text anywhere in the Compose screens (the stored energy data is untouched).
+import re as _re
+_code=_re.sub(r'//[^\n]*', '', screens)  # comments may mention kcal
+_shown=[m for m in _re.findall(r'"[^"\n]*"', _code)
+        if ("kcal" in m.lower() or "오늘 누적" in m) and not _re.fullmatch(r'"[a-z0-9_]+"', m)]  # test tags are not shown text
+assert not _shown, "kcal must not be shown (PO decision 1): "+repr(_shown)
 # v58 (Figma 01/02): the home shows no "n/5 단계" counter and the dock names the current item.
 assert "단계\"" not in screens and "stageNames.size.coerceAtLeast(1)}" not in screens, "home must not show an n/N stage counter"
 vm=read("app/src/main/java/com/move60/workout/architecture/WorkoutViewModel.kt")

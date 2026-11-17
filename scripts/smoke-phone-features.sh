@@ -4,7 +4,7 @@ mkdir -p smoke-debug/features
 adb install -r -g app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 adb logcat -c
 set +e
-timeout 360s adb shell am instrument -w -r -e timeout_msec 45000 com.move60.workout.test/androidx.test.runner.AndroidJUnitRunner | tee smoke-debug/features/instrumentation.txt
+timeout 360s adb shell am instrument -w -r -e timeout_msec 45000 com.move60.workout.test/com.move60.workout.Move60TestRunner | tee smoke-debug/features/instrumentation.txt
 result=${PIPESTATUS[0]}
 set -e
 adb logcat -d -v threadtime > smoke-debug/features/logcat.txt

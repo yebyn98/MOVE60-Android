@@ -14,6 +14,8 @@ sealed interface LaunchResult {
     data object LegacyActive : LaunchResult
     data object NotFound : LaunchResult
     data object InvalidPlan : LaunchResult
+    /** The previous workout's record could not be kept safely, so no new workout was started. Nothing was changed; try again. */
+    data object PreserveFailed : LaunchResult
     data object Failed : LaunchResult
 }
 
@@ -34,6 +36,7 @@ class RoutiveSessionLauncher @Inject constructor(
             is RoutiveStart.Started -> { RoutiveSessionService.ensure(context); LaunchResult.Started(routineId) }
             RoutiveStart.AlreadyActive -> LaunchResult.AlreadyActive(plan.name)
             RoutiveStart.InvalidPlan -> LaunchResult.InvalidPlan
+            RoutiveStart.PreserveFailed -> LaunchResult.PreserveFailed
         }
     }
 }

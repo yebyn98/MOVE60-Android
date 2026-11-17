@@ -43,17 +43,27 @@ data class SpaceEquipmentEntity(
     val updatedAtEpochMs: Long
 )
 
-/** Fixed equipment choices per Figma 62 (gym) and 73 (home). Keys are stored; labels are UI text. */
+/**
+ * Equipment choices per space kind (Figma 62 gym / 73 home, widened by the PO decision of 2026-11-17: a gym can register all of its
+ * equipment and a home can register its home-training equipment). Keys are stored; labels are UI text. Keys are never renamed or removed:
+ * saved space equipment must keep resolving. Rope attachments and mini bands are part of CABLE_MACHINE / RESISTANCE_BAND, and body-weight
+ * exercises need no registration at all (see docs/v67).
+ */
 enum class Equipment(val label: String, val cardio: Boolean) {
     INDOOR_CYCLE("실내 사이클", true), ELLIPTICAL("일립티컬", true),
     LEG_PRESS("레그프레스", false), LAT_PULLDOWN("랫풀다운", false), CABLE_MACHINE("케이블 머신", false),
-    DUMBBELL("덤벨", false), YOGA_MAT("요가 매트", false), RESISTANCE_BAND("저항 밴드", false);
+    DUMBBELL("덤벨", false), YOGA_MAT("요가 매트", false), RESISTANCE_BAND("저항 밴드", false),
+    HIP_THRUST_MACHINE("힙쓰러스트 머신", false), HIP_ABDUCTION_MACHINE("힙 어브덕션 머신", false), LEG_CURL_MACHINE("레그컬 머신", false),
+    SEATED_ROW_MACHINE("시티드 로우 머신", false), CHEST_PRESS_MACHINE("체스트프레스 머신", false),
+    BENCH("벤치", false), STEP_BOX("스텝박스", false);
 
     companion object {
-        /** Display order of the checklist. */
+        /** Display order of the checklist. The first entries of each list keep their earlier order; new ones are appended. */
         fun choices(kind: SpaceKind): List<Equipment> = when (kind) {
-            SpaceKind.GYM -> listOf(INDOOR_CYCLE, LEG_PRESS, LAT_PULLDOWN, ELLIPTICAL, CABLE_MACHINE)
-            SpaceKind.HOME -> listOf(INDOOR_CYCLE, DUMBBELL, YOGA_MAT, RESISTANCE_BAND, ELLIPTICAL)
+            SpaceKind.GYM -> listOf(INDOOR_CYCLE, LEG_PRESS, LAT_PULLDOWN, ELLIPTICAL, CABLE_MACHINE,
+                HIP_THRUST_MACHINE, HIP_ABDUCTION_MACHINE, LEG_CURL_MACHINE, SEATED_ROW_MACHINE, CHEST_PRESS_MACHINE,
+                DUMBBELL, BENCH, STEP_BOX, YOGA_MAT, RESISTANCE_BAND)
+            SpaceKind.HOME -> listOf(INDOOR_CYCLE, DUMBBELL, YOGA_MAT, RESISTANCE_BAND, ELLIPTICAL, BENCH, STEP_BOX)
         }
         fun fromKey(key: String): Equipment? = entries.firstOrNull { it.name == key }
     }
@@ -99,6 +109,23 @@ class SpaceService(private val db: WorkoutDatabase, private val clock: () -> Lon
                     dao.insertSpace(WorkoutSpaceEntity(spaceId, kind.name, n, all.isEmpty(), clock()))
                     SpaceResult.Saved(spaceId)
                 }
+            }
+        }
+    }
+
+    /**
+     * PO decision 2: a registered gym's name can be changed. Same rules as creating (1..[MAX_NAME] characters after trimming, no
+     * duplicate); only gyms are renamable (the home space has a fixed name). Equipment and records of the space are untouched.
+     */
+    suspend fun rename(spaceId: String, name: String): SpaceResult {
+        val n = name.trim()
+        if (n.isEmpty() || n.length > MAX_NAME) return SpaceResult.Rejected("name must be 1..$MAX_NAME chars")
+        return db.withTransaction {
+            val space = dao.space(spaceId) ?: return@withTransaction SpaceResult.Rejected("unknown space")
+            when {
+                space.kind != SpaceKind.GYM.name -> SpaceResult.Rejected("only gyms can be renamed")
+                dao.spaces().any { it.spaceId != spaceId && it.name.equals(n, ignoreCase = true) } -> SpaceResult.Rejected("name already used")
+                else -> { dao.rename(spaceId, n); SpaceResult.Saved(spaceId) }
             }
         }
     }

@@ -39,7 +39,11 @@ class RoutiveSessionService : Service() {
         const val ACTION_TOGGLE = "com.move60.workout.ROUTIVE_TOGGLE"
         const val EXTRA_OPEN_SESSION = "move60_open_routive_session"
         const val NOTIFICATION_ID = 4260
-        private const val CHANNEL = "move60_routive_session_v1"
+        private const val CHANNEL = "move60_routive_session_v2"
+        /** v1 was created with a PUBLIC lock-screen default, which a channel keeps for good; it is replaced by a PRIVATE one. */
+        private const val LEGACY_CHANNEL = "move60_routive_session_v1"
+        /** Upper bound for keeping the service alive while the finished session is saved. */
+        private const val COMMIT_WAIT_MS = 20_000L
 
         /** Starts the service only while a session is in progress. Never throws (a refused start must not crash the app). */
         fun ensure(context: Context) {
@@ -55,14 +59,16 @@ class RoutiveSessionService : Service() {
     private val tick = object : Runnable { override fun run() { update() } }
     private lateinit var store: RoutiveSessionStore
     private var foreground = false
+    private var committing = false
 
     override fun onCreate() {
         super.onCreate()
         store = RoutiveSessionStore(this)
         val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        try { manager.deleteNotificationChannel(LEGACY_CHANNEL) } catch (_: Exception) { }
         manager.createNotificationChannel(NotificationChannel(CHANNEL, "운동 진행 · ROUTIVE", NotificationManager.IMPORTANCE_LOW).apply {
-            description = "진행 중인 운동의 단계와 시간을 보여줘요"
-            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+            description = "진행 중인 운동의 단계와 시간을 보여줘요. 잠금화면에서는 운동 내용을 기본으로 숨겨요"
+            lockscreenVisibility = Notification.VISIBILITY_PRIVATE
             setSound(null, null); enableVibration(false)
         })
     }
@@ -82,7 +88,7 @@ class RoutiveSessionService : Service() {
         if (s == null) { stop(); return }
         // Watch and widgets follow the same stored session; the final "over" state is published before the service stops.
         if (RoutiveWatchSync.publishIfChanged(this, s)) try { com.move60.workout.WorkoutWidget.refresh(this) } catch (_: Exception) { }
-        if (s.over) { stop(); return }
+        if (s.over) { finishAfterCommit(s); return }
         try { if (store.consumeRestCue() && !RoutiveCue.watchHandlesCue(this)) RoutiveCue.vibrateOnce(this) } catch (_: Exception) { }
         val notification = build(s)
         if (!foreground) {
@@ -96,19 +102,46 @@ class RoutiveSessionService : Service() {
         handler.postDelayed(tick, if (s.running) 1_000L else 5_000L)
     }
 
-    private fun build(s: RoutiveSession): Notification {
-        val text = routiveNotificationText(s)
+    /**
+     * The session ended (on the phone or from the watch) while no screen is observing it: save it through the existing commit path
+     * BEFORE stopping, so the record and the challenge credit exist without the phone screen being reopened. The notification stays
+     * (as "저장 중") until the commit finished; a safety timeout stops the service anyway, because the finished session is already
+     * buffered durably and the next foreground retries it.
+     */
+    private fun finishAfterCommit(s: RoutiveSession) {
+        handler.removeCallbacks(tick)
+        if (committing) return
+        val app = application as? com.move60.workout.Move60Application
+        if (app == null) { stop(); return }
+        committing = true
+        try {
+            if (foreground) (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).notify(NOTIFICATION_ID, build(s, saving = true))
+        } catch (_: Exception) { }
+        val done = Runnable { if (committing) { committing = false; stop() } }
+        handler.postDelayed(done, COMMIT_WAIT_MS)
+        app.syncTimerSessionAsync(settle = true) { handler.post { handler.removeCallbacks(done); done.run() } }
+    }
+
+    private fun build(s: RoutiveSession, saving: Boolean = false): Notification {
+        val text = if (saving) RoutiveNotificationText("ROUTIVE · 운동 완료", "운동 기록을 저장하고 있어요", "") else routiveNotificationText(s)
         val open = Intent(this, ComposeActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             .putExtra(EXTRA_OPEN_SESSION, true)
         val openPending = PendingIntent.getActivity(this, 1, open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val toggle = PendingIntent.getService(this, 2, Intent(this, RoutiveSessionService::class.java).setAction(ACTION_TOGGLE),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        // Exercise, stage and time are private on the lock screen; only this generic version may show there.
+        val lockScreen = Notification.Builder(this, CHANNEL)
+            .setSmallIcon(R.drawable.ic_fitness)
+            .setContentTitle("ROUTIVE · 운동 진행 중").setContentText("잠금을 해제하면 자세히 볼 수 있어요")
+            .setContentIntent(openPending).setVisibility(Notification.VISIBILITY_PUBLIC)
+            .setOngoing(true).setOnlyAlertOnce(true).setShowWhen(false)
+            .build()
         return Notification.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_fitness)
             .setContentTitle(text.title).setContentText(text.body)
-            .setContentIntent(openPending).setVisibility(Notification.VISIBILITY_PUBLIC)
+            .setContentIntent(openPending).setVisibility(Notification.VISIBILITY_PRIVATE).setPublicVersion(lockScreen)
             .setOngoing(true).setOnlyAlertOnce(true).setShowWhen(false).setCategory(Notification.CATEGORY_SERVICE)
-            .addAction(Notification.Action.Builder(null, text.actionLabel, toggle).build())
+            .apply { if (!saving) addAction(Notification.Action.Builder(null, text.actionLabel, toggle).build()) }
             .apply { if (Build.VERSION.SDK_INT >= 31) setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE) }
             .build()
     }

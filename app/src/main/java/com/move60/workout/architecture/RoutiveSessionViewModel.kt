@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.move60.workout.SetRecordStore
+import com.move60.workout.domain.SetInputError
 import com.move60.workout.domain.StageKind
 import com.move60.workout.domain.StageReadiness
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -39,6 +40,9 @@ sealed interface RoutiveOutcome {
 /** Rest timer shown on the strength screen; [done] = the rest time is over and the cue stays until the next set. */
 data class RoutiveRestUi(val exerciseId: String, val remainingSeconds: Long, val totalSeconds: Long, val done: Boolean)
 
+/** A refused set input: which exercise's fields to mark and why. Nothing was recorded and no rest was started. */
+data class RoutiveSetError(val exerciseId: String, val error: SetInputError)
+
 enum class RoutiveLoad { LOADING, NONE, ACTIVE }
 
 data class RoutiveSessionUiState(
@@ -59,7 +63,9 @@ data class RoutiveSessionUiState(
     val autoPaused: Boolean = false,
     val rest: RoutiveRestUi? = null,
     /** Watch heart rate: a value only while it is valid (30..240) and at most 10 s old, otherwise "수신 대기". Never gates the workout. */
-    val heartText: String = com.move60.workout.domain.HeartRateFreshness.WAITING_LABEL
+    val heartText: String = com.move60.workout.domain.HeartRateFreshness.WAITING_LABEL,
+    /** The last refused set input (null = none). Cleared when the user edits the fields or completes a valid set. */
+    val setError: RoutiveSetError? = null
 ) { val paused: Boolean get() = load == RoutiveLoad.ACTIVE && !running && !over }
 
 /** Pure mapping of the stored session + saved plan + completed sets to what the screen shows. */
@@ -100,8 +106,9 @@ class RoutiveSessionViewModel @Inject constructor(
 ) : ViewModel() {
     private val store = RoutiveSessionStore(context)
     private val sets = SetRecordStore(context)
-    private val outbox = PendingSessionOutbox(context)
-    private val sync = TimerSessionSync(committer) { ZoneId.systemDefault().id }
+    private val recorder = RoutiveSetRecorder(store, sets)
+    // The same class the tracking service, the watch handler and the foreground sync use (one lock, existing idempotent path).
+    private val overCommit = RoutiveOverCommit(context, committer) { ZoneId.systemDefault().id }
 
     private val _state = MutableStateFlow(RoutiveSessionUiState())
     val state: StateFlow<RoutiveSessionUiState> = _state.asStateFlow()
@@ -109,6 +116,7 @@ class RoutiveSessionViewModel @Inject constructor(
     private var stageExercises: Map<StageKind, List<RoutineExerciseInput>> = emptyMap()
     private var outcome: RoutiveOutcome? = null
     private var committing = false
+    private var setError: RoutiveSetError? = null
 
     init {
         viewModelScope.launch {
@@ -128,16 +136,29 @@ class RoutiveSessionViewModel @Inject constructor(
     /** Only called from the confirm dialog. */
     fun endEarly() = act { store.endEarly() }
 
-    fun completeSet(exerciseId: String, kg: String, reps: String) {
-        val s = store.active() ?: return
-        if (s.over || s.progress.kind != StageKind.STRENGTH || kg.isBlank() || reps.isBlank()) return
-        val next = (sets.completedSetsForSession(s.startedAtEpochMs).filter { it.exerciseId == exerciseId }.maxOfOrNull { it.setNumber } ?: 0) + 1
-        sets.write(s.day, exerciseId, next, SetRecordStore.Record(kg, reps, "5", true), s.recordDate, s.startedAtEpochMs)
-        // Rest starts only when the user chose a rest time for this exercise; nothing is assumed otherwise.
-        // Rest only sits between sets: none after the exercise's last target set (unknown target = cannot tell, rest runs).
+    /**
+     * Records a completed set only when the input is valid (the same limits the store and the plan use). An invalid value shows an
+     * input error and changes nothing: no record, no rest. Returns the error, or null when the set was recorded.
+     */
+    fun completeSet(exerciseId: String, kg: String, reps: String): SetInputError? {
         val exercise = stageExercises[StageKind.STRENGTH].orEmpty().firstOrNull { it.id == exerciseId }
-        val rest = exercise?.restSeconds
-        if (rest != null && restFollowsSet(exercise.targetSets, next)) store.startRest(exerciseId, rest) else store.skipRest()
+        val error = recorder.complete(exerciseId, kg, reps, exercise)
+        if (error != null) return refuse(exerciseId, error)
+        setError = null
+        viewModelScope.launch { publish(store.active()) }
+        return null
+    }
+
+    private fun refuse(exerciseId: String, error: SetInputError): SetInputError {
+        setError = RoutiveSetError(exerciseId, error)
+        viewModelScope.launch { publish(store.active()) }
+        return error
+    }
+
+    /** The user is editing the fields again: the input error no longer applies. */
+    fun clearSetError() {
+        if (setError == null) return
+        setError = null
         viewModelScope.launch { publish(store.active()) }
     }
 
@@ -171,23 +192,13 @@ class RoutiveSessionViewModel @Inject constructor(
         val heart = context.getSharedPreferences("preferences", Context.MODE_PRIVATE)
         _state.value = buildRoutiveUi(session, stageExercises[session.progress.kind].orEmpty(),
             sets.completedSetsForSession(session.startedAtEpochMs), outcome,
-            heart.getInt("watch_heart_rate", 0), System.currentTimeMillis() - heart.getLong("watch_heart_rate_at", 0L))
+            heart.getInt("watch_heart_rate", 0), System.currentTimeMillis() - heart.getLong("watch_heart_rate_at", 0L)).copy(setError = setError)
     }
 
     /** Buffer first (durable), then drain through the idempotent commit; the result is shown only for a confirmed outcome. */
     private suspend fun commit(session: RoutiveSession) {
         committing = true
-        val snap = store.snapshot(session, sets)
-        val id = sync.sessionId(snap)
-        outbox.enqueue(snap)
-        val outcomes = sync.drain(outbox)
-        outcome = when {
-            outcomes.any { (it is SyncOutcome.Committed && it.sessionId == id) || (it is SyncOutcome.AlreadyCommitted && it.sessionId == id) } -> RoutiveOutcome.ResultReady(id)
-            outcomes.any { it is SyncOutcome.Discarded && it.sessionId == id } -> RoutiveOutcome.NotRecorded
-            outbox.pending().none { sync.sessionId(it) == id } -> RoutiveOutcome.NotRecorded
-            else -> RoutiveOutcome.RetryLater
-        }
-        if (outcome != RoutiveOutcome.RetryLater) store.markCommitted(session.startedAtEpochMs)
+        outcome = overCommit.commit(session)
         committing = false
     }
 }

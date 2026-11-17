@@ -79,8 +79,48 @@ class SpaceServiceTest {
         assertEquals(listOf("DUMBBELL"), dao.equipment("home").map { it.equipmentKey })
     }
 
-    @Test fun choicesFollowTheFigmaChecklists() {
-        assertEquals(listOf("실내 사이클", "레그프레스", "랫풀다운", "일립티컬", "케이블 머신"), Equipment.choices(SpaceKind.GYM).map { it.label })
-        assertEquals(listOf("실내 사이클", "덤벨", "요가 매트", "저항 밴드", "일립티컬"), Equipment.choices(SpaceKind.HOME).map { it.label })
+    @Test fun choicesKeepTheEarlierOrderAndOnlyAddEquipment() {
+        // The earlier Figma checklists stay first and in order; the widened gym / home lists only append (PO decision 2026-11-17).
+        assertEquals(listOf("실내 사이클", "레그프레스", "랫풀다운", "일립티컬", "케이블 머신"), Equipment.choices(SpaceKind.GYM).take(5).map { it.label })
+        assertEquals(listOf("실내 사이클", "덤벨", "요가 매트", "저항 밴드", "일립티컬"), Equipment.choices(SpaceKind.HOME).take(5).map { it.label })
+        assertEquals(listOf("힙쓰러스트 머신", "힙 어브덕션 머신", "레그컬 머신", "시티드 로우 머신", "체스트프레스 머신", "덤벨", "벤치", "스텝박스", "요가 매트", "저항 밴드"),
+            Equipment.choices(SpaceKind.GYM).drop(5).map { it.label })
+        assertEquals(listOf("벤치", "스텝박스"), Equipment.choices(SpaceKind.HOME).drop(5).map { it.label })
+    }
+
+    @Test fun everyStoredKeyOfBeforeStillResolvesAndEveryChoiceIsAKnownKey() {
+        for (old in listOf("INDOOR_CYCLE", "ELLIPTICAL", "LEG_PRESS", "LAT_PULLDOWN", "CABLE_MACHINE", "DUMBBELL", "YOGA_MAT", "RESISTANCE_BAND"))
+            assertNotNull(old, Equipment.fromKey(old))
+        for (kind in SpaceKind.values()) assertEquals(Equipment.choices(kind).size, Equipment.choices(kind).map { it.name }.toSet().size)
+    }
+
+    @Test fun aGymCanRegisterEveryGymChoiceAndAHomeItsHomeChoices() = runBlocking {
+        service.create("g", SpaceKind.GYM, "헬스장"); service.create("h", SpaceKind.HOME, "집")
+        assertEquals(SpaceResult.Saved("g"), service.saveEquipment("g", Equipment.choices(SpaceKind.GYM).map { EquipmentChoice(it.name) }))
+        assertEquals(Equipment.choices(SpaceKind.GYM).size, dao.equipment("g").size)
+        assertEquals(SpaceResult.Saved("h"), service.saveEquipment("h", listOf(EquipmentChoice("BENCH"), EquipmentChoice("STEP_BOX"), EquipmentChoice("DUMBBELL"))))
+        assertTrue("a machine is not a home choice", service.saveEquipment("h", listOf(EquipmentChoice("LEG_CURL_MACHINE"))) is SpaceResult.Rejected)
+    }
+
+    /** PO decision 2: a gym name can be edited; the rules are the same as when registering, and nothing else changes. */
+    @Test fun aGymCanBeRenamedWithTheSameRulesAndKeepsItsEquipmentAndDefault() = runBlocking {
+        service.create("gym1", SpaceKind.GYM, "헬스장"); service.create("gym2", SpaceKind.GYM, "다른 헬스장")
+        service.saveEquipment("gym1", listOf(EquipmentChoice("LEG_PRESS"), EquipmentChoice("INDOOR_CYCLE", "브랜드", "M1")))
+        val before = dao.equipment("gym1")
+        assertEquals(SpaceResult.Saved("gym1"), service.rename("gym1", "  새 이름 "))
+        assertEquals("새 이름", dao.space("gym1")!!.name)
+        assertEquals("equipment is untouched", before, dao.equipment("gym1"))
+        assertTrue("the default space does not change", dao.space("gym1")!!.isDefault)
+        assertEquals("renaming to its own name is allowed", SpaceResult.Saved("gym1"), service.rename("gym1", "새 이름"))
+        assertTrue("case-insensitive duplicate of another space", service.rename("gym1", "다른 헬스장") is SpaceResult.Rejected)
+        for (bad in listOf("", "   ", "가".repeat(21))) assertTrue("'$bad'", service.rename("gym1", bad) is SpaceResult.Rejected)
+        assertEquals("새 이름", dao.space("gym1")!!.name)
+    }
+
+    @Test fun onlyGymsAreRenamableAndAnUnknownSpaceIsRejected() = runBlocking {
+        service.create("home", SpaceKind.HOME, "집 · 개인 운동 공간")
+        assertEquals(SpaceResult.Rejected("only gyms can be renamed"), service.rename("home", "내 집"))
+        assertEquals("집 · 개인 운동 공간", dao.space("home")!!.name)
+        assertEquals(SpaceResult.Rejected("unknown space"), service.rename("nope", "이름"))
     }
 }

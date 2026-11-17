@@ -5,7 +5,12 @@ import java.time.LocalDate
 /** One Monday-based week of the MY tab trend: dates with a record and their real minutes. */
 data class WeekPoint(val weekStart: LocalDate, val days: Int, val minutes: Long)
 
-data class Milestone(val id: String, val title: String, val supporting: String, val achieved: Boolean)
+enum class MilestoneStatus { ACHIEVED, NOT_ACHIEVED, UNKNOWN }
+
+/** UNKNOWN = the number behind it could not be read; it is never shown as "not achieved". */
+data class Milestone(val id: String, val title: String, val supporting: String, val status: MilestoneStatus) {
+    val achieved: Boolean get() = status == MilestoneStatus.ACHIEVED
+}
 
 /** Pure calculations for the MY tab. Every number comes from stored records; nothing is estimated. */
 object MyInsights {
@@ -24,13 +29,21 @@ object MyInsights {
         }
     }
 
-    /** Thresholds are the Figma 10 titles (첫 운동, 누적 20일, 첫 도전 완료). A milestone whose input could not be read is left out. */
-    fun milestones(cumulativeDays: Int?, completedChallenges: Int?): List<Milestone> = buildList {
-        if (cumulativeDays != null) {
-            add(Milestone("first", "첫 운동", "처음 시작한 날을 기억해요", cumulativeDays >= 1))
-            add(Milestone("days20", "누적 20일", "꾸준한 움직임을 쌓았어요", cumulativeDays >= 20))
+    /**
+     * PO decision 6 (docs/v66): 첫 운동 = 1 valid workout day, 운동 20일 달성 = 20 distinct valid workout days (v58 and stored
+     * dates counted once each), 첫 도전 완료 = 1 completed challenge. A value that could not be read gives UNKNOWN.
+     */
+    fun milestones(cumulativeDays: Int?, completedChallenges: Int?): List<Milestone> {
+        fun status(value: Int?, needed: Int) = when {
+            value == null -> MilestoneStatus.UNKNOWN
+            value >= needed -> MilestoneStatus.ACHIEVED
+            else -> MilestoneStatus.NOT_ACHIEVED
         }
-        if (completedChallenges != null) add(Milestone("challenge1", "첫 도전 완료", "내가 세운 목표를 이뤘어요", completedChallenges >= 1))
+        return listOf(
+            Milestone("first", "첫 운동", "처음 시작한 날을 기억해요", status(cumulativeDays, 1)),
+            Milestone("days20", "운동 20일 달성", "꾸준한 움직임을 쌓았어요", status(cumulativeDays, 20)),
+            Milestone("challenge1", "첫 도전 완료", "내가 세운 목표를 이뤘어요", status(completedChallenges, 1))
+        )
     }
 
     /** `4주 전`-style labels for a trend of [count] weeks (oldest first). */

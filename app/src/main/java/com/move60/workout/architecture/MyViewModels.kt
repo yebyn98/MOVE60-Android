@@ -27,7 +27,8 @@ data class MyHomeUi(
     /** Oldest first; null = could not be read (never shown as zeros). */
     val weekly: List<WeekPoint>? = null,
     val sessionCount: Int? = null,
-    val completedChallenges: Int? = null
+    val completedChallenges: Int? = null,
+    val purposeLabel: String? = null
 ) {
     val milestones: List<Milestone> get() = MyInsights.milestones(cumulativeDays, completedChallenges)
 }
@@ -48,7 +49,8 @@ internal suspend fun loadWeekly(db: WorkoutDatabase, history: WorkoutHistory, we
 @HiltViewModel
 class MyHomeViewModel @Inject constructor(
     private val db: WorkoutDatabase,
-    private val history: WorkoutHistory
+    private val history: WorkoutHistory,
+    private val firstRun: FirstRunStore
 ) : ViewModel() {
     private val _state = MutableStateFlow(MyHomeUi())
     val state: StateFlow<MyHomeUi> = _state.asStateFlow()
@@ -66,7 +68,7 @@ class MyHomeViewModel @Inject constructor(
             val weekly = try { loadWeekly(db, history, 4) } catch (_: Exception) { null }
             val sessions = try { db.routiveDao().sessionCount() } catch (_: Exception) { null }
             val challenges = try { db.routiveDao().completedChallengeCount() } catch (_: Exception) { null }
-            _state.value = MyHomeUi(days, space, weekly, sessions, challenges)
+            _state.value = MyHomeUi(days, space, weekly, sessions, challenges, firstRun.purpose?.label)
         }
     }
 }
@@ -116,6 +118,7 @@ class MySpacesViewModel @Inject constructor(private val db: WorkoutDatabase, pri
     fun addHome() = create("home", SpaceKind.HOME, HOME_NAME)
     fun addGym(name: String) = create("gym-" + UUID.randomUUID(), SpaceKind.GYM, name)
     fun setDefault(spaceId: String) { viewModelScope.launch { report(service.setDefault(spaceId)) } }
+    fun rename(spaceId: String, name: String) { viewModelScope.launch { report(service.rename(spaceId, name)) } }
 
     private fun create(id: String, kind: SpaceKind, name: String) {
         viewModelScope.launch { report(service.create(id, kind, name)) }
@@ -168,6 +171,11 @@ class SpaceEquipmentViewModel @Inject constructor(
     }
 
     fun toggle(key: String) { _selected.value = _selected.value.let { if (key in it) it - key else it + key }; _error.value = false }
+    /** The user pressed "전체 선택": every choice of this kind is ticked. Nothing is ever selected without that press. */
+    fun selectAll() {
+        val kind = (_load.value as? EquipmentLoad.Ready)?.kind ?: return
+        _selected.value = _selected.value + Equipment.choices(kind).map { it.name }; _error.value = false
+    }
     fun setModel(key: String, brand: String, model: String) { _models.value = _models.value + (key to (brand to model)) }
 
     fun save() {
@@ -179,6 +187,54 @@ class SpaceEquipmentViewModel @Inject constructor(
         viewModelScope.launch {
             val r = try { service.saveEquipment(spaceId, choices) } catch (_: Exception) { SpaceResult.Rejected("error") }
             if (r is SpaceResult.Saved) _saved.value = true else _error.value = true
+        }
+    }
+}
+
+/** 최초 운동 설정 흐름의 상태. 목적은 계속하기를 누를 때 저장하고, 공간을 만든 뒤에야 설정 완료로 표시한다. */
+@HiltViewModel
+class FirstRunViewModel @Inject constructor(
+    private val db: WorkoutDatabase,
+    private val history: WorkoutHistory,
+    private val store: FirstRunStore,
+    private val spaces: SpaceService
+) : ViewModel() {
+    /** null = still deciding (the app shows its normal start meanwhile). */
+    private val _needsSetup = MutableStateFlow<Boolean?>(null)
+    val needsSetup: StateFlow<Boolean?> = _needsSetup.asStateFlow()
+
+    private val _purpose = MutableStateFlow(store.purpose)
+    val purpose: StateFlow<WorkoutPurpose?> = _purpose.asStateFlow()
+
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error.asStateFlow()
+
+    fun decide(forced: Boolean) {
+        viewModelScope.launch { _needsSetup.value = FirstRunGate(db, history, store).needsSetup(forced) }
+    }
+
+    fun choose(purpose: WorkoutPurpose) { _purpose.value = purpose }
+
+    /** Saves the chosen purpose. Returns false when nothing is chosen (the button is disabled then, this is a guard). */
+    fun savePurpose(): Boolean {
+        val p = _purpose.value ?: return false
+        store.savePurpose(p)
+        return true
+    }
+
+    /** Creates the first space as the default one, then marks the setup done. [onSaved] gets the new space id. */
+    fun finishWithSpace(kind: SpaceKind, gymName: String = "", onSaved: (String) -> Unit) {
+        viewModelScope.launch {
+            val id = if (kind == SpaceKind.HOME) "home" else "gym-" + UUID.randomUUID()
+            val name = if (kind == SpaceKind.HOME) MySpacesViewModel.HOME_NAME else gymName
+            val created = try { spaces.create(id, kind, name) } catch (_: Exception) { SpaceResult.Rejected("error") }
+            val defaulted = if (created is SpaceResult.Saved) try { spaces.setDefault(id) } catch (_: Exception) { SpaceResult.Rejected("error") } else created
+            if (defaulted is SpaceResult.Saved) {
+                store.markDone(); _needsSetup.value = false; _error.value = null; onSaved(id)
+            } else {
+                _error.value = if ((created as? SpaceResult.Rejected)?.reason == "name already used") "같은 이름의 운동 공간이 이미 있어요."
+                    else "운동 공간을 저장하지 못했어요. 다시 시도해 주세요."
+            }
         }
     }
 }
