@@ -64,7 +64,7 @@ class HealthConsentActivity : ComponentActivity() {
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Text("건강 데이터 연동", style = MaterialTheme.typography.headlineSmall)
-                    Text("삼성 헬스 → Health Connect → MOVE60 → 내 워치",
+                    Text("삼성 헬스 → Health Connect → ROUTIVE → 내 워치",
                         color = Color(palette.textMedium))
                     Move60Card {
                         Text("동의 항목: 심박수 기록(읽기 전용)")
@@ -79,7 +79,7 @@ class HealthConsentActivity : ComponentActivity() {
                         status = "연동 중지 · 워치에 공유한 기록을 지우도록 요청했어요."
                         summary = "Health Connect 권한은 휴대폰 설정에서 별도로 철회할 수 있어요."
                     }, modifier = Modifier.fillMaxWidth()) {
-                        Text("MOVE60 연동 중지 및 워치 데이터 초기화")
+                        Text("ROUTIVE 연동 중지 및 워치 데이터 초기화")
                     }
                     Move60Button(primary = false, onClick = { finish() }, modifier = Modifier.fillMaxWidth()) {
                         Text("닫기")

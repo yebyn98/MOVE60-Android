@@ -161,7 +161,7 @@ fun WorkoutDashboard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Move60LogoMark(Modifier.size(52.dp).testTag("home_logo")
-                    .semantics { contentDescription = "MOVE60" })
+                    .semantics { contentDescription = "ROUTIVE" })
             }
         },
         bottomBar = { WorkoutDock(state, viewModel, openDetail, insetBottom = inProgress) }
@@ -852,10 +852,10 @@ fun WorkoutSettings(
                                 val requested = manager.requestPinAppWidget(provider, null, null)
                                 widgetScope.launch { message.showSnackbar(
                                     if (requested) "런처의 위젯 추가 요청을 확인해 주세요."
-                                    else "홈 화면을 길게 눌러 위젯에서 MOVE60을 추가해 주세요."
+                                    else "홈 화면을 길게 눌러 위젯에서 ROUTIVE을 추가해 주세요."
                                 ) }
                             } else widgetScope.launch {
-                                message.showSnackbar("홈 화면을 길게 눌러 위젯에서 MOVE60을 추가해 주세요.")
+                                message.showSnackbar("홈 화면을 길게 눌러 위젯에서 ROUTIVE을 추가해 주세요.")
                             }
                         }, primary = false, modifier = Modifier.testTag("settings_widget_pin")) {
                             Text("위젯 추가", maxLines = 1)

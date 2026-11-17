@@ -87,7 +87,7 @@ if grep -q 'FATAL EXCEPTION' smoke-debug/logcat.txt; then
   exit 1
 fi
 if ! grep -Eq 'pkg=com\.move60\.workout.*id=601|id=601.*pkg=com\.move60\.workout' smoke-debug/notifications.txt; then
-  echo "MOVE60 ongoing notification missing from NotificationManager"
+  echo "ROUTIVE ongoing notification missing from NotificationManager"
   exit 1
 fi
 # v51: the Figma card must be the posted notification (card_status is written by WorkoutService after each post).
@@ -110,7 +110,7 @@ for attempt in 1 2 3; do
   adb shell cmd statusbar expand-notifications || true
   if timeout 25s adb shell uiautomator dump /sdcard/move60-shade.xml > smoke-debug/uiautomator-shade.log 2>&1 &&
      adb pull /sdcard/move60-shade.xml smoke-debug/notification-shade.xml >/dev/null 2>&1 &&
-     grep -q 'MOVE60' smoke-debug/notification-shade.xml; then
+     grep -q 'ROUTIVE' smoke-debug/notification-shade.xml; then
     shade_found=1
     break
   fi
@@ -129,10 +129,10 @@ if test "$shade_found" -ne 1; then
   echo "WARN: SystemUI hierarchy unavailable; checking NotificationManager instead"
   cat smoke-debug/uiautomator-shade.log || true
   if ! grep -Eq 'pkg=com\.move60\.workout.*id=601|id=601.*pkg=com\.move60\.workout' smoke-debug/notifications.txt; then
-    echo "FAIL: MOVE60 notification absent from NotificationManager"
+    echo "FAIL: ROUTIVE notification absent from NotificationManager"
     exit 1
   fi
-  echo "PASS: MOVE60 notification confirmed by NotificationManager"
+  echo "PASS: ROUTIVE notification confirmed by NotificationManager"
 fi
 pid="$(adb shell pidof com.move60.workout | tr -d '\r' || true)"
 if test -z "$pid"; then echo "MOVE60 process died while rendering notification"; exit 1; fi
