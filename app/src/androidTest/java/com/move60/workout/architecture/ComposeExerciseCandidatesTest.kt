@@ -38,10 +38,13 @@ class ComposeExerciseCandidatesTest {
         File(context.getExternalFilesDir(null), name).outputStream().use { image.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
     }
     private fun waitTag(tag: String) = rule.waitUntil(10_000) { rule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
-    private fun openStrengthPicker() {
+    private fun openComposer() {
         waitTag("dashboard_compose_routine")
         rule.onNodeWithTag("dashboard_compose_routine").performClick()
         waitTag("routine_compose")
+    }
+    /** The composer must already be open. */
+    private fun openStrengthPicker() {
         rule.onNodeWithTag("routine_compose").performScrollToNode(hasTestTag("routine_stage_STRENGTH"))
         rule.onNodeWithTag("routine_stage_STRENGTH").performClick()
         waitTag("routine_picker")
@@ -61,9 +64,7 @@ class ComposeExerciseCandidatesTest {
         val none = try { runBlocking { probe.spaceDao().spaces().isEmpty() } } finally { probe.close() }
         Assume.assumeTrue("real spaces exist on this device", none)
         ActivityScenario.launch(ComposeActivity::class.java).use {
-            waitTag("dashboard_compose_routine")
-            rule.onNodeWithTag("dashboard_compose_routine").performClick()
-            waitTag("routine_compose")
+            openComposer()
             rule.onNodeWithTag("routine_compose").performScrollToNode(hasTestTag("routine_equipment"))
             rule.waitUntil(10_000) { rule.onAllNodesWithTag("routine_equipment").fetchSemanticsNodes().isNotEmpty() }
             rule.onNodeWithText("기본 운동 공간이 없어요", substring = true).assertIsDisplayed()
@@ -91,9 +92,7 @@ class ComposeExerciseCandidatesTest {
         } finally { seed.close() }
         try {
             ActivityScenario.launch(ComposeActivity::class.java).use {
-                waitTag("dashboard_compose_routine")
-                rule.onNodeWithTag("dashboard_compose_routine").performClick()
-                waitTag("routine_compose")
+                openComposer()
                 rule.onNodeWithTag("routine_compose").performScrollToNode(hasTestTag("routine_equipment"))
                 rule.waitUntil(10_000) { rule.onAllNodesWithTag("routine_equipment").fetchSemanticsNodes().isNotEmpty() }
                 rule.onNodeWithText("e2e 후보").assertIsDisplayed()
