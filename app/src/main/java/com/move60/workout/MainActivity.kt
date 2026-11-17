@@ -10,6 +10,7 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import com.move60.workout.Move60Theme as Theme
 import com.move60.workout.DashboardUi
+import com.move60.workout.domain.ExerciseContentApproval
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -850,13 +851,16 @@ class MainActivity : Activity() {
                 .apply { tag = "popup_swap" })
             addGap(detailContent, 16)
         }
-        detailContent.addView(label("동작 순서", 15, true))
-        addGap(detailContent, 8)
-        steps.forEachIndexed { index, step ->
-            val stepBox = card()
-            stepBox.addView(label("${index + 1}. " + step, 13, false))
-            detailContent.addView(stepBox)
+        // The step text is guidance too: shown only for exercises with a verified record (ExerciseContentApproval, docs/v67).
+        if (ExerciseContentApproval.isApproved(task.id)) {
+            detailContent.addView(label("동작 순서", 15, true))
             addGap(detailContent, 8)
+            steps.forEachIndexed { index, step ->
+                val stepBox = card()
+                stepBox.addView(label("${index + 1}. " + step, 13, false))
+                detailContent.addView(stepBox)
+                addGap(detailContent, 8)
+            }
         }
         if (task.id.isNotEmpty() && info != null) {
             detailContent.addView(actionButton("운동 가이드 영상 검색 ↗", false) {

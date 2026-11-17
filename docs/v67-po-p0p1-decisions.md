@@ -41,7 +41,8 @@
 | `march` | 스탠딩 니 리프트 | **스쿼트 틀(기본값)** | 동일 | 기록 없음 | 증빙 없음 | 기록 없음 | 비노출 |
 
 - 미검증 원본: `ExerciseDiagram.kt`는 그대로 보존했다(삭제 없음).
-- **추가 발견(승인 보류 상태로 보고):** 나머지 29개 운동의 이미지는 Free Exercise DB(Unlicense)에서 왔고 출처 문서(`docs/exercise-images-sources.md`)가 있다. 다만 **동작·주의사항 검수 기록은 이 29개에도 없다.** 또 `workouts.json`의 "동작 순서"·`caution` 문구는 35개 전체에 대해 검수 기록이 없다. PO가 이 범위도 같은 기준으로 볼지 정해야 한다.
+- **PO 결정 B 반영(2026-11-17):** 29개 이미지와 "동작 순서" 문구도 같은 기준을 적용해 **전부 비노출**한다. 노출 목록 `ExerciseContentApproval.APPROVED`는 비어 있고, 증빙 기록(`docs/v67-exercise-guidance-evidence.md`)이 채워진 운동만 추가한다. 이미지 파일·문구는 삭제하지 않았다. `caution` 필드는 원래 화면에 표시되지 않는다. 운동 상세의 "운동 가이드 영상 검색" 버튼(외부 검색 링크)은 이번 범위에서 바꾸지 않았다.
+- **(이전 보고, 결정 전)**  나머지 29개 운동의 이미지는 Free Exercise DB(Unlicense)에서 왔고 출처 문서(`docs/exercise-images-sources.md`)가 있다. 다만 **동작·주의사항 검수 기록은 이 29개에도 없다.** 또 `workouts.json`의 "동작 순서"·`caution` 문구는 35개 전체에 대해 검수 기록이 없다. PO가 이 범위도 같은 기준으로 볼지 정해야 한다.
 
 ## 5-1 상세 (Wear kcal)
 - 표시 영역 조사: 타일(`WorkoutTileService`) — 제거함. 건강 화면의 칼로리 측정 설정 칩 — 위 처리. 운동 중 화면·완료 화면·알림·`WatchWorkoutState`의 `estimatedKcal` 필드는 화면에 표시하는 코드가 없다(필드는 직렬화 호환을 위해 유지).

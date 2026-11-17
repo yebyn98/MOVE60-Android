@@ -8,12 +8,13 @@ import android.view.View
 import android.view.animation.LinearInterpolator
 import android.widget.FrameLayout
 import android.widget.ImageView
+import com.move60.workout.domain.ExerciseContentApproval
 
 /**
  * Two-frame exercise guide that loops start/end posture like a short clip.
- * Frames are public-domain images listed in docs/exercise-images-sources.md.
- * Exercises without a licensed image pair show an honest empty state (docs/v66 PO decision 4): the hand-drawn [ExerciseDiagram]
- * has no recorded rights or safety review, so it is NOT shown. The class and its code are kept for a later, verified re-use.
+ * Frames are public-domain images listed in docs/exercise-images-sources.md, shown only for exercises approved in
+ * [ExerciseContentApproval]. Every other exercise shows an honest empty state (docs/v66 PO decision 4, B in docs/v67): the images and the
+ * hand-drawn [ExerciseDiagram] have no recorded movement/safety review, so they are NOT shown. Files and code are kept for later re-use.
  */
 object ExerciseGuide {
     private fun frame(context: Context, id: String, index: Int) = try {
@@ -23,10 +24,15 @@ object ExerciseGuide {
     const val EMPTY_TEXT = "이 운동의 동작 안내는 아직 제공되지 않아요."
     const val EMPTY_TAG = "exercise_guide_empty"
 
-    /** True only for exercises that have a licensed start/end image pair (docs/exercise-images-sources.md). */
-    fun hasGuide(context: Context, id: String): Boolean = frame(context, id, 0) != null && frame(context, id, 1) != null
+    /**
+     * True only for an exercise whose guidance was verified (rights + movement accuracy, [ExerciseContentApproval]) AND that has a
+     * start/end image pair. The image files of unverified exercises stay in the app, unshown.
+     */
+    fun hasGuide(context: Context, id: String): Boolean =
+        ExerciseContentApproval.isApproved(id) && frame(context, id, 0) != null && frame(context, id, 1) != null
 
     fun create(context: Context, id: String): View {
+        if (!ExerciseContentApproval.isApproved(id)) return emptyState(context)
         val first = frame(context, id, 0)
         val second = frame(context, id, 1)
         if (first == null || second == null) return emptyState(context)

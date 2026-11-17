@@ -233,13 +233,13 @@ class PhoneFeaturesTest {
         val ids = files.filter { it.endsWith("_0.jpg") }.map { it.removeSuffix("_0.jpg") }
         assertEquals(29, ids.size)
         ids.forEach { assertTrue("missing second frame for $it", "${it}_1.jpg" in files) }
-        assertTrue(ExerciseGuide.create(context, "legPress").tag == "exercise_guide_loop")
-        // docs/v66 PO decision 4: no unverified drawn diagram; the honest empty state instead.
-        val empty = ExerciseGuide.create(context, "birdDog")
-        assertEquals(ExerciseGuide.EMPTY_TAG, empty.tag)
-        assertEquals("이 운동의 동작 안내는 아직 제공되지 않아요.", (empty as TextView).text.toString())
-        listOf("birdDog", "wallPushup", "bandRow", "clamshell", "heelSlide", "march").forEach {
-            assertFalse("$it has no licensed pair", ExerciseGuide.hasGuide(context, it))
+        // docs/v67 (PO decision B): no exercise has a verified guidance record yet, so none is shown, but nothing is deleted.
+        assertTrue(com.move60.workout.domain.ExerciseContentApproval.APPROVED.isEmpty())
+        for (id in ids + listOf("birdDog", "wallPushup", "bandRow", "clamshell", "heelSlide", "march")) {
+            assertFalse("$id has no verified record", ExerciseGuide.hasGuide(context, id))
+            val view = ExerciseGuide.create(context, id)
+            assertEquals(ExerciseGuide.EMPTY_TAG, view.tag)
+            assertEquals("이 운동의 동작 안내는 아직 제공되지 않아요.", (view as TextView).text.toString())
         }
     }
     @Test fun lastStageHasEnabledFinishAction() {
