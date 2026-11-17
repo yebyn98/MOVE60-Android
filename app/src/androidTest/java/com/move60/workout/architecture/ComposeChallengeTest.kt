@@ -70,6 +70,21 @@ class ComposeChallengeTest {
         rule.onNodeWithTag("challenge_progress").assertIsDisplayed()
         rule.onNodeWithText("0 / 4일 달성 (누적)").assertIsDisplayed()
         capture("compose-challenge-active.png")
+        // P-02 C: only the name may be edited. Invalid save keeps the current draft field visible.
+        rule.onNodeWithTag("challenge_rename").performClick()
+        rule.onNodeWithTag("challenge_name_field").performTextReplacement("  ")
+        rule.onNodeWithTag("challenge_name_save").performClick()
+        rule.waitUntil(5_000) {
+            rule.onAllNodes(hasTestTag("challenge_name_field")).fetchSemanticsNodes().isNotEmpty()
+        }
+        rule.onNodeWithTag("challenge_name_field").assertIsDisplayed()
+        // After a successful write, refresh and only then close the editor.
+        rule.onNodeWithTag("challenge_name_field").performTextReplacement("11월 실천 도전")
+        rule.onNodeWithTag("challenge_name_save").performClick()
+        rule.waitUntil(5_000) {
+            rule.onAllNodes(hasTestTag("challenge_rename")).fetchSemanticsNodes().isNotEmpty()
+        }
+        rule.onNodeWithText("11월 실천 도전").assertIsDisplayed()
         // Figma 03: the active challenge is summarised on the today home and opens the challenge tab.
         rule.onNodeWithTag("tab_today").performClick()
         rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("dashboard_challenge_card")).fetchSemanticsNodes().isNotEmpty() }
