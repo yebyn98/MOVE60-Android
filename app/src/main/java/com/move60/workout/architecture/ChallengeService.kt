@@ -137,7 +137,7 @@ class ChallengeService(private val db: WorkoutDatabase, private val clock: () ->
             else ChallengeResult.Conflict(existing.challengeId)
         }
         fun reject(reason: ChallengeReject, detail: String) = ChallengeResult.Rejected(reason, detail)
-        if (requested.challengeId.isBlank() || requested.name.isBlank() || requested.targetDays < 1 ||
+        if (requested.challengeId.isBlank() || requested.name.trim().length !in 1..MAX_NAME || requested.targetDays < 1 ||
             requested.status != ChallengeStatus.ACTIVE.name || requested.endedAtEpochMs != null || requested.endSnapshotJson != null
         ) return reject(ChallengeReject.INVALID_FIELD, "id/name/target/status")
         val zone = runCatching { ZoneId.of(requested.timeZoneId) }.getOrNull() ?: return reject(ChallengeReject.INVALID_ZONE, requested.timeZoneId)
