@@ -1,133 +1,145 @@
-# v59 — 운동 상세 화면 Compose 이전 계획
+# 운동 상세 화면 Compose 이전 계획
 
-계획 문서다. 이 PR에는 코드 변경이 없다. 근거는 `MainActivity.kt`(1,256줄), `architecture/`(앱 모듈), `verify-compose-architecture.py`, v53~v58 문서의 정적 검토이며, 런타임 동작은 확인하지 않았다.
+계획 문서다. 이 PR에는 코드 변경이 없고, 화면·기능 개발이나 실기기 검증이 끝났다는 뜻이 아니다. 모든 내용은 정적 검토 결과이며 런타임 동작은 확인하지 않았다.
 
-읽지 않은 것: `SessionStore`, `SetRecordStore`, 테스트 본문, 매니페스트 본문. 테스트/스크립트는 태그 참조 수만 grep으로 셌다. 각 PR 착수 시 해당 파일을 먼저 읽어야 한다. 저장소 루트의 `architecture/`는 없어서 `app/src/main/java/com/move60/workout/architecture/`를 읽었다.
+## 0. 기준 (2026-11-17 정정)
 
-## 0. 현재 구조에서 먼저 알아야 할 점
+통합 개발 기준은 `main`(v58)이 아니라 Draft PR #49(`feature/routive-policy-domain-v1`, 확인한 커밋 `4636cff`)다. 처음 판은 v58만 보고 `MainActivity` 안에 새 Compose 블록과 새 저장 경로를 만드는 순서를 제안했는데, #49에는 같은 역할의 Compose 화면이 이미 있어 그대로 진행하면 중복 구현이 된다. 그 순서는 폐기하고 아래로 바꾼다.
 
-| # | 사실 | 이전에 미치는 영향 |
+| 항목 | v58 (`main`) | #49 |
 | --- | --- | --- |
-| A | `MainActivity`는 `android.app.Activity`이고 XML 없이 코드로 뷰를 만든다 | `ComposeView`를 쓰려면 `ComponentActivity`로 바꿔야 한다(수명주기/저장 상태 소유자 필요) |
-| B | 상세 화면은 자체 `SessionStore` 인스턴스를, Compose 홈은 Hilt 싱글턴 `SessionStore`를 쓴다. 둘은 `reloadIfChanged()`로 맞춘다 | 이전 중 한 화면에 두 인스턴스를 섞으면 덮어쓰기 위험. 마지막 단계 전까지 상세 화면은 기존 인스턴스 하나만 쓴다 |
-| C | 세트 저장 경로가 둘이고 동작이 다르다 (아래 표) | `WorkoutViewModel.saveSet`을 그대로 재사용하면 동작이 바뀐다. 재사용 금지, 차이를 먼저 맞춘다 |
-| D | 갱신 주기: 상세 500ms `ticker`, 홈 뷰모델 1,000ms | 타이머 표시가 1초씩 튈 수 있다. 상세는 500ms 유지 |
-| E | 루트 뷰가 시스템 바+컷아웃 인셋을 패딩으로 처리한다 | 내부 `ComposeView`에서 인셋을 또 적용하면 이중 여백. 마지막 단계 전까지 Compose 쪽 인셋 처리 금지 |
-| F | 진입점: 홈 도크, 알림(`WorkoutService`), 위젯(`WorkoutWidget`)이 모두 `MainActivity`를 직접 연다. 매니페스트에서 `exported` | 클래스 이름과 매니페스트 항목은 전 과정에서 유지 |
-| G | `verify-compose-architecture.py`가 `MainActivity.kt` 안의 문자열을 검사한다: `Haptics.exerciseChanged(this)`, `이동했어요`, `BottomSheetDialog`, `guide_sheet_handle`, `setOnClickListener { sheet.dismiss() }` | 해당 블록을 옮기는 PR에서 같은 의미의 검사를 새 파일 대상으로 옮긴다. 검사를 지우거나 약하게 만들지 않는다 |
-| H | `makeTimerCard()`의 `timerValue`·`timerLabel`·`timeMeta`·`timerBadge`·`heartRateValue`·`progress`는 만들어지지만 화면에 붙지 않는다. `showNotificationDiagnostics()`·`openLockscreenSettings()`는 파일 안에 호출부가 없다 | 이전 대상에서 제외. 삭제는 마지막 단계에서 전체 참조 확인 후 |
+| 홈에서 운동 열기 | `MainActivity` 실행 | Compose 경로 `workout`(`WorkoutProgressScreen`) |
+| 루틴 목록에서 운동 열기 | 없음 | Compose 경로 `routive_session`(`RoutiveSessionScreen`) |
+| `MainActivity`에 닿는 길 | 홈, 알림, 위젯 | 레거시 세션의 알림(`WorkoutService`)과 위젯뿐 |
+| 세션 저장소 | `SessionStore` | `SessionStore`(레거시 5단계) + `RoutiveSessionStore`(4단계, 별도 환경설정 파일) |
+| 동시 진행 | — | 하나만. 4단계 세션 진행 중이면 레거시 시작을 거부 |
+| 종료 후 기록 | `StageLog`, `EnergyLedger`, Room 일별 | 추가로 `TimerSnapshot` → `SessionCommitter`(멱등), `PendingSessionOutbox` |
+| kcal 표시 | 도크·결과에 표시 | 전면 숨김(v66 결정 1). 저장 데이터는 유지 |
+| 안내 시트 | 동작 순서·영상 검색 항상 표시 | `ExerciseContentApproval` 승인 종목만 |
+| 버전 번호 | v58까지 | 문서가 v59~v67을 이미 사용 |
 
-세트 저장 경로 차이(C):
+읽은 범위: v58의 `MainActivity.kt` 전체, #49의 `WorkoutProgressScreen`·`RoutiveSessionScreen` 본문, `RoutiveSessionViewModel` 세트 처리부, `WorkoutRepository` 변경분, `docs/v59-legacy-set-records.md`, `docs/v61-session-persistence-design.md`. 읽지 않은 것: `SessionStore`·`SetRecordStore` 본문, `RoutiveSetRecorder` 본문, 테스트 본문, `ROUTIVE_FIGMA_GAP_MATRIX.md`, v62~v67 정책 문서. 실행 단계에서 먼저 읽어야 한다.
 
-| 항목 | 상세 `buildSetTable` | `DefaultWorkoutRepository.saveSet` |
-| --- | --- | --- |
-| 휴식 시간 | `TrainingProgress.restDuration(task)` | 45초 고정, 실행 중일 때만 |
-| 저장된 RPE | 기존 값 유지(없으면 "5") | 항상 "5"로 덮어씀 |
-| Room `upsertSet` | 안 함 | 함 |
-| 체크 해제 | `skipRest()` 호출 | 호출 없음 |
-| 근력 단계가 아닐 때 | 저장함(안내 시트에서 입력 가능) | 무시 |
-| 마지막 세트 후 | 토스트 + 진동 + 다음 종목 | 없음 |
-| 일시정지/종료 시 | `timer` 스냅샷 저장 + 위젯 갱신 + 복구 모드면 서비스 미시작 | 서비스 중지만 |
+## 1. 세 화면의 현재 관계 (#49)
 
-## 1. UI 블록 목록
-
-| ID | 블록 | 현재 코드 | 주요 태그 |
+| 화면 | 형태 | 엔진·저장소 | 진입 |
 | --- | --- | --- | --- |
-| B1 | 헤더(뒤로 48dp + 제목) + "오늘의 운동 / 요일·부위" 줄 | `constructInterface` | `detail_header`, `detail_back`, `detail_title`, `phone_day_info` |
-| B2 | 세트 휴식 카드(+15초, 건너뛰기) | `constructInterface`, `refreshTimer` | `phone_rest`, `phone_rest_time`, `phone_rest_add`, `phone_rest_skip` |
-| B3 | 단계 아코디언 틀(칩, 상태, 펼침) | `renderStageAccordion` | `phone_stage_stack`, `phone_step_{i}`, `phone_step_header_{i}`, `phone_step_chip_{i}`, `phone_step_chevron_{i}` |
-| B4 | 예정/완료 단계 읽기 전용 행 | `buildStageRows` | `phone_step_preview_{i}`, `phone_step_row_{i}_{j}`, `phone_step_row_meta_{i}_{j}` |
-| B5 | 진행 단계 항목 행(체크/회전 링/예정, 탭 이동) | `renderPhaseList` | `phone_phase_list`, `phone_phase_row_{i}`, `phone_phase_row_time_{i}` |
-| B6 | 진행 단계 타이머 영역(항목명, RPE 칩, 남은/초과 시간, 진행 막대, 다음 안내) + 길게 눌러 초기화 | `makeTimerCard`, `refreshTimer` | `phone_timer_card`, `phone_phase_rpe`, `phone_phase_time_row`, `phone_phase_time`, `phone_phase_bar` |
-| B7 | 세트 입력 표(kg/회 스테퍼, 완료 버튼, 지난 기록) | `buildSetTable`, `renderCurrentExercise` | `phone_current_exercise`, `set-{id}-{n}-kg/-reps/-check/-kg-minus/…` |
-| B8 | 자세 안내 진입 행 | `renderCurrentExercise` | `phone_current_guide` |
-| B9 | 안내 바텀시트(도식, 세트 표, 동작 순서, 영상 검색, 지난 기록) | `showDetails`, `showGuideSheet` | `guide_sheet_handle`, `popup_swap` |
-| B10 | 대체 운동 선택 다이얼로그 | `showExerciseSwap` | — |
-| B11 | 고정 도크(진행 막대, 단계·항목, 시간, 심박 알약, kcal, 워치 kcal, 이전/시작/다음) | `makeWorkoutControls`, `refreshTimer`, `dockButton` | `phone_dock_progress`, `phone_session_calories`, `phone_watch_kcal`, `phone_play`, `phone_prev`, `phone_next` |
-| B12 | 운동 종료 확인 + 운동 결과 다이얼로그 | `makeWorkoutControls`, `showWorkoutResult` | — |
-| B13 | 안전 복구 화면/다이얼로그 | `showRecoveryScreen`, `onCreate` | — |
-| B14 | 화면 틀(인셋, 스크롤, `ticker`, 서비스 동기화, 단계 전환음) | `onCreate`, `ticker`, `syncService`, `onResume` | 스크롤 설명 "운동 내용 스크롤" |
+| `MainActivity` | 기존 뷰 | `SessionStore` 자체 인스턴스 | 레거시 알림, 위젯 |
+| `WorkoutProgressScreen` | Compose | `WorkoutViewModel` → `DefaultWorkoutRepository` → `SessionStore` 싱글턴 | 홈 도크·카드 |
+| `RoutiveSessionScreen` | Compose | `RoutiveSessionViewModel` → `RoutiveSessionStore` | 루틴 목록, 4단계 알림·위젯 |
 
-## 2. 블록별 영향 범위
+`MainActivity`와 `WorkoutProgressScreen`은 같은 레거시 세션을 서로 다른 화면으로 보여준다. 사용자가 홈에서 시작하면 Compose 화면을, 알림을 누르면 기존 뷰 화면을 보게 된다. 이것이 지금 남아 있는 중복이다.
 
-테스트 참조 수(태그·클래스명 grep): `PhoneFeaturesTest` 75, `TrainingSyncTest` 13, `BodyFocusTest` 11, `verify-v36-ui.py` 10, `smoke-android.sh` 5, `verify-design-tokens.py` 5, `verify-compose-architecture.py` 3. 블록별 배분은 각 PR에서 확인한다.
+## 2. 세트 저장 경로 세 개
 
-| 블록 | 읽는 데이터 | 쓰기/콜백 | 권한·건강 데이터 | 검사 영향 |
+세 경로 모두 최종적으로 `SetRecordStore`에 쓰지만 규칙이 다르다. 이 차이를 없애기 전에는 화면 이전을 시작하지 않는다.
+
+| 항목 | ① `MainActivity.buildSetTable` | ② `DefaultWorkoutRepository.saveSet` | ③ `RoutiveSessionViewModel.completeSet` |
+| --- | --- | --- | --- |
+| 쓰는 화면 | 레거시 상세, 안내 시트 | `WorkoutProgressScreen` | `RoutiveSessionScreen` |
+| 입력 검증 | `Record.valid` | `Record.valid` | `SetInputPolicy`(계획·저장·정정 공통 한도) |
+| 저장 시점 | 글자 입력마다 + 체크 | 완료/취소 버튼 | 세트 완료 버튼 |
+| 휴식 시간 | `TrainingProgress.restDuration(task)` | 45초 고정 | 계획의 `restSeconds`, 마지막 목표 세트 뒤에는 없음 |
+| 저장되는 RPE | 기존 값 유지(없으면 "5") | 항상 "5" | 항상 "5" |
+| 완료 표시 | `SessionStore.checked` 키 | `checked` 키 + Room `upsertSet` | `SetRecordStore`의 완료 기록만 |
+| 취소 | 어느 세트든 체크 해제 | 어느 세트든 취소 | 마지막 세트만 |
+| 근력 단계가 아닐 때 | 저장함 | 무시 | 근력 단계에서만 입력 UI |
+| 마지막 세트 후 | 토스트·진동·다음 종목 | 없음 | 없음 |
+
+`SetRecordStore`는 #49의 기록 화면(`LegacySetReader`, 정책 5)과 세션 커밋(`TimerSnapshot.sets`)이 읽는 원본이다. 키 형식(`set:<날짜>:<요일>:<토큰>:<종목>:<세트>`)과 토큰 규칙은 바꾸지 않는다.
+
+## 3. `MainActivity` 블록과 Compose 화면의 대응
+
+| ID | 블록 (`MainActivity` 함수) | `WorkoutProgressScreen` | `RoutiveSessionScreen` |
+| --- | --- | --- | --- |
+| B1 | 헤더 + 요일·부위 줄 (`constructInterface`) | 상단 바 있음. 요일·부위 줄 없음 | 상단 바 있음. 루틴 이름 표시 |
+| B2 | 세트 휴식 카드, +15초, 건너뛰기 | 없음 | 휴식 카드·건너뛰기 있음. +15초 없음 |
+| B3 | 단계 아코디언, 전 단계 펼쳐 보기 (`renderStageAccordion`) | 진행 막대와 "다음 단계" 카드만 | 같음 |
+| B4 | 예정·완료 단계 읽기 전용 행 (`buildStageRows`) | 없음 | 현재 단계 항목 카드만 |
+| B5 | 진행 단계 항목 행, 탭해서 항목 이동 (`renderPhaseList`) | 현재 항목명만 | 없음(단계 건너뛰기만) |
+| B6 | 항목명·RPE·남은/초과 시간·막대, 길게 눌러 초기화 (`makeTimerCard`) | 남은 시간·막대. RPE·초과·초기화 없음 | 경과·계획·초과 표시. 초기화 없음 |
+| B7 | 세트 입력: 스테퍼, 지난 기록, 자동 저장 (`buildSetTable`) | 입력칸 + 완료/취소. 스테퍼·지난 기록 없음 | 입력칸 + 완료/마지막 취소. 한도 오류 표시 |
+| B8·B9 | 자세 안내 시트 (`showDetails`, `showGuideSheet`) | 없음 | 없음 |
+| B10 | 대체 운동 선택 (`showExerciseSwap`) | 없음 | 없음(루틴 편집은 `RoutineComposeScreen`) |
+| B11 | 고정 도크: 진행 막대, 항목·시간, 심박, 이전/시작/다음 | 하단 바: 일시정지/다음, 종료/재개, 누적 시간. 이전 단계 없음 | 하단 바 + 이전 단계·건너뛰기 |
+| B12 | 종료 확인, 결과 다이얼로그 | 종료 확인 → `result/{id}` 화면 | 같음 |
+| B13 | 안전 복구 화면 (`showRecoveryScreen`) | 없음 | 없음 |
+| B14 | 인셋, 500ms 갱신, 서비스 동기화, 전환음 | `Scaffold`, 뷰모델 1초 갱신 | `Scaffold`, `RoutiveSessionService` |
+
+"없음"은 화면 본문에서 해당 UI를 찾지 못했다는 뜻이다. Figma에서 의도적으로 뺀 것인지는 `ROUTIVE_FIGMA_GAP_MATRIX.md`와 대조해야 알 수 있다.
+
+블록별 데이터·콜백·권한(레거시 기준, #49에서도 유효):
+
+| 블록 | 읽기 | 쓰기·콜백 | 권한·건강 |
+| --- | --- | --- | --- |
+| B2 | `restSeconds()` | `adjustRest(15)`, `skipRest()` | 없음 |
+| B5 | `phase()`, `phaseSecondsRemaining()`, `overtimeSeconds()` | `jumpToPhase(i)`(누적 시간 유지) | 회전 애니메이션은 시스템 설정 존중 |
+| B6 | 현재 항목 | `resetStage()`, `resetAll()` — 기록에 영향 | 없음 |
+| B7 | `SetRecordStore.read/previous` | `write`, `toggleChecked`, `startRest/skipRest`, 400ms 지연 동기화, 토스트·`Haptics.exerciseChanged` | 없음 |
+| B9 | `data.detail`, `ExerciseGuide`, `ExerciseContentApproval` | 외부 영상 검색(승인 종목만) | 없음 |
+| B10 | `data.alternatives` | `data.replaceExercise` → `refreshRoutine()` (영구 저장) | 없음 |
+| B11 | `elapsed()`, `preferences`의 `watch_heart_rate(+_at)` | `start/pause`, `beginSession`, `jumpTo`, `nextStage` | 심박은 신선한 값만(`HeartRateFreshness`). 새 권한 없음 |
+| B14 | `reloadIfChanged`, `reconcile` | `WatchStatePublisher`, `WorkoutService`, `timer` 스냅샷, 위젯 갱신 | 복구 모드에서는 서비스 자동 시작 금지 |
+
+검사 의존: `verify-compose-architecture.py`가 `MainActivity.kt` 안의 `Haptics.exerciseChanged(this)`, `이동했어요`, `BottomSheetDialog`, `guide_sheet_handle`, 손잡이 닫기 코드를 검사한다(#49에서도 같음). 태그 참조 수는 v58 기준 `PhoneFeaturesTest` 75, `TrainingSyncTest` 13, `BodyFocusTest` 11이며 #49 기준으로 다시 세야 한다.
+
+## 4. 수정된 순서
+
+목표는 유지한다: 레거시 상세를 Compose로 옮기고 `MainActivity`의 뷰 코드를 없앤다. 방법이 바뀐다. `MainActivity` 안에 새 컴포저블을 짓지 않고, 이미 있는 `WorkoutProgressScreen`에 빠진 기능을 채운 뒤 진입점을 옮긴다.
+
+버전 번호는 붙이지 않았다(#49가 v67까지 사용). 번호는 착수할 때 정한다. 모든 단계는 #49 브랜치 위에서 진행한다.
+
+| 단계 | 범위 | 변경 파일(예상) | 위험 | 롤백 |
 | --- | --- | --- | --- | --- |
-| B1 | `session.day`, `bodyFocus` | `leaveToOverview()`(작업 루트면 홈 실행 후 종료) | 없음 | `detail_*` 태그 |
-| B2 | `restSeconds()`, `stage`, `running`, `finished` | `adjustRest(15)`, `skipRest()`, `syncService()` | 없음 | `phone_rest*` |
-| B3 | `routine.stages`, `stage`, `completed`, `running`, `finished`, `elapsed()`, `bodyFocus` | 로컬 상태 `expandedStage`만 변경(운동에 영향 없음) | 없음 | `phone_step_*`, v53/v55 문구 |
-| B4 | 단계별 `tasks`, `phasesKeyForStage` | 없음(읽기 전용) | 없음 | `phone_step_row_*`(v55) |
-| B5 | `phase()`, `phaseSecondsRemaining()`, `overtimeSeconds()`, `checked` | `jumpToPhase(i)`(누적 시간 유지), `selectedStrengthId` | 없음. 회전은 시스템 애니메이션 끔 설정 존중 | `phone_phase_row_*`(v58) |
-| B6 | `phase()`, `overtimeSeconds()`, 현재 근력 종목 | 길게 누름 → `resetStage()` / `resetAll()` | 없음 | `phone_phase_*`, 초과 시간 "+mm:ss" |
-| B7 | `SetRecordStore.read/previous`, `checked`, `sessionStartedAt` | `SetRecordStore.write`, `toggleChecked`, `startRest/skipRest`, 400ms 지연 `syncService`, 토스트·`Haptics.exerciseChanged` | 없음 | `set-*` 태그, 스크립트 G의 햅틱/문구 |
-| B8 | 현재 근력 종목 | `showDetails(2, task)` | 없음 | `phone_current_guide` |
-| B9 | `data.detail(id)`, `ExerciseGuide`, `exercisePrefs.log(id)` | 외부 `ACTION_VIEW`(YouTube 검색), 닫힐 때 다시 그림 | 없음(브라우저 없으면 토스트) | 스크립트 G의 시트 검사(v51) |
-| B10 | `data.alternatives(day, slot, focus)` | `data.replaceExercise` → `refreshRoutine()` | 없음 | 종목 설정이 영구 저장됨 |
-| B11 | `elapsed()`, `remaining`, `phase()`, `EnergyLedger.estimate`, `WatchKcal.fresh`, `preferences`의 `watch_heart_rate(+_at)` | `start/pause`, `refreshRoutine`, `SetRecordStore.beginSession`, `jumpTo`, `nextStage`, `syncService` | 심박은 10초 이내 값만, 워치 kcal은 같은 세션 30초 이내만 표시. 새 권한 없음 | `phone_play/prev/next`, `verify-fixed-controls.py`, v54/v58 문구 |
-| B12 | `StageLog.entries`, `EnergyLedger.estimate` | `nextStage()`, 달력 화면 이동 | 없음 | 종료 흐름 테스트 |
-| B13 | `CrashReporter` | `acknowledge`, 서비스 재시도 | 없음 | 복구 모드에서는 서비스 자동 시작 금지 |
-| B14 | `reloadIfChanged`, `reconcile`, `recordDate` | `save()`, `WatchStatePublisher`, `WorkoutService` 시작/중지, `timer` 스냅샷, `WorkoutWidget.refresh`, 전환음 | 포그라운드 서비스 시작 실패 시 로그+토스트 | 전 테스트, 스모크 스크립트 |
+| P0 | 대조 확정. 3절 표를 `ROUTIVE_FIGMA_GAP_MATRIX.md`·v62~v67 결정과 맞춰 "옮길 것 / 의도적으로 뺀 것" 확정. 레거시 5단계 화면의 수명(유지 기간, 4단계로 대체 시점)을 PO가 결정 | 문서만 | 없음 | — |
+| P1 | 세트 경로 통일. ①②의 검증을 `SetInputPolicy`로, 저장을 한 곳으로 모은다(③의 `RoutiveSetRecorder`는 `RoutiveSessionStore`에 묶여 있으므로 엔진과 무관한 공용 기록기로 일반화). 휴식 시간·RPE 유지·취소 범위는 2절 차이마다 결정 후 한 규칙으로 | `WorkoutRepository.kt`, `MainActivity.kt`, `RoutiveSetRecorder.kt`, 테스트 | 가장 높음. 저장 규칙이 바뀌면 기존 기록 표시·커밋 멱등 판정(`sameContent`)에 영향 | PR 되돌리기. 키·토큰 형식 불변이라 기록 유지 |
+| P2 | `WorkoutProgressScreen` 기능 채우기. P0에서 "옮길 것"으로 확정된 블록을 한 PR에 하나씩: 휴식 카드 → 이전 단계 → 항목 행·항목 이동 → 세트 스테퍼·지난 기록 → 안내 시트·대체 운동 | `WorkoutProgressScreen.kt`, `WorkoutViewModel.kt`, `WorkoutRepository.kt`, Compose 테스트, 검사 스크립트 | 뷰모델 1초 갱신으로 타이머 표시가 튈 수 있음. 입력 중 재구성으로 글자 손실 | PR 되돌리기. `MainActivity`는 그대로라 알림 경로는 영향 없음 |
+| P3 | 진입점 이전. 레거시 알림·위젯이 `ComposeActivity`의 `workout` 경로를 열게 한다(4단계 세션이 이미 쓰는 방식) | `WorkoutService.kt`, `WorkoutWidget.kt`, `ComposeActivity.kt`, 테스트 | 알림에서 열 때 인트로·첫 실행 설정 화면이 끼어들 수 있음. 작업 스택 | PR 되돌리기. 인텐트 대상만 바뀜 |
+| P4 | 복구 화면(B13)을 `ComposeActivity` 쪽으로 옮기거나 `MainActivity`를 복구 전용으로 축소 | `MainActivity.kt`, `ComposeActivity.kt` | 초기화 실패 시에도 떠야 함 | PR 되돌리기 |
+| P5 | `MainActivity` 뷰 코드 삭제. 참조 전체 확인 후 검사 스크립트의 `MainActivity.kt` 문자열 검사를 새 위치로 옮김. README·CLAUDE.md의 "legacy native detail" 문구 갱신 | `MainActivity.kt`, 스크립트, 테스트, 문서 | 삭제 후 누락 기능 발견 | PR 되돌리기(삭제는 이 PR에만 있음) |
 
-권한 요약: 이전 전체에서 매니페스트 권한 추가·삭제는 없다. Health Connect 요청 흐름은 상세 화면에 없으며, 넣지 않는다.
+각 단계 공통 완료 조건: 필수 검사 + PR 검사(폰 계측, 원형 워치) 통과, 바뀐 화면의 에뮬레이터 캡처를 `smoke-debug/features/`에 보관, 실기기 확인은 별도 보고. 캡처가 없으면 시각 검증 미완료로 보고한다.
 
-## 3. PR 순서
-
-잎 블록부터 옮긴다. 그래야 `ComposeView`가 항상 기존 뷰 트리의 끝에 놓이고, Compose 안에 기존 뷰를 다시 넣는 일(`AndroidView`)이 없다.
-
-| 버전 | 범위 | 변경 파일 | 위험 | 롤백 |
-| --- | --- | --- | --- | --- |
-| v59 | 기반 + B1. `Activity` → `ComponentActivity`. 표시 계산을 순수 함수로 분리(`strengthSetCount`, `doneSets`, 도크 문구, `formatTime`, `movedSuffix`). `ComposeView` 호스트 도우미. 헤더를 Compose로 | `MainActivity.kt`, 신규 `detail/DetailUi.kt`·`detail/DetailFormat.kt`, 신규 단위 테스트, `verify-compose-architecture.py`(추가만), 문서 | 상위 클래스 변경으로 뒤로 가기·창 색·인셋이 달라질 수 있음 | PR 되돌리기. 저장 데이터 변경 없음 |
-| v60 | B2 휴식 카드 | `MainActivity.kt`, `detail/RestCard.kt`, `PhoneFeaturesTest` | 숨김 상태에서 빈 여백(현재는 마진으로 처리) | PR 되돌리기 |
-| v61 | B11 도크 + B12 다이얼로그 | `MainActivity.kt`, `detail/DetailDock.kt`, 테스트 3종, `verify-fixed-controls.py`, `verify-v36-ui.py` | 시작/일시정지/종료가 기록의 시작점. 이중 탭, 0.5초마다 재구성, 내비게이션 바 여백 | PR 되돌리기. `BLOCK_DOCK` 스위치로 기존 도크 복귀(4절) |
-| v62 | B5 + B6 진행 단계 영역 | `MainActivity.kt`, `detail/ActiveStage.kt`, 테스트 | 회전 링이 UI 테스트의 유휴 대기를 막을 수 있음. 길게 눌러 초기화는 기록에 영향 | 위와 같음 |
-| v63 | B7 세트 입력 + B8 진입 행 | `MainActivity.kt`, `detail/SetTable.kt`, 테스트 3종, 스크립트 G 이전 | 가장 높음. 입력 중 재구성으로 글자가 사라지거나, 저장 키·토큰이 달라지면 기록 손실 | 위와 같음. 저장 형식은 그대로라 되돌려도 기록 유지 |
-| v64 | B9 안내 시트 + B10 교체 | `MainActivity.kt`, `detail/GuideSheet.kt`, 테스트, 스크립트 G(v51 검사) 이전 | `ExerciseGuide`(기존 뷰)는 `AndroidView`로 감싸야 함. 시트 최대 높이 55%, 닫기 버튼 없음, 손잡이 48dp 유지 | 위와 같음 |
-| v65 | B3 + B4 아코디언. 이 시점에 v62~v63 컴포저블을 직접 포함 | `MainActivity.kt`, `detail/StageAccordion.kt`, 테스트 | `activeStageContent` 재부착 로직 제거. 펼침 상태가 단계 전환 시 달라질 수 있음 | 위와 같음 |
-| v66 | B14 화면 틀. `Scaffold` 한 개로 통합, 인셋을 Compose로, `ticker` → 상세 전용 뷰모델, 싱글턴 `SessionStore` 사용, 기존 뷰 코드와 스위치 삭제 | `MainActivity.kt`, `detail/DetailScreen.kt`, `detail/DetailViewModel.kt`, `WorkoutModule.kt`, 스크립트 전부, README, CLAUDE.md의 "legacy native detail" 문구 | 인셋 이중/누락, 서비스 동기화 누락, 복구 모드 우회, 두 `SessionStore` 통합 시 경합 | PR 되돌리기. 삭제는 이 PR에서만 일어나므로 되돌리면 전부 복원 |
-
-B13(복구 화면)은 초기화 실패 시에도 떠야 하므로 v66까지 기존 뷰로 둔다. `MainActivity`를 `NavHost` 목적지로 합치는 일은 이 계획 범위 밖이다(알림·위젯 진입점 F).
-
-각 PR 공통 완료 조건:
-- 필수 검사 5종 + PR 검사(폰 계측, 원형 워치 에뮬레이터) 통과.
-- 바뀐 블록의 에뮬레이터 캡처를 `smoke-debug/features/phone-v{NN}-*.png`로 남긴다(헤더, 팝업, 스크롤 끝, 도크, 시스템 바 포함). 캡처가 없으면 시각 검증 미완료로 보고한다.
-- 갤럭시 실기기 확인은 별도 항목으로 보고한다.
-
-## 4. 컨트롤 중복 방지 방식
+## 5. 컨트롤 중복 방지
 
 | 규칙 | 내용 |
 | --- | --- |
-| 자리 하나, 주인 하나 | 블록마다 부모 `LinearLayout`의 같은 위치에 뷰 하나만 넣는다. 그 뷰는 기존 뷰이거나 `ComposeView`이며, 둘을 함께 붙이는 코드는 만들지 않는다 |
-| 스위치 한 곳 | `detail/DetailBlocks.kt`에 블록별 `const val`(예: `BLOCK_DOCK = COMPOSE`). 자리 생성 함수가 이 값으로 둘 중 하나만 만든다. 런타임 설정·사용자 토글은 두지 않는다 |
-| 기존 코드 보존 기간 | 블록을 옮긴 PR에서는 기존 생성 함수를 남긴다(스위치로 복귀 가능). 삭제는 v66에서 참조 확인 후 한 번에 한다 |
-| 갱신 경로 | `refreshTimer()`/`renderCurrent()`는 옮긴 블록의 뷰 필드를 건드리지 않고, 대신 `DetailUi` 상태 값 하나를 갱신한다. `lateinit` 뷰 필드는 블록 이전과 함께 접근을 막는다 |
-| 태그 | Compose 블록은 같은 이름을 `testTag`로 쓴다. 한 이름이 두 트리에 동시에 존재하지 않게 한다. 테스트는 해당 PR에서 같이 바꾼다 |
-| 자동 검사 | `verify-compose-architecture.py`에 추가: 스위치가 `COMPOSE`인 블록의 태그 문자열이 `MainActivity.kt`의 활성 경로와 `detail/*.kt`에 동시에 생성되지 않을 것. 계측 테스트에 추가: `phone_play` 등 핵심 컨트롤이 화면에 정확히 1개 |
-| 홈과의 중복 | 홈 도크와 상세 도크는 서로 다른 액티비티라 동시에 보이지 않는다. 홈 `WorkoutDock` 컴포저블을 상세에 재사용하지 않는다(문구·버튼 규칙이 다름) |
+| 새 화면 금지 | 상세용 컴포저블 패키지를 새로 만들지 않는다. 기능은 `WorkoutProgressScreen`(레거시 엔진) 또는 `RoutiveSessionScreen`(4단계)에만 추가한다 |
+| 공용 조각 | 두 Compose 화면에 같은 UI(휴식 카드, 세트 입력)가 필요하면 한 컴포저블을 공유한다. 화면마다 따로 복사하지 않는다 |
+| 한 세션, 한 화면 | P3 전까지는 레거시 세션이 두 화면에 보인다. 이 기간에 `MainActivity`에는 기능을 추가하지 않는다(수정은 결함 수정만) |
+| 한 화면, 한 컨트롤 | `MainActivity` 안에 `ComposeView`를 끼워 넣지 않는다. 기존 뷰와 Compose가 한 화면에 섞이지 않으므로 같은 버튼이 둘 생길 수 없다 |
+| 진입점 전환은 한 번에 | P3에서 알림과 위젯을 같은 PR로 옮긴다. 한쪽만 옮겨 두 화면이 번갈아 뜨는 상태를 만들지 않는다 |
+| 동시 세션 | 레거시와 4단계가 동시에 진행되지 않는 현재 가드를 유지한다 |
+| 자동 검사 | 계측 테스트: 레거시 세션 진행 중 화면에 시작/일시정지 컨트롤이 정확히 1개. P3 이후 스크립트: `WorkoutService`·`WorkoutWidget`에 `MainActivity::class` 참조 없음 |
 
-디자인 규칙(모든 Compose 블록): 색은 `MaterialTheme.colorScheme`(`Move60ComposeTheme`), 글자·간격·모서리는 `design/tokens.json`에서 나온 값만 쓴다. 터치 대상은 48dp 이상을 유지한다(스테퍼처럼 보이는 크기만 32dp인 경우 포함). 현재 코드의 토큰 밖 숫자(글자 11·13·15·17·18·26sp, 모서리 12·24dp 등)는 옮기는 PR에서 토큰 값으로 맞추거나 토큰 추가를 따로 제안한다. 임의 값을 그대로 복사하지 않는다.
+디자인 규칙: 색은 `MaterialTheme.colorScheme`(`Move60ComposeTheme`), 글자·간격·모서리는 `design/tokens.json` 값만 쓴다(#49에서 토큰이 바뀌었으므로 그 판 기준). 터치 대상 48dp 이상. 인셋은 `Scaffold`와 `navigationBarsPadding()`으로 처리하고 시스템 바를 침범하지 않는다. `MainActivity`의 토큰 밖 숫자(글자 11·13·15·17·18·26sp 등)는 옮기지 않고 토큰 값에 맞춘다.
 
-## 5. 사용자 기록 보호
+## 6. 사용자 기록 보호
 
 | 대상 | 저장 위치 | 보호 방법 |
 | --- | --- | --- |
-| 세트 기록(kg/회/완료/RPE) | `SetRecordStore`(일자·세션 토큰·종목·세트) | 읽기/쓰기 호출과 인자(`token = sessionStartedAt`)를 그대로 둔다. RPE는 기존 값 유지. 저장 형식·키 변경 없음 |
-| 세트 완료 체크 | `SessionStore.checked`의 `strength-{day}-{id}-{set}` | 키 문자열을 순수 함수 한 곳으로 모으고 단위 테스트로 고정 |
-| 진행 상태·경과 시간 | `SessionStore` 스냅샷, `timer` 환경설정 | `syncService()`를 v66 전까지 그대로 호출. 일시정지 시 스냅샷 저장 + 위젯 갱신 유지 |
-| 단계별 시간·칼로리 | `StageLog`, `EnergyLedger`, Room | UI 이전에서 쓰기 코드 변경 없음. Room 스키마 변경 없음 |
-| 설정(소리, 몸무게, 컨디션, 종목 교체) | `preferences`, `ExercisePreferences`, `WorkoutData` | 키 이름 변경 없음 |
+| 세트 기록 | `SetRecordStore`(환경설정) | 키·토큰 형식 불변. 원본을 삭제·변환하지 않는다(정책 5와 같음). 미완료·임시 입력을 완료로 바꾸지 않는다 |
+| 완료 체크 | `SessionStore.checked` | 키 문자열 `strength-{day}-{id}-{set}` 불변. P1에서 한 함수로 모으고 테스트로 고정 |
+| 커밋된 세션 | Room `sessions`·`session_sets`·`session_segments` | 스키마·마이그레이션 변경 없음. 커밋은 `SessionCommitter` 한 곳만. P1 후에도 같은 세션 재커밋이 `AlreadyCommitted`인지 테스트 |
+| 미전송 세션 | `PendingSessionOutbox` | 형식 변경 없음. 기존 항목이 계속 읽히는지 테스트 |
+| 단계 시간·에너지 | `StageLog`, `EnergyLedger` | UI 이전에서 쓰기 코드 변경 없음. kcal은 숨김 상태 유지, 저장 데이터는 그대로 |
+| 설정·종목 교체 | `preferences`, `ExercisePreferences`, `WorkoutData` | 키 이름 불변 |
 
 추가 안전장치:
-- v63 전에 계측 테스트를 먼저 넣는다: 세트 입력 → 화면 재생성 → 값 유지, 체크 해제 → 기록은 남고 완료만 해제, 근력 단계가 아닐 때 안내 시트에서 입력 → 저장.
-- 입력 칸은 포커스 중 로컬 상태를 우선하고 0.5초 갱신 값으로 덮어쓰지 않는다. 글자 변경마다 저장하는 현재 동작을 유지한다.
-- 초기화 호출(`resetStage`, `resetAll`)은 지금 있는 두 곳(길게 누름 메뉴, `onResume`의 "시작 전이고 루틴이 바뀐 경우")에만 둔다. 조건식을 바꾸지 않고, 새 호출부를 만들지 않는다.
-- 각 PR에서 이전 빌드 → 새 빌드 덮어쓰기 설치 후 진행 중 세션·지난 기록·달력 표시가 같은지 확인한다(에뮬레이터, 실기기는 별도 보고).
+- P1 전에 계측 테스트를 먼저 넣는다: 세 경로 각각에서 세트 입력 → 프로세스 재시작 → 값 유지, 완료 취소 → 기록은 남고 완료만 해제, 종료 후 기록 화면에 같은 값.
+- 초기화(`resetStage`, `resetAll`)는 현재 호출부(길게 누름 메뉴, `onResume`의 시작 전 루틴 변경)에만 둔다. Compose 화면으로 옮길지는 P0에서 결정하고, 옮기더라도 조건식을 바꾸지 않는다.
+- 각 단계에서 이전 빌드 → 새 빌드 덮어쓰기 설치 후 진행 중 세션·지난 기록·달력 표시가 같은지 확인한다.
 - 정리 과정에서 기록 파일·환경설정 키·Room 테이블을 지우지 않는다.
 
-## 6. 착수 전 결정이 필요한 것
+## 7. 착수 전 결정이 필요한 것
 
-| 질문 | 제안 |
-| --- | --- |
-| 세트 저장 경로 차이(0절 C)를 어느 쪽에 맞출까 | 상세 화면 동작을 기준으로 리포지터리를 맞춘다. v63 전에 별도 PR |
-| 길게 눌러 초기화에 확인 단계가 한 번뿐이다 | 이전 중에는 그대로 둔다. 바꾸려면 별도 변경으로 |
-| 토큰 밖 글자 크기를 토큰에 추가할까 | Figma 기준 확인 후 v59에서 결정 |
+| # | 질문 | 제안 |
+| --- | --- | --- |
+| 1 | 레거시 5단계 진행 화면을 계속 둘 것인가, 4단계(`RoutiveSessionScreen`)로 흡수할 것인가 | 흡수가 확정이면 P2를 최소화하고(누락 기능은 4단계 화면에만) P3에서 바로 진입점을 옮긴다 |
+| 2 | 세트 규칙 차이(휴식 시간, RPE 유지, 임의 세트 취소, 근력 단계 밖 입력)를 어느 쪽에 맞출 것인가 | 검증·취소는 ③(`SetInputPolicy`), 휴식은 종목별 값 유지, 기존 RPE는 덮어쓰지 않음 |
+| 3 | 3절에서 Compose 화면에 없는 기능 중 무엇을 옮길 것인가 | Figma 대조 후 결정. 안내 시트와 항목 이동은 사용자 기능 손실이므로 옮기는 쪽 |
+| 4 | 이 문서의 파일명 | #49에 `docs/v59-legacy-set-records.md`가 있어 번호가 겹친다. #49에 합칠 때 `docs/detail-compose-migration-plan.md`로 바꾸기를 제안 |
+
+## 8. 이 PR의 CI 상태
+
+`runtime-smoke`는 버전 검사에서 실패한다(폰 58·워치 52가 배포 버전과 같음). 문서만 바꾼 PR이라 버전을 올리지 않았다. 이 문서는 `main`에 따로 병합하기보다 #49 기준 작업에 포함시키는 것이 맞다.
