@@ -862,7 +862,8 @@ class MainActivity : Activity() {
                 addGap(detailContent, 8)
             }
         }
-        if (task.id.isNotEmpty() && info != null) {
+        // Do not offer unreviewed external exercise-video search from an unapproved guide's empty state.
+        if (task.id.isNotEmpty() && info != null && ExerciseContentApproval.isApproved(task.id)) {
             detailContent.addView(actionButton("운동 가이드 영상 검색 ↗", false) {
                 val query = Uri.encode(task.name + " 운동 자세 가이드")
                 val videoSearch = Intent(Intent.ACTION_VIEW,
