@@ -199,6 +199,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - name: Block publication without a valid privacy policy URL
+        run: python3 scripts/verify-release-legal.py
       - name: Verify published versionCodes before manual distribution
         run: |
           python3 scripts/test_verify_release_version.py
