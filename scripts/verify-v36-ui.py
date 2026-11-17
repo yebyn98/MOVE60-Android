@@ -17,6 +17,9 @@ assert not (root/"app/src/main/java/com/move60/workout/ExercisePhotos.kt").exist
 assert 'detail_back' in main and 'detail_title' in main and 'leaveToOverview' in main, "Detail screen needs back button + title"
 assert 'label("MOVE60", 24' not in main, "Detail screen must not keep the old app bar"
 assert 'ExerciseGuide.create' in main and (root/"app/src/main/assets/exercise/legPress_0.jpg").exists(), "Guide must use the two-frame loop"
+assert 'info != null && ExerciseContentApproval.isApproved(task.id)) {' in main, "Do not show unreviewed external guide search in the empty state"
+approval=read("app/src/main/java/com/move60/workout/domain/ExerciseContentApproval.kt")
+assert 'val APPROVED: Set<String> = emptySet()' in approval, "Only evidenced exercise guides may be enabled"
 assert 'backgroundDimEnabled' in read("app/src/main/res/values/styles.xml") and 'DialogDim()' in compose, "Popups must dim the background"
 assert 'phone_calendar' not in main and 'showWorkoutCalendar' not in main, "Calendar lives in Compose only"
 for marker in ("MonthGrid(", "calendar-dot-", "calendar_prev", "calendar_next", "운동 기록 있음"):
