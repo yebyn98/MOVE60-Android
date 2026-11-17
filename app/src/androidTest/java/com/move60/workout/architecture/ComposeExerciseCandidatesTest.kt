@@ -112,12 +112,21 @@ class ComposeExerciseCandidatesTest {
         } finally { cleanE2e() }
     }
 
-    /** Ids shown above the "직접 구성" heading: the rows listed before it in the dialog's column. */
+    /**
+     * Ids listed before the "직접 구성" heading, by position in the dialog's column (semantics tree order = declaration order).
+     * Not by screen bounds: rows scrolled out of the 360dp dialog are clipped, so their bounds say nothing about their section.
+     */
     private fun candidateSectionIds(): Set<String> {
-        val manualTop = rule.onNodeWithTag("routine_manual_title").fetchSemanticsNode().boundsInRoot.top
-        return rule.onAllNodes(androidx.compose.ui.test.SemanticsMatcher("option") {
-            it.config.getOrNull(androidx.compose.ui.semantics.SemanticsProperties.TestTag)?.startsWith("routine_option_") == true
-        }).fetchSemanticsNodes().filter { it.boundsInRoot.top < manualTop }
-            .mapNotNull { it.config.getOrNull(androidx.compose.ui.semantics.SemanticsProperties.TestTag)?.removePrefix("routine_option_") }.toSet()
+        val ids = LinkedHashSet<String>()
+        val nodes = rule.onAllNodes(androidx.compose.ui.test.SemanticsMatcher("option or manual title") {
+            val tag = it.config.getOrNull(androidx.compose.ui.semantics.SemanticsProperties.TestTag)
+            tag == "routine_manual_title" || tag?.startsWith("routine_option_") == true
+        }).fetchSemanticsNodes()
+        for (node in nodes) {
+            val tag = node.config.getOrNull(androidx.compose.ui.semantics.SemanticsProperties.TestTag) ?: continue
+            if (tag == "routine_manual_title") break
+            ids += tag.removePrefix("routine_option_")
+        }
+        return ids
     }
 }
