@@ -81,22 +81,38 @@ class ComposeWorkoutProgressTest {
         }
     }
 
+
+    /**
+     * The progress screen has just been opened by a navigation transition, so a node can exist for a moment without being
+     * displayed. The same assertion is retried until it holds; if it never does, the real screen is saved as evidence
+     * (the earlier failures left none, so their cause could not be read from the logs).
+     */
+    private fun awaitDisplayed(tag: String? = null, text: String? = null, timeoutMs: Long = 8_000) {
+        fun node() = if (tag != null) rule.onNodeWithTag(tag) else rule.onNodeWithText(text!!)
+        try {
+            rule.waitUntil(timeoutMs) { runCatching { node().assertIsDisplayed() }.isSuccess }
+        } catch (e: Throwable) {
+            captureScreen("workout-not-displayed-${tag ?: "text"}.png")
+            throw e
+        }
+    }
+
     @Test fun startPauseConfirmedEarlyEndAndResult() {
         ActivityScenario.launch(ComposeActivity::class.java).use {
             ensureIdleOverview()
             rule.onNodeWithTag("dock_play").performClick()
             rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("workout_progress")).fetchSemanticsNodes().isNotEmpty() }
-            rule.onNodeWithTag("workout_status").assertIsDisplayed()
-            rule.onNodeWithText("● 진행 중").assertIsDisplayed()
-            rule.onNodeWithTag("workout_remaining").assertIsDisplayed()
+            awaitDisplayed(tag = "workout_status")
+            awaitDisplayed(text = "● 진행 중")
+            awaitDisplayed(tag = "workout_remaining")
             capture("compose-workout-progress.png")
             Thread.sleep(3_000)                       // let real active time accumulate
             rule.onNodeWithTag("workout_pause").performClick()
             rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("workout_end")).fetchSemanticsNodes().isNotEmpty() }
-            rule.onNodeWithText("● 일시정지").assertIsDisplayed()
+            awaitDisplayed(text = "● 일시정지")
             capture("compose-workout-paused.png")
             rule.onNodeWithTag("workout_end").performClick()
-            rule.onNodeWithTag("workout_end_dialog").assertIsDisplayed()
+            awaitDisplayed(tag = "workout_end_dialog")
             captureScreen("compose-workout-end-dialog.png")
             rule.onNodeWithTag("workout_end_confirm").performClick()
             // Under one minute and no sets is not stored (D-01 B): the result says so instead of showing an error.
