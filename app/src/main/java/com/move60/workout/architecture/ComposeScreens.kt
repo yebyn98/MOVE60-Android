@@ -866,6 +866,7 @@ fun WorkoutSettings(
                     Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(role = Role.Button, onClickLabel = "오픈소스 라이선스 보기") { showOss = true }
                         .padding(horizontal = 16.dp).testTag("settings_oss_row"), verticalAlignment = Alignment.CenterVertically) {
                         Text("오픈소스 라이선스", modifier = Modifier.weight(1f))
+                        Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = secondary)
                     }
                     if (privacyUrl != null) {
                         Move60Divider()
@@ -874,6 +875,7 @@ fun WorkoutSettings(
                             catch (_: Exception) { widgetScope.launch { message.showSnackbar("링크를 열 수 있는 앱이 없어요.") } }
                         }.padding(horizontal = 16.dp).testTag("settings_privacy_row"), verticalAlignment = Alignment.CenterVertically) {
                             Text("개인정보처리방침", modifier = Modifier.weight(1f))
+                            Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = secondary)
                         }
                     }
                     Move60Divider()
