@@ -43,17 +43,27 @@ data class SpaceEquipmentEntity(
     val updatedAtEpochMs: Long
 )
 
-/** Fixed equipment choices per Figma 62 (gym) and 73 (home). Keys are stored; labels are UI text. */
+/**
+ * Equipment choices per space kind (Figma 62 gym / 73 home, widened by the PO decision of 2026-11-17: a gym can register all of its
+ * equipment and a home can register its home-training equipment). Keys are stored; labels are UI text. Keys are never renamed or removed:
+ * saved space equipment must keep resolving. Rope attachments and mini bands are part of CABLE_MACHINE / RESISTANCE_BAND, and body-weight
+ * exercises need no registration at all (see docs/v67).
+ */
 enum class Equipment(val label: String, val cardio: Boolean) {
     INDOOR_CYCLE("실내 사이클", true), ELLIPTICAL("일립티컬", true),
     LEG_PRESS("레그프레스", false), LAT_PULLDOWN("랫풀다운", false), CABLE_MACHINE("케이블 머신", false),
-    DUMBBELL("덤벨", false), YOGA_MAT("요가 매트", false), RESISTANCE_BAND("저항 밴드", false);
+    DUMBBELL("덤벨", false), YOGA_MAT("요가 매트", false), RESISTANCE_BAND("저항 밴드", false),
+    HIP_THRUST_MACHINE("힙쓰러스트 머신", false), HIP_ABDUCTION_MACHINE("힙 어브덕션 머신", false), LEG_CURL_MACHINE("레그컬 머신", false),
+    SEATED_ROW_MACHINE("시티드 로우 머신", false), CHEST_PRESS_MACHINE("체스트프레스 머신", false),
+    BENCH("벤치", false), STEP_BOX("스텝박스", false);
 
     companion object {
-        /** Display order of the checklist. */
+        /** Display order of the checklist. The first entries of each list keep their earlier order; new ones are appended. */
         fun choices(kind: SpaceKind): List<Equipment> = when (kind) {
-            SpaceKind.GYM -> listOf(INDOOR_CYCLE, LEG_PRESS, LAT_PULLDOWN, ELLIPTICAL, CABLE_MACHINE)
-            SpaceKind.HOME -> listOf(INDOOR_CYCLE, DUMBBELL, YOGA_MAT, RESISTANCE_BAND, ELLIPTICAL)
+            SpaceKind.GYM -> listOf(INDOOR_CYCLE, LEG_PRESS, LAT_PULLDOWN, ELLIPTICAL, CABLE_MACHINE,
+                HIP_THRUST_MACHINE, HIP_ABDUCTION_MACHINE, LEG_CURL_MACHINE, SEATED_ROW_MACHINE, CHEST_PRESS_MACHINE,
+                DUMBBELL, BENCH, STEP_BOX, YOGA_MAT, RESISTANCE_BAND)
+            SpaceKind.HOME -> listOf(INDOOR_CYCLE, DUMBBELL, YOGA_MAT, RESISTANCE_BAND, ELLIPTICAL, BENCH, STEP_BOX)
         }
         fun fromKey(key: String): Equipment? = entries.firstOrNull { it.name == key }
     }

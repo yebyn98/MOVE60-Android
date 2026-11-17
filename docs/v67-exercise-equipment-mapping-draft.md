@@ -1,30 +1,30 @@
 # v67 · 운동↔기구 대응표 (초안, PO 검토 전)
 
-**이 표는 승인되지 않았다.** `scripts/gen-equipment-mapping.py`가 `workouts.json`과 `Equipment` enum에서 자동으로 만든 초안이며, 원문 기구명이 `Equipment` 라벨과 정확히 일치할 때만 기구 ID를 제안한다. 그 밖의 운동은 '미확정'으로 두었고 임의로 연결하지 않았다. 어느 행도 '검증 완료'가 아니다. 앱은 이 표를 사용하지 않는다(추천 목록 미구현).
+**이 표는 승인되지 않았다.** `scripts/gen-equipment-mapping.py`가 `workouts.json`과 `Equipment` enum에서 자동으로 만든 초안이며, 원문 기구명이 `Equipment` 라벨과 정확히 일치하거나 PO 결정(2026-11-17: 기구 등록 범위 확대, 로프·미니밴드 포함, 벽·의자는 맨몸)에 따라 연결했다. 'A 또는 B'는 PO 결정 대기로 남겼다. 어느 행도 '검증 완료'가 아니다. 앱은 이 표를 사용하지 않는다(추천 목록 미구현).
 
-기구 ID(`Equipment`): `INDOOR_CYCLE`=실내 사이클, `ELLIPTICAL`=일립티컬, `LEG_PRESS`=레그프레스, `LAT_PULLDOWN`=랫풀다운, `CABLE_MACHINE`=케이블 머신, `DUMBBELL`=덤벨, `YOGA_MAT`=요가 매트, `RESISTANCE_BAND`=저항 밴드
+기구 ID(`Equipment`): `INDOOR_CYCLE`=실내 사이클, `ELLIPTICAL`=일립티컬, `LEG_PRESS`=레그프레스, `LAT_PULLDOWN`=랫풀다운, `CABLE_MACHINE`=케이블 머신, `DUMBBELL`=덤벨, `YOGA_MAT`=요가 매트, `RESISTANCE_BAND`=저항 밴드, `HIP_THRUST_MACHINE`=힙쓰러스트 머신, `HIP_ABDUCTION_MACHINE`=힙 어브덕션 머신, `LEG_CURL_MACHINE`=레그컬 머신, `SEATED_ROW_MACHINE`=시티드 로우 머신, `CHEST_PRESS_MACHINE`=체스트프레스 머신, `BENCH`=벤치, `STEP_BOX`=스텝박스
 
 | 운동 ID | 운동명 | 필요 기구 ID | 맨몸 가능 여부 | 데이터 출처 | 매핑 검증 상태 |
 |---|---|---|---|---|---|
 | `legPress` | 레그프레스 | LEG_PRESS | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.legPress[2] = "레그프레스 머신" | 미검증(초안: 원문 기구명과 정확히 일치) |
 | `gobletSquat` | 고블릿 스쿼트 | DUMBBELL | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.gobletSquat[2] = "덤벨 1개" | 미검증(초안: 원문 기구명과 정확히 일치) |
-| `boxSquat` | 박스 스쿼트 | 미확정 | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.boxSquat[2] = "고정 벤치" | 미확정(PO 결정 필요: 대응 기구 없음 또는 원문이 복수/모호) |
-| `stepUp` | 낮은 스텝업 | 미확정 | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.stepUp[2] = "낮은 스텝박스" | 미확정(PO 결정 필요: 대응 기구 없음 또는 원문이 복수/모호) |
+| `boxSquat` | 박스 스쿼트 | BENCH | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.boxSquat[2] = "고정 벤치" | 미검증(초안: PO 결정 2026-11-17 반영) |
+| `stepUp` | 낮은 스텝업 | STEP_BOX | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.stepUp[2] = "낮은 스텝박스" | 미검증(초안: PO 결정 2026-11-17 반영) |
 | `gluteBridge` | 글루트브리지 | YOGA_MAT | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.gluteBridge[2] = "매트" | 미검증(초안: 원문 기구명과 정확히 일치) |
-| `hipThrust` | 힙쓰러스트 | 미확정 | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.hipThrust[2] = "힙쓰러스트 머신/벤치" | 미확정(PO 결정 필요: 대응 기구 없음 또는 원문이 복수/모호) |
+| `hipThrust` | 힙쓰러스트 | HIP_THRUST_MACHINE 또는 BENCH | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.hipThrust[2] = "힙쓰러스트 머신/벤치" | PO 결정 대기('A 또는 B'에서 하나만 있으면 후보로 볼지) |
 | `cableKickback` | 케이블 킥백 | CABLE_MACHINE | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.cableKickback[2] = "케이블 머신" | 미검증(초안: 원문 기구명과 정확히 일치) |
-| `hipAbduction` | 힙 어브덕션 | 미확정 | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.hipAbduction[2] = "힙 어브덕션 머신" | 미확정(PO 결정 필요: 대응 기구 없음 또는 원문이 복수/모호) |
-| `legCurl` | 레그컬 | 미확정 | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.legCurl[2] = "레그컬 머신" | 미확정(PO 결정 필요: 대응 기구 없음 또는 원문이 복수/모호) |
+| `hipAbduction` | 힙 어브덕션 | HIP_ABDUCTION_MACHINE | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.hipAbduction[2] = "힙 어브덕션 머신" | 미검증(초안: PO 결정 2026-11-17 반영) |
+| `legCurl` | 레그컬 | LEG_CURL_MACHINE | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.legCurl[2] = "레그컬 머신" | 미검증(초안: PO 결정 2026-11-17 반영) |
 | `rdl` | 덤벨 루마니안 데드리프트 | DUMBBELL | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.rdl[2] = "덤벨 2개" | 미검증(초안: 원문 기구명과 정확히 일치) |
-| `calfRaise` | 카프레이즈 | 미확정 | 가능(원문에 '맨몸' 표기) | workouts.json › exercise.calfRaise[2] = "머신 또는 맨몸" | 미확정(PO 결정 필요: 대응 기구 없음 또는 원문이 복수/모호) |
-| `reverseLunge` | 리버스 런지 | 미확정 | 가능(원문에 '맨몸' 표기) | workouts.json › exercise.reverseLunge[2] = "맨몸/덤벨" | 미확정(PO 결정 필요: 대응 기구 없음 또는 원문이 복수/모호) |
+| `calfRaise` | 카프레이즈 | 원문에 '머신'의 종류 없음 → 확정 불가 | 가능(원문에 '맨몸' 표기) | workouts.json › exercise.calfRaise[2] = "머신 또는 맨몸" | PO 결정 대기('A 또는 B'에서 하나만 있으면 후보로 볼지) |
+| `reverseLunge` | 리버스 런지 | 없음(맨몸) 또는 DUMBBELL | 가능(원문에 '맨몸' 표기) | workouts.json › exercise.reverseLunge[2] = "맨몸/덤벨" | PO 결정 대기('A 또는 B'에서 하나만 있으면 후보로 볼지) |
 | `latPulldown` | 랫풀다운 | LAT_PULLDOWN | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.latPulldown[2] = "랫풀다운 머신" | 미검증(초안: 원문 기구명과 정확히 일치) |
-| `seatedRow` | 시티드 로우 | 미확정 | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.seatedRow[2] = "시티드로우 머신" | 미확정(PO 결정 필요: 대응 기구 없음 또는 원문이 복수/모호) |
+| `seatedRow` | 시티드 로우 | SEATED_ROW_MACHINE | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.seatedRow[2] = "시티드로우 머신" | 미검증(초안: PO 결정 2026-11-17 반영) |
 | `cableRow` | 케이블 로우 | CABLE_MACHINE | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.cableRow[2] = "케이블 머신" | 미검증(초안: 원문 기구명과 정확히 일치) |
-| `chestPress` | 체스트프레스 | 미확정 | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.chestPress[2] = "체스트프레스 머신" | 미확정(PO 결정 필요: 대응 기구 없음 또는 원문이 복수/모호) |
-| `dbChestPress` | 덤벨 체스트프레스 | 미확정 | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.dbChestPress[2] = "벤치·덤벨" | 미확정(PO 결정 필요: 대응 기구 없음 또는 원문이 복수/모호) |
-| `inclinePushup` | 인클라인 푸시업 | 미확정 | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.inclinePushup[2] = "견고한 벤치" | 미확정(PO 결정 필요: 대응 기구 없음 또는 원문이 복수/모호) |
-| `facePull` | 페이스풀 | 미확정 | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.facePull[2] = "케이블·로프" | 미확정(PO 결정 필요: 대응 기구 없음 또는 원문이 복수/모호) |
+| `chestPress` | 체스트프레스 | CHEST_PRESS_MACHINE | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.chestPress[2] = "체스트프레스 머신" | 미검증(초안: PO 결정 2026-11-17 반영) |
+| `dbChestPress` | 덤벨 체스트프레스 | BENCH + DUMBBELL (둘 다 필요) | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.dbChestPress[2] = "벤치·덤벨" | 미검증(초안: PO 결정 2026-11-17 반영) |
+| `inclinePushup` | 인클라인 푸시업 | BENCH | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.inclinePushup[2] = "견고한 벤치" | 미검증(초안: PO 결정 2026-11-17 반영) |
+| `facePull` | 페이스풀 | CABLE_MACHINE (로프 포함) | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.facePull[2] = "케이블·로프" | 미검증(초안: PO 결정 2026-11-17 반영) |
 | `lateralRaise` | 덤벨 사이드 레이즈 | DUMBBELL | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.lateralRaise[2] = "가벼운 덤벨" | 미검증(초안: 원문 기구명과 정확히 일치) |
 | `bicepCurl` | 덤벨 바이셉 컬 | DUMBBELL | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.bicepCurl[2] = "덤벨" | 미검증(초안: 원문 기구명과 정확히 일치) |
 | `tricepPushdown` | 트라이셉 푸시다운 | CABLE_MACHINE | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.tricepPushdown[2] = "케이블 머신" | 미검증(초안: 원문 기구명과 정확히 일치) |
@@ -32,11 +32,11 @@
 | `birdDog` | 버드독 | YOGA_MAT | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.birdDog[2] = "매트" | 미검증(초안: 원문 기구명과 정확히 일치) |
 | `plank` | 플랭크 | YOGA_MAT | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.plank[2] = "매트" | 미검증(초안: 원문 기구명과 정확히 일치) |
 | `sidePlank` | 사이드 플랭크 | YOGA_MAT | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.sidePlank[2] = "매트" | 미검증(초안: 원문 기구명과 정확히 일치) |
-| `pallofPress` | 팔로프 프레스 | 미확정 | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.pallofPress[2] = "케이블·밴드" | 미확정(PO 결정 필요: 대응 기구 없음 또는 원문이 복수/모호) |
-| `wallPushup` | 벽 푸시업 | 미확정 | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.wallPushup[2] = "벽" | 미확정(PO 결정 필요: 대응 기구 없음 또는 원문이 복수/모호) |
-| `chairSquat` | 의자 스쿼트 | 미확정 | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.chairSquat[2] = "의자" | 미확정(PO 결정 필요: 대응 기구 없음 또는 원문이 복수/모호) |
+| `pallofPress` | 팔로프 프레스 | CABLE_MACHINE 또는 RESISTANCE_BAND | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.pallofPress[2] = "케이블·밴드" | PO 결정 대기('A 또는 B'에서 하나만 있으면 후보로 볼지) |
+| `wallPushup` | 벽 푸시업 | 없음(맨몸으로 분류) | 가능(PO 결정: 벽·의자는 맨몸으로 분류) | workouts.json › exercise.wallPushup[2] = "벽" | 미검증(초안: PO 결정 2026-11-17 반영) |
+| `chairSquat` | 의자 스쿼트 | 없음(맨몸으로 분류) | 가능(PO 결정: 벽·의자는 맨몸으로 분류) | workouts.json › exercise.chairSquat[2] = "의자" | 미검증(초안: PO 결정 2026-11-17 반영) |
 | `bandRow` | 저항 밴드 로우 | RESISTANCE_BAND | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.bandRow[2] = "저항 밴드" | 미검증(초안: 원문 기구명과 정확히 일치) |
-| `clamshell` | 클램셸 | 미확정 | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.clamshell[2] = "매트/미니밴드" | 미확정(PO 결정 필요: 대응 기구 없음 또는 원문이 복수/모호) |
+| `clamshell` | 클램셸 | YOGA_MAT 또는 RESISTANCE_BAND (미니밴드 포함) | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.clamshell[2] = "매트/미니밴드" | PO 결정 대기('A 또는 B'에서 하나만 있으면 후보로 볼지) |
 | `heelSlide` | 힐 슬라이드 | YOGA_MAT | 아니오(원문에 '맨몸' 표기 없음) | workouts.json › exercise.heelSlide[2] = "매트" | 미검증(초안: 원문 기구명과 정확히 일치) |
 | `bodySquat` | 맨몸 스쿼트 | 없음(맨몸) | 가능(원문에 '맨몸' 표기) | workouts.json › exercise.bodySquat[2] = "맨몸" | 미검증(초안: 맨몸 운동 데이터 검증 필요) |
 | `march` | 스탠딩 니 리프트 | 없음(맨몸) | 가능(원문에 '맨몸' 표기) | workouts.json › exercise.march[2] = "맨몸" | 미검증(초안: 맨몸 운동 데이터 검증 필요) |

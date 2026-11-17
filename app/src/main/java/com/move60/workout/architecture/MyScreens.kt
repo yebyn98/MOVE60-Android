@@ -253,6 +253,9 @@ fun SpaceEquipmentScreen(onBack: () -> Unit, viewModel: SpaceEquipmentViewModel 
                     Text(if (isGym) "선택한 헬스장에서 실제 이용할 기구만 등록해요." else "집에서 실제 사용할 수 있는 기구만 등록해요.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
                     Text(l.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
+                    if (isGym) TextButton(onClick = viewModel::selectAll, modifier = Modifier.heightIn(min = 48.dp).testTag("my_eq_select_all")) {
+                        Text("전체 선택")
+                    }
                     Move60Card(spacing = 6.dp) {
                         Equipment.choices(l.kind).forEach { eq ->
                             val on = eq.name in selected

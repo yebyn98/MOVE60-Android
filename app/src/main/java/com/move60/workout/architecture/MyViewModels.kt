@@ -171,6 +171,11 @@ class SpaceEquipmentViewModel @Inject constructor(
     }
 
     fun toggle(key: String) { _selected.value = _selected.value.let { if (key in it) it - key else it + key }; _error.value = false }
+    /** The user pressed "전체 선택": every choice of this kind is ticked. Nothing is ever selected without that press. */
+    fun selectAll() {
+        val kind = (_load.value as? EquipmentLoad.Ready)?.kind ?: return
+        _selected.value = _selected.value + Equipment.choices(kind).map { it.name }; _error.value = false
+    }
     fun setModel(key: String, brand: String, model: String) { _models.value = _models.value + (key to (brand to model)) }
 
     fun save() {

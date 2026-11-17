@@ -79,9 +79,27 @@ class SpaceServiceTest {
         assertEquals(listOf("DUMBBELL"), dao.equipment("home").map { it.equipmentKey })
     }
 
-    @Test fun choicesFollowTheFigmaChecklists() {
-        assertEquals(listOf("실내 사이클", "레그프레스", "랫풀다운", "일립티컬", "케이블 머신"), Equipment.choices(SpaceKind.GYM).map { it.label })
-        assertEquals(listOf("실내 사이클", "덤벨", "요가 매트", "저항 밴드", "일립티컬"), Equipment.choices(SpaceKind.HOME).map { it.label })
+    @Test fun choicesKeepTheEarlierOrderAndOnlyAddEquipment() {
+        // The earlier Figma checklists stay first and in order; the widened gym / home lists only append (PO decision 2026-11-17).
+        assertEquals(listOf("실내 사이클", "레그프레스", "랫풀다운", "일립티컬", "케이블 머신"), Equipment.choices(SpaceKind.GYM).take(5).map { it.label })
+        assertEquals(listOf("실내 사이클", "덤벨", "요가 매트", "저항 밴드", "일립티컬"), Equipment.choices(SpaceKind.HOME).take(5).map { it.label })
+        assertEquals(listOf("힙쓰러스트 머신", "힙 어브덕션 머신", "레그컬 머신", "시티드 로우 머신", "체스트프레스 머신", "덤벨", "벤치", "스텝박스", "요가 매트", "저항 밴드"),
+            Equipment.choices(SpaceKind.GYM).drop(5).map { it.label })
+        assertEquals(listOf("벤치", "스텝박스"), Equipment.choices(SpaceKind.HOME).drop(5).map { it.label })
+    }
+
+    @Test fun everyStoredKeyOfBeforeStillResolvesAndEveryChoiceIsAKnownKey() {
+        for (old in listOf("INDOOR_CYCLE", "ELLIPTICAL", "LEG_PRESS", "LAT_PULLDOWN", "CABLE_MACHINE", "DUMBBELL", "YOGA_MAT", "RESISTANCE_BAND"))
+            assertNotNull(old, Equipment.fromKey(old))
+        for (kind in SpaceKind.values()) assertEquals(Equipment.choices(kind).size, Equipment.choices(kind).map { it.name }.toSet().size)
+    }
+
+    @Test fun aGymCanRegisterEveryGymChoiceAndAHomeItsHomeChoices() = runBlocking {
+        service.create("g", SpaceKind.GYM, "헬스장"); service.create("h", SpaceKind.HOME, "집")
+        assertEquals(SpaceResult.Saved("g"), service.saveEquipment("g", Equipment.choices(SpaceKind.GYM).map { EquipmentChoice(it.name) }))
+        assertEquals(Equipment.choices(SpaceKind.GYM).size, dao.equipment("g").size)
+        assertEquals(SpaceResult.Saved("h"), service.saveEquipment("h", listOf(EquipmentChoice("BENCH"), EquipmentChoice("STEP_BOX"), EquipmentChoice("DUMBBELL"))))
+        assertTrue("a machine is not a home choice", service.saveEquipment("h", listOf(EquipmentChoice("LEG_CURL_MACHINE"))) is SpaceResult.Rejected)
     }
 
     /** PO decision 2: a gym name can be edited; the rules are the same as when registering, and nothing else changes. */
