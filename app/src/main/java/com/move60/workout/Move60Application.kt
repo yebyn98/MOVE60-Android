@@ -5,11 +5,8 @@ import android.app.Application
 import android.os.Bundle
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
-import com.move60.workout.architecture.PendingSessionOutbox
+import com.move60.workout.architecture.RoutiveOverCommit
 import com.move60.workout.architecture.SessionCommitter
-import com.move60.workout.architecture.RoutiveSessionStore
-import com.move60.workout.architecture.drain
-import com.move60.workout.architecture.isConfirmedFor
 import com.move60.workout.architecture.TimerSessionSync
 import com.move60.workout.architecture.timerSnapshot
 import dagger.hilt.android.HiltAndroidApp
@@ -51,7 +48,7 @@ class Move60Application : Application(), Configuration.Provider {
      * Commits a finished legacy-timer session to the Room v2 store (idempotent by session id) and, on foreground,
      * settles challenges whose end boundary has passed. Failures never reach the workout flow.
      */
-    fun syncTimerSessionAsync(settle: Boolean = false) {
+    fun syncTimerSessionAsync(settle: Boolean = false, onDone: () -> Unit = {}) {
         scope.launch {
             try {
                 val sync = TimerSessionSync(committer) { ZoneId.systemDefault().id }
@@ -59,13 +56,10 @@ class Move60Application : Application(), Configuration.Provider {
                 if (settle) sync.onForeground(snapshot) else sync.syncFinished(snapshot)
                 // P1-1: sessions copied to the outbox before their timer slot was replaced are retried here.
                 // A ROUTIVE_4 session that ended but was never confirmed committed is buffered, then drained (idempotent).
-                val outbox = PendingSessionOutbox(this@Move60Application)
-                val routive = RoutiveSessionStore(this@Move60Application)
-                val pending = routive.pendingCommit()
-                val pendingId = pending?.let { sync.sessionId(routive.snapshot(it)).also { _ -> outbox.enqueue(routive.snapshot(it)) } }
-                val outcomes = sync.drain(outbox)
-                if (pending != null && pendingId != null && outcomes.any { it.isConfirmedFor(pendingId) }) routive.markCommitted(pending.startedAtEpochMs)
+                // Same class (and lock) as the session screen, the tracking service and the watch handler use.
+                RoutiveOverCommit(this@Move60Application, committer) { ZoneId.systemDefault().id }.commitPending()
             } catch (_: Throwable) { /* retried on next foreground */ }
+            finally { try { onDone() } catch (_: Throwable) { } }
         }
     }
 }

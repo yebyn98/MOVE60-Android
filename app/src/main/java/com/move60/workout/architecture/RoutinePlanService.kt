@@ -92,7 +92,8 @@ class RoutinePlanService(private val db: WorkoutDatabase, private val clock: () 
     companion object {
         const val MAX_NAME = 30
         val SETS_RANGE = 1..20
-        val REPS_RANGE = 1..200
+        /** Shared with the live set input, the stored record and corrections ([SetLimits]), so a planned value is always recordable. */
+        val REPS_RANGE = com.move60.workout.domain.SetLimits.MIN_REPS..com.move60.workout.domain.SetLimits.MAX_REPS
         /** Seconds. */
         val REST_RANGE = 5L..900L
     }

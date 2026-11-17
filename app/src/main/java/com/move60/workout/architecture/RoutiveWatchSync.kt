@@ -95,7 +95,11 @@ object RoutiveWatchCommands {
         return when (request.optString("op")) {
             "pause" -> if (s.running) { store.pause(); true } else false
             "start" -> if (!s.running) { store.resume(); RoutiveSessionService.ensure(context); true } else false
-            "next" -> { store.advance(); true }
+            "next" -> {
+                // The last stage completed on the watch: save through the existing path now (the phone screen may be closed).
+                if (store.advance()?.over == true) (context.applicationContext as? com.move60.workout.Move60Application)?.syncTimerSessionAsync(settle = true)
+                true
+            }
             "rest_skip" -> if (s.rest != null) { store.skipRest(); true } else false
             else -> false   // "+15 s rest", "complete" and the like do not exist for ROUTIVE_4
         }

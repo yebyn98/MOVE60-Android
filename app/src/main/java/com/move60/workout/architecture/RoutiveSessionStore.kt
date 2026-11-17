@@ -15,6 +15,11 @@ sealed interface RoutiveStart {
     data object AlreadyActive : RoutiveStart
     /** The routine does not have exactly the four ROUTIVE_4 stages. */
     data object InvalidPlan : RoutiveStart
+    /**
+     * The previous session (or unreadable data) could not be kept safely, so NOTHING was replaced: the old record is intact and
+     * the user can simply try again.
+     */
+    data object PreserveFailed : RoutiveStart
 }
 
 /**
@@ -60,7 +65,8 @@ class RoutiveSessionStore(
     private val context: Context,
     private val clock: () -> Long = System::currentTimeMillis,
     private val dateNow: () -> LocalDate = { java.time.LocalDate.now(java.time.ZoneId.of("Asia/Seoul")) },
-    private val processToken: String = RoutiveProcess.token
+    private val processToken: String = RoutiveProcess.token,
+    private val outbox: PendingSessionOutbox = PendingSessionOutbox(context)
 ) {
     private val prefs = context.applicationContext.getSharedPreferences(NAME, Context.MODE_PRIVATE)
 
@@ -72,14 +78,20 @@ class RoutiveSessionStore(
     /** An over session whose commit has not been confirmed yet (the only kind that is ever re-buffered). */
     fun pendingCommit(): RoutiveSession? = read()?.takeIf { it.over && !isCommitted(it) }
 
-    /** Starts a session from a saved routine. Refuses to overwrite a running/paused one; an over-session is archived first. */
+    /**
+     * Starts a session from a saved routine. Refuses to overwrite a running/paused one. An over-session is copied to the outbox
+     * first and is replaced only after that copy is CONFIRMED on disk; if it cannot be kept, [RoutiveStart.PreserveFailed] is
+     * returned and the old session stays exactly as it was.
+     */
     fun start(routine: SavedRoutinePlan): RoutiveStart {
         val plan = FourStagePlans.from(routine.stages) ?: return RoutiveStart.InvalidPlan
         val current = read()
         if (current != null && !current.over) return RoutiveStart.AlreadyActive
-        if (current != null) archive(current)
-        // Data that exists but cannot be read is preserved under a backup key before the slot is reused (never deleted).
-        prefs.getString(KEY, null)?.takeIf { current == null }?.let { prefs.edit().putString("unreadable_${clock()}", it).commit() }
+        if (current != null && !archive(current)) return RoutiveStart.PreserveFailed
+        // Data that exists but cannot be read is preserved under a backup key before the slot is reused (never deleted); if the
+        // backup cannot be written the slot is not touched.
+        val unreadable = prefs.getString(KEY, null)?.takeIf { current == null }
+        if (unreadable != null && !prefs.edit().putString("unreadable_${clock()}", unreadable).commit()) return RoutiveStart.PreserveFailed
         val now = clock()
         val date = dateNow()
         val day = date.dayOfWeek.value   // new records support Mon..Sun (1..7); stored legacy records are never rewritten
@@ -187,9 +199,17 @@ class RoutiveSessionStore(
         return write(next, durable = next.over)
     }
 
-    private fun archive(s: RoutiveSession) {
-        if (isCommitted(s)) return
-        try { PendingSessionOutbox(context).enqueue(snapshot(s)) } catch (_: Throwable) { /* the slot stays intact on failure */ }
+    /**
+     * True when the session no longer needs the slot to survive: it is already committed, it has nothing that could ever be
+     * committed (its sets live in [SetRecordStore] and are untouched either way), or its copy in the outbox is confirmed.
+     * False when the copy could not be written or read back: the caller must then keep the slot.
+     */
+    private fun archive(s: RoutiveSession): Boolean {
+        if (isCommitted(s)) return true
+        return try {
+            val snap = snapshot(s)
+            if (!outbox.isRecordable(snap)) true else outbox.enqueue(snap) && outbox.contains(snap)
+        } catch (_: Throwable) { false }
     }
 
     private fun write(s: RoutiveSession, durable: Boolean): RoutiveSession {
