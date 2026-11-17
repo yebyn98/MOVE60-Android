@@ -44,7 +44,15 @@ sealed interface AbandonResult {
 class ChallengeService(private val db: WorkoutDatabase, private val clock: () -> Long) {
     private val dao get() = db.routiveDao()
 
-    companion object { const val MAX_NAME = 30 }
+    companion object {
+        const val MAX_NAME = 30
+
+        /** A fixed, inclusive period measured from one creation-day snapshot in the challenge zone. */
+        fun inclusiveEndDate(start: LocalDate, periodDays: Int): LocalDate {
+            require(periodDays >= 1) { "Period must contain at least one day" }
+            return start.plusDays(periodDays.toLong() - 1L)
+        }
+    }
 
     suspend fun create(requested: ChallengeEntity): ChallengeResult = try {
         db.withTransaction { createInTransaction(requested) }
