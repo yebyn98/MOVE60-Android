@@ -22,7 +22,7 @@ class Move60SplashTest {
     @Test fun introShowsWordmarkAndFinishesByItself() {
         var finished = false
         rule.setContent { Move60ComposeTheme { Move60Splash(onFinished = { finished = true }) } }
-        rule.onNodeWithText("MOVE60").assertIsDisplayed()
+        rule.onNodeWithText("ROUTIVE").assertIsDisplayed()
         rule.waitUntil(timeoutMillis = 5_000) { finished }
         assertTrue(finished)
     }

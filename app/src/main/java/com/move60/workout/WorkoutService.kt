@@ -83,7 +83,7 @@ class WorkoutService : Service() {
         manager.createNotificationChannel(NotificationChannel(
             CHANNEL_PROGRESS, "운동 진행 · 잠금화면 타이머", NotificationManager.IMPORTANCE_DEFAULT
         ).apply {
-            description = "MOVE60: 운동 진행 알림. 잠금화면에서는 운동 내용을 기본으로 숨겨요"
+            description = "ROUTIVE: 운동 진행 알림. 잠금화면에서는 운동 내용을 기본으로 숨겨요"
             lockscreenVisibility = Notification.VISIBILITY_PRIVATE
             setSound(null, null)
             enableVibration(false)
@@ -235,7 +235,7 @@ class WorkoutService : Service() {
         Notification.Builder(this, channel)
             .setSmallIcon(R.drawable.ic_fitness)
             .setColor(Move60Theme.Colors.primary)
-            .setContentTitle("MOVE60 · 운동 진행 중")
+            .setContentTitle("ROUTIVE · 운동 진행 중")
             .setContentText("잠금을 해제하면 자세히 볼 수 있어요")
             .apply { if (pending != null) setContentIntent(pending) }
             .setVisibility(Notification.VISIBILITY_PUBLIC)
@@ -287,7 +287,7 @@ class WorkoutService : Service() {
 
     private fun buildFallbackNotification(now: Long): Notification {
         val c = cue(now)
-        return builder(CHANNEL_PROGRESS).setContentTitle("MOVE60 · " + c.title)
+        return builder(CHANNEL_PROGRESS).setContentTitle("ROUTIVE · " + c.title)
             .setContentText(listOf(c.effort, "총 운동 " + (c.progress / 60) + "분").filter { it.isNotEmpty() }.joinToString(" · "))
             .setShowWhen(false)
             .setProgress(max(3600, c.progress), c.progress, false)
@@ -298,7 +298,7 @@ class WorkoutService : Service() {
     private fun buildNotification(now: Long): Notification {
         val c = cue(now)
         return builder(CHANNEL_PROGRESS)
-            .setContentTitle("MOVE60 · ${c.title}")
+            .setContentTitle("ROUTIVE · ${c.title}")
             .setContentText(c.effort.ifEmpty { c.stageName })
             .setStyle(Notification.DecoratedCustomViewStyle())
             .setCustomContentView(remoteView(R.layout.notification_workout_compact, c, now))
@@ -400,7 +400,7 @@ class WorkoutService : Service() {
     private fun showComplete() {
         (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).notify(PHASE_ID,
             builder(CHANNEL_PHASE)
-                .setContentTitle("MOVE60 · 60분 운동 완료")
+                .setContentTitle("ROUTIVE · 60분 운동 완료")
                 .setContentText("오늘 운동을 마쳤어요. 체크리스트를 확인해 보세요.")
                 .setAutoCancel(true).build()
         )

@@ -44,6 +44,14 @@ open class PendingSessionOutbox(context: Context) {
                 s.stages.forEach { a.put(JSONObject().put("k", it.kind.name).put("p", it.plannedSeconds ?: JSONObject.NULL).put("a", it.actualSeconds)) }
             })
             .put("plan", s.planSnapshotJson ?: JSONObject.NULL)
+            // Versioned so an entry written before cardio inputs existed (no "cardio" key) reads as "no inputs".
+            .put("cardioV", 1)
+            .put("cardio", JSONArray().also { a ->
+                s.cardioInputs.forEach {
+                    a.put(JSONObject().put("i", it.inputIndex).put("st", it.stageIndex).put("at", it.atActiveSeconds).put("eq", it.equipmentKey)
+                        .put("m", it.metricKey).put("v", it.valueText).put("u", it.unit ?: JSONObject.NULL).put("t", it.enteredAtEpochMs))
+                }
+            })
             .put("attempts", 0)
         // commit() (not apply()) so the copy is on disk before the caller overwrites the timer state.
         return prefs.edit().putString(id, json.toString()).commit()
@@ -95,13 +103,23 @@ open class PendingSessionOutbox(context: Context) {
             }.getOrNull()
         }
         val plan = if (o.isNull("plan")) null else o.getString("plan").takeIf { it.isNotEmpty() }
+        // An unreadable input is dropped on its own; the session entry itself is never lost.
+        val cardioArr = if (o.optInt("cardioV", 0) >= 1) o.optJSONArray("cardio") ?: JSONArray() else JSONArray()
+        val cardio = (0 until cardioArr.length()).mapNotNull { i ->
+            runCatching {
+                cardioArr.getJSONObject(i).let { c ->
+                    TimerCardioInput(c.getInt("i"), c.getInt("st"), c.getInt("at"), c.getString("eq"), c.getString("m"), c.getString("v"),
+                        if (c.isNull("u")) null else c.getString("u"), c.getLong("t"))
+                }
+            }.getOrNull()
+        }
         TimerSnapshot(
             LocalDate.parse(o.getString("recordDate")), o.getInt("day"), o.getLong("startedAt"),
             o.optBoolean("finished"), o.getInt("seconds"),
             (0 until iv.length()).map { iv.getJSONArray(it).let { p -> p.getLong(0) to p.getLong(1) } },
             o.optBoolean("endedEarly"),
             (0 until sets.length()).map { sets.getJSONObject(it).let { s -> TimerSet(s.getString("id"), s.getInt("n"), s.getString("kg"), s.getString("reps")) } },
-            stages, plan
+            stages, plan, cardio
         )
     } catch (_: Exception) { null }
 

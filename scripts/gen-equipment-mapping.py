@@ -16,11 +16,15 @@ PO_RULES = {
     "legCurl": ("LEG_CURL_MACHINE", False), "seatedRow": ("SEATED_ROW_MACHINE", False), "chestPress": ("CHEST_PRESS_MACHINE", False),
     "inclinePushup": ("BENCH", False), "dbChestPress": ("BENCH + DUMBBELL (둘 다 필요)", False), "facePull": ("CABLE_MACHINE (로프 포함)", False),
     "wallPushup": ("없음(맨몸으로 분류)", True), "chairSquat": ("없음(맨몸으로 분류)", True),
+    # PO decision 2026-11-17: exercises that only need a mat count as body-weight exercises (no equipment to register).
+    "gluteBridge": ("없음(매트 운동은 맨몸으로 분류)", True), "deadBug": ("없음(매트 운동은 맨몸으로 분류)", True),
+    "birdDog": ("없음(매트 운동은 맨몸으로 분류)", True), "plank": ("없음(매트 운동은 맨몸으로 분류)", True),
+    "sidePlank": ("없음(매트 운동은 맨몸으로 분류)", True), "heelSlide": ("없음(매트 운동은 맨몸으로 분류)", True),
 }
 # "A or B" sources. PO decision 2026-11-17: ONE of them is enough for the exercise to be a candidate ("하나만 있어도 추천").
 OR_RULES = {
     "hipThrust": "HIP_THRUST_MACHINE 또는 BENCH", "reverseLunge": "없음(맨몸) 또는 DUMBBELL", "pallofPress": "CABLE_MACHINE 또는 RESISTANCE_BAND",
-    "clamshell": "YOGA_MAT 또는 RESISTANCE_BAND (미니밴드 포함)", "calfRaise": "없음(맨몸) 또는 머신(종류가 원문에 없어 기구 ID 연결 안 함)",
+    "clamshell": "없음(매트=맨몸) 또는 RESISTANCE_BAND (미니밴드 포함)", "calfRaise": "없음(맨몸) 또는 DUMBBELL (PO: 원문의 '머신'은 덤벨)",
 }
 rows = []
 for ex_id, v in data.items():
@@ -28,7 +32,7 @@ for ex_id, v in data.items():
     bare = "가능(원문에 '맨몸' 표기)" if "맨몸" in text else "아니오(원문에 '맨몸' 표기 없음)"
     if ex_id in PO_RULES:
         req, body = PO_RULES[ex_id]
-        if body: bare = "가능(PO 결정: 벽·의자는 맨몸으로 분류)"
+        if body: bare = "가능(PO 결정: 벽·의자·매트 운동은 맨몸으로 분류)"
         status = "미검증(초안: PO 결정 2026-11-17 반영)"
     elif ex_id in OR_RULES:
         req, status = OR_RULES[ex_id], "미검증(초안: PO 결정 2026-11-17 — A 또는 B 는 하나만 있어도 후보)"

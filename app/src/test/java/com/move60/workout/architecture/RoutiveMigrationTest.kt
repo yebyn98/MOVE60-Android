@@ -82,7 +82,7 @@ class RoutiveMigrationTest {
 
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val db = Room.databaseBuilder(context, WorkoutDatabase::class.java, dbName)
-            .addMigrations(RoutiveMigrations.MIGRATION_1_2, RoutiveMigrations.MIGRATION_2_3, RoutiveMigrations.MIGRATION_3_4, RoutiveMigrations.MIGRATION_4_5, RoutiveMigrations.MIGRATION_5_6).allowMainThreadQueries().build()
+            .addMigrations(RoutiveMigrations.MIGRATION_1_2, RoutiveMigrations.MIGRATION_2_3, RoutiveMigrations.MIGRATION_3_4, RoutiveMigrations.MIGRATION_4_5, RoutiveMigrations.MIGRATION_5_6, RoutiveMigrations.MIGRATION_6_7).allowMainThreadQueries().build()
         try {
             val legacy = db.workoutDao()
             assertEquals(3540L, legacy.day("2026-11-04")?.activeSeconds)
@@ -173,6 +173,21 @@ class RoutiveMigrationTest {
             assertEquals(1, db.query("SELECT COUNT(*) FROM routine_plans").use { it.moveToFirst(); it.getInt(0) })
             assertEquals(0, db.query("SELECT COUNT(*) FROM workout_spaces").use { it.moveToFirst(); it.getInt(0) })
             assertEquals(0, db.query("SELECT COUNT(*) FROM space_equipment").use { it.moveToFirst(); it.getInt(0) })
+        }
+    }
+
+    /** v6 -> v7 adds only session_cardio_inputs; stored sessions, sets and adjustments survive unchanged and the new table starts empty. */
+    @Test fun v6ToV7AddsTheCardioInputTableWithoutTouchingExistingRows() {
+        helper.createDatabase(dbName, 6).use { db ->
+            seedV1(db)
+            db.execSQL("INSERT INTO sessions(sessionId,legacyToken,zoneId,startedAtEpochMs,endedAtEpochMs,completion,totalActiveSeconds,completedStrengthSets,validSession,planSnapshotJson,committedAtEpochMs) VALUES('s1',NULL,'Asia/Seoul',1000,2000,'COMPLETED',600,0,1,NULL,5)")
+            db.execSQL("INSERT INTO session_adjustments(sessionId,createdAtEpochMs,field,oldValue,newValue,reason) VALUES('s1',9,'set:bench:1:weightKg','40','42',NULL)")
+        }
+        helper.runMigrationsAndValidate(dbName, 7, true, RoutiveMigrations.MIGRATION_6_7).use { db ->
+            assertEquals(2, db.query("SELECT COUNT(*) FROM daily_workouts").use { it.moveToFirst(); it.getInt(0) })
+            assertEquals(1, db.query("SELECT COUNT(*) FROM sessions").use { it.moveToFirst(); it.getInt(0) })
+            db.query("SELECT field, oldValue, newValue FROM session_adjustments").use { assertTrue(it.moveToFirst()); assertEquals("40", it.getString(1)); assertEquals("42", it.getString(2)) }
+            assertEquals(0, db.query("SELECT COUNT(*) FROM session_cardio_inputs").use { it.moveToFirst(); it.getInt(0) })
         }
     }
 }

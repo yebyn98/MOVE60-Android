@@ -84,4 +84,15 @@ object RoutiveMigrations {
             V5_TO_V6_STATEMENTS.forEach(db::execSQL)
         }
     }
+
+    /** Room v6 -> v7: ONE additive table for the cardio values a user saved (docs/v71). No existing table is touched. Copied from schemas/.../7.json. */
+    val V6_TO_V7_STATEMENTS: List<String> = listOf(
+        "CREATE TABLE IF NOT EXISTS `session_cardio_inputs` (`sessionId` TEXT NOT NULL, `inputIndex` INTEGER NOT NULL, `stageIndex` INTEGER NOT NULL, `atActiveSeconds` INTEGER NOT NULL, `equipmentKey` TEXT NOT NULL, `metricKey` TEXT NOT NULL, `valueText` TEXT NOT NULL, `unit` TEXT, `enteredAtEpochMs` INTEGER NOT NULL, PRIMARY KEY(`sessionId`, `inputIndex`, `metricKey`), FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`sessionId`) ON UPDATE NO ACTION ON DELETE CASCADE )"
+    )
+
+    val MIGRATION_6_7: Migration = object : Migration(6, 7) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            V6_TO_V7_STATEMENTS.forEach(db::execSQL)
+        }
+    }
 }

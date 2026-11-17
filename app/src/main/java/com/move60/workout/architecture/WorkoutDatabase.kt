@@ -10,6 +10,8 @@ import androidx.room.RoomDatabase
  * v3: routine_plans / routine_stage_plans (nullable planned seconds), added by [RoutiveMigrations.MIGRATION_2_3].
  * v4: routine_exercises (exercises chosen per stage), added by [RoutiveMigrations.MIGRATION_3_4].
  * v5: nullable strength targets (sets, reps, rest seconds) on routine_exercises, [RoutiveMigrations.MIGRATION_4_5].
+ * v6: workout_spaces / space_equipment, [RoutiveMigrations.MIGRATION_5_6].
+ * v7: session_cardio_inputs (saved cardio equipment values), additive only, [RoutiveMigrations.MIGRATION_6_7].
  */
 @Database(
     entities = [
@@ -19,9 +21,10 @@ import androidx.room.RoomDatabase
         ChallengeEntity::class, ChallengeDayCreditEntity::class,
         SessionDraftEntity::class,
         RoutinePlanEntity::class, RoutineStagePlanEntity::class, RoutineExerciseEntity::class,
-        WorkoutSpaceEntity::class, SpaceEquipmentEntity::class
+        WorkoutSpaceEntity::class, SpaceEquipmentEntity::class,
+        SessionCardioInputEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = true
 )
 abstract class WorkoutDatabase : RoomDatabase() {
