@@ -45,6 +45,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -53,7 +55,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
@@ -145,8 +149,17 @@ fun MySpacesScreen(onBack: () -> Unit, onOpenSpace: (String) -> Unit, viewModel:
     val message by viewModel.message.collectAsStateWithLifecycle()
     var addGym by rememberSaveable { mutableStateOf(false) }
     var renaming by rememberSaveable { mutableStateOf<String?>(null) }
+    // The message (e.g. "same name already exists") sits below the list; scroll it into view when it appears so the user always sees why
+    // nothing happened, however long the list is or whether the keyboard is still closing.
+    val spacesScroll = rememberScrollState()
+    LaunchedEffect(message) {
+        if (message != null) {
+            withFrameNanos { }                       // let the message take its place in the layout first
+            spacesScroll.animateScrollTo(spacesScroll.maxValue)
+        }
+    }
     Scaffold(containerColor = MaterialTheme.colorScheme.background, topBar = { ScreenTopBar("내 운동 공간", onBack, "my_back") }) { inner ->
-        Column(Modifier.fillMaxSize().padding(inner).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).testTag("my_spaces"),
+        Column(Modifier.fillMaxSize().padding(inner).verticalScroll(spacesScroll).padding(horizontal = 16.dp).testTag("my_spaces"),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("공간별로 실제 이용할 기구를 등록해요.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
             val list = spaces
@@ -180,7 +193,10 @@ fun MySpacesScreen(onBack: () -> Unit, onOpenSpace: (String) -> Unit, viewModel:
                     NavRow("집 · 개인 운동 공간 등록", "집에서 쓰는 기구를 직접 등록", "my_add_home") { viewModel.addHome() }
                 NavRow("헬스장 추가 등록", "헬스장 이름을 직접 등록", "my_add_gym") { addGym = true }
             }
-            message?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("my_spaces_message")) }
+            message?.let {
+                Text(it, color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }.testTag("my_spaces_message"))
+            }
             Spacer(Modifier.height(16.dp))
         }
     }
