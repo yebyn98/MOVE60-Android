@@ -1,6 +1,6 @@
 # v71 · Phase 3-2 설계안: 유산소 실측·강도 구간 기록
 
-**상태(2026-11-17): PO 확인 4건 확정. 1단계(순수 계산기 `CardioIntervals`)만 구현·JVM 테스트. DB·화면·워치는 아직 없다. CI·에뮬레이터·실기기 미검증.** 근거: Notion "ROUTIVE v2 · 2026-11-17 Figma 정리·정책 9건·QA/플로우 이관 기록" §8(P-08 확정 기준·사례 A~E·AC-P08-01~06), 기존 `docs/v60`~`v63`, 현재 코드.
+**상태(2026-11-17): PO 확인 4건 확정. 1단계(순수 계산기 `CardioIntervals`)·2단계(스키마 v7·저장·outbox)를 구현하고 JVM 테스트했다. 입력 화면·상세·정정 UI·워치는 아직 없다. CI·에뮬레이터·실기기 미검증.** 근거: Notion "ROUTIVE v2 · 2026-11-17 Figma 정리·정책 9건·QA/플로우 이관 기록" §8(P-08 확정 기준·사례 A~E·AC-P08-01~06), 기존 `docs/v60`~`v63`, 현재 코드.
 
 ## 1. 요구 (정책 원문 요약)
 - 실제 기구 수치를 **선택 입력**한다. 입력 사건(원본)과 사후 정정은 구분해 보존한다. 미기록 구간의 수치는 **추정하지 않는다**.
@@ -29,11 +29,11 @@
 ## 4. 데이터 모델 제안 (Room v7, 추가만)
 ```
 session_cardio_inputs
-  sessionId TEXT, inputIndex INTEGER            (PK)
+  sessionId TEXT, inputIndex INTEGER, metricKey TEXT   (PK: 한 입력 사건에 항목 여러 개 = 행 여러 개)
   stageIndex INTEGER                            유산소 ①/②
   atActiveSeconds INTEGER                       세션 활성 경과(일시정지 제외)
   equipmentKey TEXT                             Equipment 키(예: INDOOR_CYCLE)
-  metricKey TEXT, valueText TEXT, unit TEXT     사용자가 입력한 그대로
+  valueText TEXT, unit TEXT                     사용자가 입력한 그대로(숫자)
   enteredAtEpochMs INTEGER                      입력 시각(감사용)
 ```
 - 마이그레이션은 `CREATE TABLE IF NOT EXISTS` 한 개뿐이다. **기존 테이블은 건드리지 않고** 기존 기록은 불변이다. `exportSchema` 7.json 추가, `RoutiveMigrationTest` 패턴으로 v6→v7 테스트, `verify-data-safety.py`(DROP·RENAME 금지, 스키마·마이그레이션 사슬) 통과 필수.
@@ -78,3 +78,11 @@ session_cardio_inputs
 - DB 스키마 변경(v7)은 개발 브랜치의 다른 작업과 충돌하기 쉬워 **다른 데이터 계층 변경이 없을 때 단독 PR**로 진행해야 한다.
 - 입력 시점 이력과 구간 표시가 어긋나지 않도록 구간을 저장하지 않고 계산한다.
 - 실기기 검증이 필요한 부분: 장시간 운동 중 입력, 프로세스 종료 후 복구.
+
+## 10. 2단계 구현 결과 (스키마 v7, 코드 기준)
+- `session_cardio_inputs`(PK `sessionId, inputIndex, metricKey`, `sessions` FK CASCADE). `MIGRATION_6_7`은 `CREATE TABLE IF NOT EXISTS` 한 문장뿐이고 `schemas/7.json`을 추가했다. 기존 테이블은 변경 없음.
+- 저장은 세션 커밋과 **같은 트랜잭션**이다. 검증 실패(미지의 항목·숫자 아님·음수·세션 종료 이후 시각·중복 키·다른 세션 id)는 번들 전체를 거부해 아무것도 저장하지 않는다.
+- 60초 미만·세트 없음 세션은 기존대로 저장하지 않으므로 그 안의 입력도 저장되지 않는다(PO 확정 4).
+- 멱등: 같은 입력 재시도는 `AlreadyCommitted`. 저장된 값과 다른 값은 `Conflict`(저장분 불변). 한쪽에 입력이 없으면 동의로 보고 저장분을 바꾸지 않는다(plan·segments와 같은 규칙).
+- outbox JSON은 `cardioV:1` + `cardio` 배열을 추가한다. 키가 없는 구버전 항목은 "입력 없음"으로 읽는다. 읽을 수 없는 입력 하나만 버리고 세션 항목은 유지한다.
+- 아직 없는 것: 입력을 만들어 내는 화면(3단계), 상세 표시(4단계), 정정(5단계). 지금은 입력이 만들어지지 않아 실제 기록에는 변화가 없다.
