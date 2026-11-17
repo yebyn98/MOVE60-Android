@@ -32,6 +32,8 @@ data class ChallengeCard(
 
 data class ChallengeUiState(
     val loading: Boolean = true,
+    /** Never render 'create new' as though no challenge exists when the stored state could not be read. */
+    val loadError: Boolean = false,
     val active: ChallengeCard? = null,
     val ended: List<ChallengeCard> = emptyList(),
     /** Last user-visible result; consumed by the screen via [ChallengeViewModel.messageShown]. */
@@ -48,8 +50,17 @@ class ChallengeViewModel @Inject constructor(committer: SessionCommitter) : View
 
     fun refresh() {
         viewModelScope.launch {
-            runCatching { service.refreshActive() }
-            reload()
+            try {
+                service.refreshActive()
+                reload()
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                _state.value = ChallengeUiState(
+                    loading = false, loadError = true,
+                    message = "도전 기록을 불러오지 못했어요. 저장된 기록은 유지됩니다."
+                )
+            }
         }
     }
 
