@@ -86,7 +86,7 @@ class WorkoutTileService : TileService() {
             else -> 0f
         }
         val center = LayoutElementBuilders.Column.Builder()
-            .addContent(tileLine("MOVE60", Theme.Type.wearTitle, Theme.Colors.primary))
+            .addContent(tileLine("ROUTIVE", Theme.Type.wearTitle, Theme.Colors.primary))
             .addContent(tileLine(status, Theme.Type.wearBody, Theme.Colors.textHigh))
             .addContent(tileLine(info, Theme.Type.wearBody, Theme.Colors.textMedium))
             .addContent(tileLine("눌러서 열기", Theme.Type.wearCaption, Theme.Colors.textMuted))

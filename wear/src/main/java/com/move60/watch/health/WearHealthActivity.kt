@@ -220,7 +220,7 @@ fun HealthScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 item {
-                    Text("MOVE60 · 건강", color = brand, fontWeight = FontWeight.Bold,
+                    Text("ROUTIVE · 건강", color = brand, fontWeight = FontWeight.Bold,
                         fontSize = 16.sp, maxLines = 1)
                 }
                 item {
@@ -260,7 +260,7 @@ fun HealthScreen(
                 item {
                     Text(
                         if (state.healthConsent) "휴대폰에서 동의된 기록만 표시"
-                        else "휴대폰 MOVE60 설정 > 건강 데이터 연동에서 동의",
+                        else "휴대폰 ROUTIVE 설정 > 건강 데이터 연동에서 동의",
                         fontSize = 10.sp, color = secondary, textAlign = TextAlign.Center,
                         maxLines = 3
                     )

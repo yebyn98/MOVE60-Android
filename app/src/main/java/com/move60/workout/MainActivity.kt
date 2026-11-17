@@ -169,7 +169,7 @@ class MainActivity : Activity() {
             handler.postDelayed({
                 if (!isFinishing && !isDestroyed) {
                     MaterialAlertDialogBuilder(this)
-                        .setTitle("MOVE60 안전 복구 모드")
+                        .setTitle("ROUTIVE 안전 복구 모드")
                         .setMessage("이전 실행의 종료 오류가 기록되어 자동 알림 재시작을 중지했어요. 운동 기록은 그대로 남아 있어요. 오류 기록을 확인한 뒤 알림을 다시 켤 수 있어요.")
                         .setNegativeButton("오류 기록 확인") { _, _ -> CrashReporter.showDiagnostics(this) }
                         .setPositiveButton("알림 재시도") { _, _ ->
@@ -1170,7 +1170,7 @@ class MainActivity : Activity() {
             setBackgroundColor(this@MainActivity.background)
         }
         val title = TextView(this).apply {
-            text = "MOVE60 · 안전 복구"
+            text = "ROUTIVE · 안전 복구"
             textSize = Theme.Type.title
             setTextColor(mint)
         }
