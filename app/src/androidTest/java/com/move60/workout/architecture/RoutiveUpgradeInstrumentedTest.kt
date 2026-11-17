@@ -69,21 +69,27 @@ class RoutiveUpgradeInstrumentedTest {
         return out
     }
 
-    /** v1 -> v5 in one run: nothing dropped (validateDroppedTables) and every legacy row identical. */
+    /** v1 -> v6 in one run: nothing dropped (validateDroppedTables) and every legacy row identical. */
     @Test fun v1FileUpgradesToCurrentSchemaAndKeepsLegacyHistory() {
         val before: List<String>
         helper.createDatabase(dbName, 1).use { db -> seedV1(db); before = legacyRows(db) }
         assertEquals(3, before.size)
 
-        helper.runMigrationsAndValidate(dbName, 5, true, *chain).use { db ->
-            assertEquals("legacy rows must be unchanged after v1 -> v5", before, legacyRows(db))
+        helper.runMigrationsAndValidate(dbName, 6, true, *chain).use { db ->
+            assertEquals("legacy rows must be unchanged after v1 -> v6", before, legacyRows(db))
+            for (table in listOf("workout_spaces", "space_equipment")) {
+                db.query("SELECT COUNT(*) FROM `$table`").use { rows ->
+                    org.junit.Assert.assertTrue(rows.moveToFirst())
+                    assertEquals("$table should start empty", 0, rows.getInt(0))
+                }
+            }
         }
     }
 
     /** The upgraded file opens with the real Room database class and old data is still readable through the DAOs. */
     @Test fun upgradedFileOpensWithRealRoomAndOldDataStillReadable() = runBlocking {
         helper.createDatabase(dbName, 1).use { seedV1(it) }
-        helper.runMigrationsAndValidate(dbName, 5, true, *chain).close()
+        helper.runMigrationsAndValidate(dbName, 6, true, *chain).close()
 
         val db = Room.databaseBuilder(context, WorkoutDatabase::class.java, dbName)
             .addMigrations(*chain).build()
