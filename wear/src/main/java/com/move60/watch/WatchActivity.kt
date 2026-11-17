@@ -465,7 +465,7 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
     }
 
     private fun showWatchSettings() {
-        AlertDialog.Builder(this).setTitle("MOVE60 설정")
+        AlertDialog.Builder(this).setTitle("ROUTIVE 설정")
             .setItems(arrayOf("건강 대시보드", "센서 권한 설정", "심박수 측정 중지")) { _, which ->
                 when (which) {
                     0 -> startActivity(Intent(this, com.move60.watch.health.WearHealthActivity::class.java))
