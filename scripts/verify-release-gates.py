@@ -4,6 +4,7 @@ import itertools
 import json
 from pathlib import Path
 import yaml
+from xml.etree import ElementTree as ET
 
 root = Path(__file__).resolve().parents[1]
 def read(name):
@@ -94,5 +95,21 @@ assert '-memory 4096' in basic['emulator-options'] and '-no-snapshot' in basic['
 selector = (root/'scripts/smoke-android.sh').read_text()
 assert 'desc.strip() == "운동 시작 또는 일시정지"' in selector
 assert '"운동 시작" in desc' not in selector, 'Never accept fuzzy informational-text selectors'
+
+# ROUTIVE is the approved user-facing brand. Do not change the applicationId;
+# that would make v58 exercise history inaccessible to an in-place update.
+android = '{http://schemas.android.com/apk/res/android}'
+phone_app = ET.parse(root/'app/src/main/AndroidManifest.xml').getroot().find('application')
+watch_app = ET.parse(root/'wear/src/main/AndroidManifest.xml').getroot().find('application')
+assert phone_app is not None and phone_app.get(android+'label') == 'ROUTIVE', 'Phone launcher name must be ROUTIVE'
+assert watch_app is not None and watch_app.get(android+'label') == 'ROUTIVE Watch', 'Wear launcher name must show ROUTIVE'
+widget_labels = {receiver.get(android+'name'): receiver.get(android+'label')
+                 for receiver in phone_app.findall('receiver')}
+assert widget_labels.get('.WorkoutWidget') == 'ROUTIVE 운동 (작은)', 'Small widget label must show ROUTIVE'
+assert widget_labels.get('.WorkoutWidgetLarge') == 'ROUTIVE 운동 (큰)', 'Large widget label must show ROUTIVE'
+wear_strings = {node.get('name'): node.text for node in ET.parse(root/'wear/src/main/res/values/strings.xml').getroot()}
+assert wear_strings.get('tile_label') == 'ROUTIVE 운동', 'Wear tile label must show ROUTIVE'
+assert "applicationId 'com.move60.workout'" in (root/'app/build.gradle').read_text()
+assert "applicationId 'com.move60.workout'" in (root/'wear/build.gradle').read_text()
 
 print(f'PASS: {count} publish-condition cases, mandatory dependencies, credential isolation and matching emulator configuration')
