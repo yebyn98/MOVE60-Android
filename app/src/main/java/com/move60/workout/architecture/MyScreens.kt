@@ -60,6 +60,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.graphics.Color
+import com.move60.workout.ui.Move60Theme
 import com.move60.workout.ui.Move60Button
 import com.move60.workout.ui.Move60Card
 
@@ -506,7 +508,7 @@ fun FirstRunPurposeScreen(onContinue: () -> Unit, viewModel: FirstRunViewModel =
                 modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp).testTag("setup_purpose_continue")) { Text("운동 공간 선택") }
         }
     ) { inner ->
-        Column(Modifier.fillMaxSize().padding(inner).statusBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 24.dp).testTag("setup_purpose"),
+        Column(Modifier.fillMaxSize().padding(inner).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 24.dp).testTag("setup_purpose"),
             verticalArrangement = Arrangement.spacedBy(20.dp)) {
             SetupHeader("YOUR FIRST MOVE", "오늘, 어떤 변화를\n만들고 싶나요?", "운동 목적 하나면 충분해요.\n나중에 언제든 변경할 수 있어요.")
             PurposeChoices(purpose, viewModel::choose)
@@ -520,13 +522,13 @@ fun FirstRunSpaceScreen(onDone: (String) -> Unit, viewModel: FirstRunViewModel =
     val error by viewModel.error.collectAsStateWithLifecycle()
     var addGym by rememberSaveable { mutableStateOf(false) }
     Scaffold(containerColor = MaterialTheme.colorScheme.background) { inner ->
-        Column(Modifier.fillMaxSize().padding(inner).statusBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 24.dp).testTag("setup_space"),
+        Column(Modifier.fillMaxSize().padding(inner).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 24.dp).testTag("setup_space"),
             verticalArrangement = Arrangement.spacedBy(16.dp)) {
             SetupHeader("02 / YOUR SPACE", "주로 어디에서\n운동하시나요?", "처음 운동할 공간을 반드시 선택해요.\n선택 전에는 운동을 시작할 수 없어요.")
             NavRow("집에서 운동하기", "집에 있는 기구를 선택해요", "setup_home") { viewModel.finishWithSpace(SpaceKind.HOME, onSaved = onDone) }
             NavRow("헬스장에서 운동하기", "이용하는 헬스장을 등록해요", "setup_gym") { addGym = true }
             error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("setup_space_error")) }
-            Text("확정한 공간이 기본 운동 공간이 돼요.\n기구와 모델은 나중에 등록할 수 있어요.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+            Text("확정한 공간이 기본 운동 공간이 돼요.\n기구와 모델은 나중에 등록할 수 있어요.", style = MaterialTheme.typography.bodySmall, color = Color(Move60Theme.Colors.textMuted))   // Figma 02 #8C9F90 (the border color was too dark to read)
         }
     }
     if (addGym) AddGymDialog(onDismiss = { addGym = false }, onConfirm = { name -> addGym = false; viewModel.finishWithSpace(SpaceKind.GYM, name, onDone) })
