@@ -14,7 +14,7 @@
         <package android:name="com.sec.android.app.shealth" />
     </queries>
 
-    <application android:name=".Move60Application" android:allowBackup="true" android:label="MOVE60"
+    <application android:name=".Move60Application" android:allowBackup="true" android:label="ROUTIVE"
         android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round"
         android:theme="@style/AppTheme" android:usesCleartextTraffic="false">
         <activity android:name=".health.HealthConsentActivity" android:exported="false" />
@@ -35,11 +35,11 @@
             <meta-data android:name="androidx.work.WorkManagerInitializer"
                 tools:node="remove" />
         </provider>
-        <receiver android:name=".WorkoutWidget" android:exported="true" android:label="MOVE60 운동 (작은)">
+        <receiver android:name=".WorkoutWidget" android:exported="true" android:label="ROUTIVE 운동 (작은)">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/workout_widget_info" />
         </receiver>
-        <receiver android:name=".WorkoutWidgetLarge" android:exported="true" android:label="MOVE60 운동 (큰)">
+        <receiver android:name=".WorkoutWidgetLarge" android:exported="true" android:label="ROUTIVE 운동 (큰)">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/workout_widget_large_info" />
         </receiver>
@@ -52,7 +52,7 @@
         <service android:name=".WorkoutService" android:exported="false"
             android:stopWithTask="false" android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="User-initiated 60-minute exercise interval timer with ongoing lock-screen countdown and phase notifications" />
+                android:value="User-initiated workout timer with persistent notification and phase updates" />
         </service>
         <service android:name=".architecture.RoutiveSessionService" android:exported="false"
             android:stopWithTask="false" android:foregroundServiceType="specialUse">
