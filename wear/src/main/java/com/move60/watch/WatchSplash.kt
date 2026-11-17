@@ -2,6 +2,7 @@ package com.move60.watch
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -67,7 +68,7 @@ fun WatchSplash(onFinished: () -> Unit, modifier: Modifier = Modifier) {
                 delay(700)
                 dumbbell.animateTo(1f, spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMedium))
             }
-            launch { delay(650); word.animateTo(1f, tween(1000, easing = FastOutSlowInEasing)) }
+            launch { delay(650); word.animateTo(1f, tween(1100, easing = WORD_REVEAL_EASING)) }
         }
         delay(350)
         layerAlpha.animateTo(0f, tween(250))
@@ -100,6 +101,8 @@ fun WatchSplash(onFinished: () -> Unit, modifier: Modifier = Modifier) {
     }
 }
 
+private val WORD_REVEAL_EASING = CubicBezierEasing(0.37f, 0f, 0.63f, 1f)
+
 /** Same reveal as the phone's `softReveal`: a soft edge moves left to right while the content drifts up 6dp. */
 private fun Modifier.softReveal(progress: Float): Modifier = this
     .graphicsLayer {
@@ -109,7 +112,7 @@ private fun Modifier.softReveal(progress: Float): Modifier = this
     .drawWithContent {
         drawContent()
         if (progress < 1f) {
-            val fade = size.width * 0.4f
+            val fade = size.width * 0.5f
             val edge = progress.coerceIn(0f, 1f) * (size.width + fade)
             drawRect(
                 brush = Brush.horizontalGradient(listOf(Color.Black, Color.Transparent), startX = edge - fade, endX = edge),

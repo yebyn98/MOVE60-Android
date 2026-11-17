@@ -19,8 +19,8 @@ should also become the R symbol is a design decision that was not made; only the
   `ui/Move60Splash.kt`.
 
 ## First-screen intro
-About 2.3 s: ring sweep -> ticks light up clockwise -> dumbbell pop -> the "ROUTIVE" wordmark appears slowly from left to right
-(a soft edge sweeps over the letters while the word drifts up a few dp, 1 s, starting at 0.65 s) -> short hold -> fade out over the
+About 2.4 s: ring sweep -> ticks light up clockwise -> dumbbell pop -> the "ROUTIVE" wordmark appears slowly from left to right
+(a soft edge sweeps over the letters while the word drifts up a few dp, 1.1 s with a symmetric ease-in-out, starting at 0.65 s) -> short hold -> fade out over the
 dashboard. Tap skips it. It plays only on a fresh launch (`savedInstanceState == null`; rotation does
 not replay it) and is skipped when the system animation scale is 0 (also keeps CI emulators, which
 disable animations, deterministic). The watch plays the same sequence (`WatchSplash.kt`, same
