@@ -233,8 +233,8 @@ class ChallengeServiceTest {
             challengeOf(id = "z", start = "2026-11-15", end = "2026-11-21", zone = "Mars/Base") to ChallengeReject.INVALID_ZONE,
             challengeOf(id = "z", start = "2026-11-15", end = "2026-11-14") to ChallengeReject.INVALID_DATE,
             challengeOf(id = "z", start = "2026-11-15", end = "2026-11-21", target = 0) to ChallengeReject.INVALID_FIELD,
-            challengeOf(id = "z", start = "2026-11-15", end = "2026-11-21", name = " ".repeat(3)) to ChallengeReject.INVALID_FIELD,
-            challengeOf(id = "z", start = "2026-11-15", end = "2026-11-21", name = "x".repeat(ChallengeService.MAX_NAME + 1)) to ChallengeReject.INVALID_FIELD
+            challengeOf(id = "z", start = "2026-11-15", end = "2026-11-21").copy(name = " ".repeat(3)) to ChallengeReject.INVALID_FIELD,
+            challengeOf(id = "z", start = "2026-11-15", end = "2026-11-21").copy(name = "x".repeat(ChallengeService.MAX_NAME + 1)) to ChallengeReject.INVALID_FIELD
         )
         for ((c, reason) in bad) { val r = service.create(c); assertTrue("$reason -> $r", r is ChallengeResult.Rejected && r.reason == reason) }
     }
