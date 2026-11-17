@@ -142,10 +142,11 @@ fun MySpacesScreen(onBack: () -> Unit, onOpenSpace: (String) -> Unit, viewModel:
     val spaces by viewModel.spaces.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
     var addGym by rememberSaveable { mutableStateOf(false) }
+    var renaming by rememberSaveable { mutableStateOf<String?>(null) }
     Scaffold(containerColor = MaterialTheme.colorScheme.background, topBar = { ScreenTopBar("내 운동 공간", onBack, "my_back") }) { inner ->
         Column(Modifier.fillMaxSize().padding(inner).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).testTag("my_spaces"),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("공간별 기구를 등록하면 추천·직접 구성에 적용돼요.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+            Text("공간별로 실제 이용할 기구를 등록해요.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
             val list = spaces
             if (list == null) Text("운동 공간을 불러오고 있어요.", color = MaterialTheme.colorScheme.secondary)
             else {
@@ -162,11 +163,13 @@ fun MySpacesScreen(onBack: () -> Unit, onOpenSpace: (String) -> Unit, viewModel:
                             Text(default.space.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                             Text(equipmentSummary(default.equipmentCount), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
                         }
-                        Text("등록된 기구를 루틴 추천·직접 구성에 적용", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                        Text("이 공간에서 이용할 보유 기구를 관리해요.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
                     }
                 }
+                if (default != null && default.space.kind == SpaceKind.GYM.name) RenameButton(default.space) { renaming = default.space.spaceId }
                 list.filter { !it.space.isDefault }.forEach { s ->
                     NavRow(s.space.name, "${kindLabel(s.space.kind)} · ${equipmentSummary(s.equipmentCount)} · 보유 기구 관리", "my_space_${s.space.spaceId}") { onOpenSpace(s.space.spaceId) }
+                    if (s.space.kind == SpaceKind.GYM.name) RenameButton(s.space) { renaming = s.space.spaceId }
                     TextButton(onClick = { viewModel.setDefault(s.space.spaceId) }, modifier = Modifier.heightIn(min = 48.dp).testTag("my_set_default_${s.space.spaceId}")) {
                         Text("‘${s.space.name}’ 기본 운동 공간으로 설정")
                     }
@@ -180,26 +183,40 @@ fun MySpacesScreen(onBack: () -> Unit, onOpenSpace: (String) -> Unit, viewModel:
         }
     }
     if (addGym) AddGymDialog(onDismiss = { addGym = false }, onConfirm = { viewModel.addGym(it); addGym = false })
+    renaming?.let { id ->
+        val current = spaces?.firstOrNull { it.space.spaceId == id }?.space?.name.orEmpty()
+        GymNameDialog("헬스장 이름 수정", current, "저장", "my_rename", { renaming = null }) { viewModel.rename(id, it); renaming = null }
+    }
     androidx.compose.runtime.LaunchedEffect(message) { if (message != null) { kotlinx.coroutines.delay(4_000); viewModel.messageShown() } }
+}
+
+@Composable
+private fun RenameButton(space: WorkoutSpaceEntity, onClick: () -> Unit) {
+    TextButton(onClick = onClick, modifier = Modifier.heightIn(min = 48.dp).testTag("my_rename_${space.spaceId}")) { Text("이름 수정") }
 }
 
 private fun kindLabel(kind: String) = if (kind == SpaceKind.HOME.name) "집" else "헬스장"
 private fun equipmentSummary(count: Int) = if (count == 0) "등록된 기구 없음" else "등록된 기구 ${count}종"
 
 @Composable
-internal fun AddGymDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
-    var name by rememberSaveable { mutableStateOf("") }
+internal fun AddGymDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) =
+    GymNameDialog("헬스장 직접 등록", "", "등록", "my_add_gym", onDismiss, onConfirm)
+
+/** One text field for a gym name (1..[SpaceService.MAX_NAME] characters); the button stays disabled for a blank name. */
+@Composable
+private fun GymNameDialog(title: String, initial: String, confirmLabel: String, tag: String, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
+    var name by rememberSaveable { mutableStateOf(initial) }
     val valid = name.trim().length in 1..SpaceService.MAX_NAME
     AlertDialog(
         onDismissRequest = onDismiss,
-        modifier = Modifier.testTag("my_add_gym_dialog"),
-        title = { Text("헬스장 직접 등록") },
+        modifier = Modifier.testTag("${tag}_dialog"),
+        title = { Text(title) },
         text = {
             OutlinedTextField(name, { if (it.length <= SpaceService.MAX_NAME) name = it }, singleLine = true,
                 label = { Text("헬스장 이름") }, supportingText = { Text("${name.length}/${SpaceService.MAX_NAME}") },
-                modifier = Modifier.fillMaxWidth().testTag("my_add_gym_name"))
+                modifier = Modifier.fillMaxWidth().testTag("${tag}_name"))
         },
-        confirmButton = { TextButton(onClick = { onConfirm(name) }, enabled = valid, modifier = Modifier.heightIn(min = 48.dp).testTag("my_add_gym_confirm")) { Text("등록") } },
+        confirmButton = { TextButton(onClick = { onConfirm(name) }, enabled = valid, modifier = Modifier.heightIn(min = 48.dp).testTag("${tag}_confirm")) { Text(confirmLabel) } },
         dismissButton = { TextButton(onClick = onDismiss, modifier = Modifier.heightIn(min = 48.dp)) { Text("취소") } }
     )
 }
@@ -306,7 +323,13 @@ private fun MilestoneRow(m: Milestone) {
             Spacer(Modifier.size(12.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(m.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                Text(if (m.achieved) m.supporting else "아직 달성하지 않았어요", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                Text(
+                    when (m.status) {
+                        MilestoneStatus.ACHIEVED -> m.supporting
+                        MilestoneStatus.NOT_ACHIEVED -> "아직 달성하지 않았어요."
+                        MilestoneStatus.UNKNOWN -> "불러오지 못했어요."
+                    }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary
+                )
             }
             Text(if (m.achieved) "달성" else "", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
         }
@@ -499,7 +522,7 @@ fun FirstRunSpaceScreen(onDone: (String) -> Unit, viewModel: FirstRunViewModel =
     Scaffold(containerColor = MaterialTheme.colorScheme.background) { inner ->
         Column(Modifier.fillMaxSize().padding(inner).statusBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 24.dp).testTag("setup_space"),
             verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            SetupHeader("02 / YOUR SPACE", "주로 어디에서\n운동하시나요?", "처음 운동할 공간을 반드시 선택해요.\n선택 전에는 루틴 추천·운동 시작을 할 수 없어요.")
+            SetupHeader("02 / YOUR SPACE", "주로 어디에서\n운동하시나요?", "처음 운동할 공간을 반드시 선택해요.\n선택 전에는 운동을 시작할 수 없어요.")
             NavRow("집에서 운동하기", "집에 있는 기구를 선택해요", "setup_home") { viewModel.finishWithSpace(SpaceKind.HOME, onSaved = onDone) }
             NavRow("헬스장에서 운동하기", "이용하는 헬스장을 등록해요", "setup_gym") { addGym = true }
             error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("setup_space_error")) }

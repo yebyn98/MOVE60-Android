@@ -2,6 +2,7 @@ package com.move60.workout.architecture
 
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -13,6 +14,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import androidx.room.Room
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -211,6 +213,9 @@ class ComposeMyTest {
                 rule.onNodeWithTag("my_stat_sessions").performScrollTo().assertIsDisplayed()
                 rule.onNodeWithTag("my_stat_challenges").assertIsDisplayed()
                 rule.onNodeWithTag("my_milestone_first").performScrollTo().assertIsDisplayed()
+                // PO decision 6: the unmet wording is fixed ("아직 달성하지 않았어요.") and the 20-day milestone carries its confirmed name.
+                rule.onNodeWithTag("my_milestone_days20").performScrollTo().assertIsDisplayed()
+                rule.waitUntil(10_000) { textExists("운동 20일 달성") && textExists("아직 달성하지 않았어요.") }
                 capture("compose-my-home-full.png")
 
                 rule.onNodeWithTag("my_report_open").performScrollTo().performClick()
@@ -236,5 +241,40 @@ class ComposeMyTest {
                 raw.execSQL("DELETE FROM sessions WHERE sessionId LIKE 'record-my-%'")
             } finally { clean.close() }
         }
+    }
+
+    /** PO decision 2: a gym name can be edited (blank is not accepted); its equipment stays. */
+    @Test fun aGymNameCanBeEditedAndItsEquipmentStays() {
+        val seed = Room.databaseBuilder(context, WorkoutDatabase::class.java, dbFile).build()
+        try {
+            org.junit.Assume.assumeTrue("real spaces exist on this device", runBlocking { seed.spaceDao().spaces().isEmpty() })
+            runBlocking {
+                SpaceService(seed).create("e2e-r", SpaceKind.GYM, "e2e 이전이름")
+                SpaceService(seed).saveEquipment("e2e-r", listOf(EquipmentChoice("LEG_PRESS")))
+            }
+        } finally { seed.close() }
+        try {
+            ActivityScenario.launch(ComposeActivity::class.java).use {
+                rule.onNodeWithTag("tab_settings").performClick()
+                rule.waitUntil(15_000) { rule.onAllNodesWithTag("my_trend").fetchSemanticsNodes().isNotEmpty() }
+                rule.onNodeWithTag("my_spaces_open").performScrollTo().performClick()
+                rule.waitUntil(10_000) { rule.onAllNodesWithTag("my_rename_e2e-r").fetchSemanticsNodes().isNotEmpty() }
+                rule.onNodeWithTag("my_rename_e2e-r").performScrollTo().performClick()
+                rule.onNodeWithTag("my_rename_dialog").assertIsDisplayed()
+                rule.onNodeWithTag("my_rename_name").performTextReplacement("   ")
+                rule.onNodeWithTag("my_rename_confirm").assertIsNotEnabled()
+                rule.onNodeWithTag("my_rename_name").performTextReplacement("e2e 새이름")
+                captureScreen("compose-my-rename-dialog.png")
+                rule.onNodeWithTag("my_rename_confirm").performClick()
+                rule.waitUntil(10_000) { textExists("e2e 새이름") }
+                capture("compose-my-renamed.png")
+            }
+            val db = Room.databaseBuilder(context, WorkoutDatabase::class.java, dbFile).build()
+            try {
+                val space = runBlocking { db.spaceDao().space("e2e-r") }
+                assertEquals("e2e 새이름", space!!.name)
+                assertEquals(listOf("LEG_PRESS"), runBlocking { db.spaceDao().equipment("e2e-r") }.map { it.equipmentKey })
+            } finally { db.close() }
+        } finally { cleanE2e(includeHome = false) }
     }
 }

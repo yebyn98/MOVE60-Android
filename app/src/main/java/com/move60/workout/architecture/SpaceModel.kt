@@ -103,6 +103,23 @@ class SpaceService(private val db: WorkoutDatabase, private val clock: () -> Lon
         }
     }
 
+    /**
+     * PO decision 2: a registered gym's name can be changed. Same rules as creating (1..[MAX_NAME] characters after trimming, no
+     * duplicate); only gyms are renamable (the home space has a fixed name). Equipment and records of the space are untouched.
+     */
+    suspend fun rename(spaceId: String, name: String): SpaceResult {
+        val n = name.trim()
+        if (n.isEmpty() || n.length > MAX_NAME) return SpaceResult.Rejected("name must be 1..$MAX_NAME chars")
+        return db.withTransaction {
+            val space = dao.space(spaceId) ?: return@withTransaction SpaceResult.Rejected("unknown space")
+            when {
+                space.kind != SpaceKind.GYM.name -> SpaceResult.Rejected("only gyms can be renamed")
+                dao.spaces().any { it.spaceId != spaceId && it.name.equals(n, ignoreCase = true) } -> SpaceResult.Rejected("name already used")
+                else -> { dao.rename(spaceId, n); SpaceResult.Saved(spaceId) }
+            }
+        }
+    }
+
     suspend fun setDefault(spaceId: String): SpaceResult = db.withTransaction {
         if (dao.space(spaceId) == null) SpaceResult.Rejected("unknown space") else { dao.setOnlyDefault(spaceId); SpaceResult.Saved(spaceId) }
     }

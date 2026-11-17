@@ -83,4 +83,26 @@ class SpaceServiceTest {
         assertEquals(listOf("실내 사이클", "레그프레스", "랫풀다운", "일립티컬", "케이블 머신"), Equipment.choices(SpaceKind.GYM).map { it.label })
         assertEquals(listOf("실내 사이클", "덤벨", "요가 매트", "저항 밴드", "일립티컬"), Equipment.choices(SpaceKind.HOME).map { it.label })
     }
+
+    /** PO decision 2: a gym name can be edited; the rules are the same as when registering, and nothing else changes. */
+    @Test fun aGymCanBeRenamedWithTheSameRulesAndKeepsItsEquipmentAndDefault() = runBlocking {
+        service.create("gym1", SpaceKind.GYM, "헬스장"); service.create("gym2", SpaceKind.GYM, "다른 헬스장")
+        service.saveEquipment("gym1", listOf(EquipmentChoice("LEG_PRESS"), EquipmentChoice("INDOOR_CYCLE", "브랜드", "M1")))
+        val before = dao.equipment("gym1")
+        assertEquals(SpaceResult.Saved("gym1"), service.rename("gym1", "  새 이름 "))
+        assertEquals("새 이름", dao.space("gym1")!!.name)
+        assertEquals("equipment is untouched", before, dao.equipment("gym1"))
+        assertTrue("the default space does not change", dao.space("gym1")!!.isDefault)
+        assertEquals("renaming to its own name is allowed", SpaceResult.Saved("gym1"), service.rename("gym1", "새 이름"))
+        assertTrue("case-insensitive duplicate of another space", service.rename("gym1", "다른 헬스장") is SpaceResult.Rejected)
+        for (bad in listOf("", "   ", "가".repeat(21))) assertTrue("'$bad'", service.rename("gym1", bad) is SpaceResult.Rejected)
+        assertEquals("새 이름", dao.space("gym1")!!.name)
+    }
+
+    @Test fun onlyGymsAreRenamableAndAnUnknownSpaceIsRejected() = runBlocking {
+        service.create("home", SpaceKind.HOME, "집 · 개인 운동 공간")
+        assertEquals(SpaceResult.Rejected("only gyms can be renamed"), service.rename("home", "내 집"))
+        assertEquals("집 · 개인 운동 공간", dao.space("home")!!.name)
+        assertEquals(SpaceResult.Rejected("unknown space"), service.rename("nope", "이름"))
+    }
 }

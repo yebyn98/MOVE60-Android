@@ -311,9 +311,7 @@ private fun WorkoutDock(state: WorkoutUiState, viewModel: WorkoutViewModel, onOp
                         fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
                 }
             }
-            Text("오늘 누적 " + String.format(Locale.KOREA, "%.1f", state.todayKcal) + " kcal · 추정",
-                color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.bodySmall)
+            // v66 PO decision 1: kcal is not shown (no estimate line, no placeholder).
         }
         // Figma 01/02: before the workout starts the start button is the only action (no previous/next).
         val started = state.running || state.activeSeconds > 0 || state.finished
@@ -400,6 +398,10 @@ fun WorkoutCalendar(
         value = viewModel.dayRecord(selected)
     }
     val hasSessions = dayRecord?.sessions?.isNotEmpty() == true
+    var kcalNotice by remember { mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        if (viewModel.kcalNoticeVisible()) { kcalNotice = true; viewModel.kcalNoticeShown() }
+    }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var conflictItems by remember { mutableStateOf(viewModel.conflicts()) }
@@ -465,6 +467,13 @@ fun WorkoutCalendar(
         LazyColumn(Modifier.fillMaxSize().padding(inner).testTag("calendar_list"),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            if (kcalNotice) item {
+                Move60Card(Modifier.testTag("kcal_notice")) {
+                    Text(KcalNoticePolicy.TITLE, style = cardTitle)
+                    Text(KcalNoticePolicy.BODY, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                    TextButton(onClick = { kcalNotice = false }, modifier = Modifier.heightIn(min = 48.dp).testTag("kcal_notice_dismiss")) { Text("확인") }
+                }
+            }
             if (conflicts > 0) item {
                 Move60Card(Modifier.clickable { showConflicts = true }.testTag("calendar_conflict_notice")) {
                     Text("확인이 필요한 기록 ${conflicts}건", style = cardTitle)
@@ -559,7 +568,6 @@ private fun DayDetailCard(detail: DayDetail, legacySets: LegacySetDay?, exercise
             Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text("${detail.activeMinutes}분", color = MaterialTheme.colorScheme.primary,
                     style = cardTitle)
-                Text("약 ${detail.kcal} kcal", color = secondary, style = MaterialTheme.typography.bodySmall)
             }
         }
         if (detail.stages.isEmpty()) {
@@ -583,7 +591,6 @@ private fun DayDetailCard(detail: DayDetail, legacySets: LegacySetDay?, exercise
                         Text(formatStageTime(stage.seconds), color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
                     }
-                    Text("약 ${stage.kcal} kcal", color = secondary, style = MaterialTheme.typography.bodySmall)
                 }
             }
         }

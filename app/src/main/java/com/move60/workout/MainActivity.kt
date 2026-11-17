@@ -266,15 +266,15 @@ class MainActivity : Activity() {
         dockStage.setSingleLine(true)
         dockStage.ellipsize = android.text.TextUtils.TruncateAt.END
         dockTime = label("", 12, false, textSecondary)
-        dockCalories = label("오늘 누적 0.0 kcal · 추정", 12, true, mint).apply {
-            contentDescription = "오늘 날짜에 실제 운동한 시간의 누적 소모 칼로리 추정치"
+        // v66 PO decision 1: kcal is hidden everywhere (the stored energy data is untouched). The views stay, always GONE, and
+        // never receive text, so no "0 kcal" placeholder can appear.
+        dockCalories = label("", 12, true, mint).apply {
             tag = "phone_session_calories"
+            visibility = View.GONE
         }
-        // Opt-in watch measurement: its own line, only while a fresh sample exists for this workout.
         dockWatchKcal = label("", 12, false, textSecondary).apply {
             tag = "phone_watch_kcal"
             visibility = View.GONE
-            contentDescription = "워치가 측정한 이번 운동 총 칼로리, 기초대사 포함"
         }
         info.addView(dockStage)
         info.addView(dockTime)
@@ -1051,35 +1051,26 @@ class MainActivity : Activity() {
             (1..count).count { n -> "strength-${session.day}-${task.id}-$n" in session.checked }
         }
         val volume = SetRecordStore(this).completed(data.localToday()).sumOf { it.volume }.toInt()
-        // Daily, not per-session: includes multiple workouts on the same Korean calendar day.
-        // Previous dates are never combined with today's displayed total.
-        dockCalories.text = "오늘 누적 ${"%.1f".format(EnergyLedger(this).estimate(data.localToday(), org.json.JSONObject(session.snapshot())))} kcal · 추정"
-        val watchKcal = WatchKcal.fresh(this, session.sessionStartedAt)
-        dockWatchKcal.visibility = if (watchKcal != null) View.VISIBLE else View.GONE
-        if (watchKcal != null) dockWatchKcal.text = "워치 측정 ${"%.0f".format(watchKcal.totalKcal)} kcal · 기초대사 포함"
+        // v66 PO decision 1: no kcal line (dockCalories / dockWatchKcal stay GONE).
     }
 
     private fun showWorkoutResult() {
         val date = data.localToday()
         val entries = StageLog(this).entries(date)
-        val totalKcal = EnergyLedger(this)
-            .estimate(date, org.json.JSONObject(session.snapshot())).coerceAtLeast(0.0)
-        val sumMet = entries.sumOf { it.metSeconds }
         val names = listOf("준비운동", "유산소 ① · 사이클", "근력운동", "유산소 ② · 일립티컬", "스트레칭")
         val result = column().apply {
             setPadding(dp(Theme.Space.two), dp(Theme.Space.one),
                 dp(Theme.Space.two), dp(Theme.Space.one))
         }
-        result.addView(label("실제 운동 ${formatTime(session.elapsed())} · 약 ${totalKcal.toInt()} kcal",
+        result.addView(label("실제 운동 ${formatTime(session.elapsed())}",
             17, true, mint))
         if (entries.isEmpty()) {
             result.addView(label("단계별 기록이 없는 이전 운동은 합계만 표시돼요.", 12, false, textSecondary))
         } else {
             entries.forEach { entry ->
-                val kcal = if (sumMet > 0) (totalKcal * entry.metSeconds / sumMet).toInt() else 0
                 val line = row().apply { gravity = Gravity.CENTER_VERTICAL }
                 line.addView(label(names[entry.stage], 13, false), LinearLayout.LayoutParams(0, -2, 1f))
-                line.addView(label("${formatTime(entry.seconds.toInt())} · 약 ${kcal} kcal",
+                line.addView(label(formatTime(entry.seconds.toInt()),
                     12, true, mint))
                 result.addView(line)
                 addGap(result, 8)

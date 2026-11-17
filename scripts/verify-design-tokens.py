@@ -50,7 +50,12 @@ tile=(root/"wear/src/main/java/com/move60/watch/WorkoutTileService.kt").read_tex
 assert 'tag = "phone_timer_card"' in main and 'tag = "phone_stage_stack"' in main and 'phone_dashboard_summary' not in main
 assert '지난 기록 불러오기' not in main
 assert 'tag = "set-' not in main or '-rpe"' not in main
-assert '"오늘 누적 ' in main
+# v66 PO decision 1: the phone dock and result show no kcal text; the views stay but are always GONE.
+import re as _re
+_code=_re.sub(r'//[^\n]*', '', main)  # comments may mention kcal
+_shown=[m for m in _re.findall(r'"[^"\n]*"', _code)
+        if ("kcal" in m.lower() or "오늘 누적" in m) and not _re.fullmatch(r'"[a-z0-9_]+"', m)]  # test tags are not shown text
+assert not _shown, "kcal must not be shown (PO decision 1): "+repr(_shown)
 assert 'phone_dock_progress' in main
 assert 'testTag("settings_sound_toggle")' in settings and 'settings_group_app' in settings and 'settings_version_row' in settings
 assert 'watch_progress_ring' in wear and 'WorkoutProgressRing' in wear

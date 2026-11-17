@@ -118,6 +118,7 @@ class MySpacesViewModel @Inject constructor(private val db: WorkoutDatabase, pri
     fun addHome() = create("home", SpaceKind.HOME, HOME_NAME)
     fun addGym(name: String) = create("gym-" + UUID.randomUUID(), SpaceKind.GYM, name)
     fun setDefault(spaceId: String) { viewModelScope.launch { report(service.setDefault(spaceId)) } }
+    fun rename(spaceId: String, name: String) { viewModelScope.launch { report(service.rename(spaceId, name)) } }
 
     private fun create(id: String, kind: SpaceKind, name: String) {
         viewModelScope.launch { report(service.create(id, kind, name)) }
