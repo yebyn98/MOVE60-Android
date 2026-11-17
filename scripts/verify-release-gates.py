@@ -57,6 +57,13 @@ assert not any(
     'python3 scripts/verify-release-version.py' in step.get('run', '')
     for step in smoke['jobs']['runtime-smoke']['steps']
 ), 'Development PR should not require a release version increment'
+# Legal verification must run before the actual public distribution step, and must never be bypassed.
+publish_steps = jobs['publish']['steps']
+legal_steps = [i for i, step in enumerate(publish_steps) if 'python3 scripts/verify-release-legal.py' in step.get('run', '')]
+distribution_steps = [i for i, step in enumerate(publish_steps) if 'scripts/publish_selected.py' in step.get('run', '')]
+assert len(legal_steps) == 1 and len(distribution_steps) == 1, 'Missing/duplicate legal or publication gate'
+assert legal_steps[0] < distribution_steps[0], 'Privacy policy check must run before distribution'
+assert publish_steps[legal_steps[0]].get('continue-on-error', 'false') == 'false', 'Cannot bypass privacy policy validation'
 
 for workflow in [release,smoke]:
     for job in workflow['jobs'].values():
