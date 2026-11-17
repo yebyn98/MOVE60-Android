@@ -110,16 +110,29 @@ class ComposeWorkoutProgressTest {
         }
     }
 
+
+    /**
+     * "다음 단계" is disabled until the session has started, and a tap on a disabled button does nothing. Tapping as soon as the
+     * progress screen is visible therefore sometimes advanced only one stage and the strength stage was never reached. Each tap
+     * now waits for the enabled button first.
+     */
+    private fun advanceToStrength() {
+        repeat(2) {
+            rule.waitUntil(8_000) {
+                rule.onAllNodes(hasTestTag("workout_next") and androidx.compose.ui.test.isEnabled()).fetchSemanticsNodes().isNotEmpty()
+            }
+            rule.onNodeWithTag("workout_next").performClick()
+            Thread.sleep(800)
+        }
+    }
+
     /** Strength stage: enter kg/reps for a set, complete it, and see the per-exercise counter move. */
     @Test fun strengthStageAcceptsSetEntryAndCountsCompletedSets() {
         ActivityScenario.launch(ComposeActivity::class.java).use {
             ensureIdleOverview()
             rule.onNodeWithTag("dock_play").performClick()
             rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("workout_progress")).fetchSemanticsNodes().isNotEmpty() }
-            repeat(2) {                                   // warm-up -> cardio -> strength
-                rule.onNodeWithTag("workout_next").performClick()
-                Thread.sleep(800)
-            }
+            advanceToStrength()                           // warm-up -> cardio -> strength
             rule.waitUntil(8_000) { rule.onAllNodes(tagStartsWith("workout_task_")).fetchSemanticsNodes().isNotEmpty() }
             capture("compose-workout-strength.png")
             val kg = rule.onAllNodes(tagStartsWith("set_kg_"))[0]
@@ -140,7 +153,7 @@ class ComposeWorkoutProgressTest {
             ensureIdleOverview()
             rule.onNodeWithTag("dock_play").performClick()
             rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("workout_progress")).fetchSemanticsNodes().isNotEmpty() }
-            repeat(2) { rule.onNodeWithTag("workout_next").performClick(); Thread.sleep(800) }
+            advanceToStrength()
             rule.waitUntil(8_000) { rule.onAllNodes(tagStartsWith("workout_task_")).fetchSemanticsNodes().isNotEmpty() }
             rule.onAllNodes(tagStartsWith("set_kg_"))[0].performTextInput("40")
             rule.onAllNodes(tagStartsWith("set_reps_"))[0].performTextInput("12")
