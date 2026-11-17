@@ -32,7 +32,8 @@ class Move60SplashTest {
         rule.mainClock.autoAdvance = false
         rule.setContent { Move60ComposeTheme { Move60Splash(onFinished = { }) } }
         val dir = InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null)
-        for ((ms, name) in listOf(300L to "intro-1-ring.png", 600L to "intro-2-ticks.png", 200L to "intro-3-dumbbell.png")) {
+        for ((ms, name) in listOf(300L to "intro-1-ring.png", 600L to "intro-2-ticks.png", 200L to "intro-3-dumbbell.png",
+            250L to "intro-4-wordmark-mid.png", 250L to "intro-5-wordmark-late.png", 250L to "intro-6-wordmark-done.png")) {
             rule.mainClock.advanceTimeBy(ms)
             val bitmap = rule.onRoot().captureToImage().asAndroidBitmap()
             java.io.File(dir, name).outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
