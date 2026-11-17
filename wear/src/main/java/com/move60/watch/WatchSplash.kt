@@ -74,7 +74,7 @@ fun WatchSplash(onFinished: () -> Unit, modifier: Modifier = Modifier) {
             .graphicsLayer { alpha = layerAlpha.value }
             .background(Color(Move60Theme.Colors.background))
             .pointerInput(Unit) { detectTapGestures { onFinished() } }
-            .semantics { contentDescription = "MOVE60" },
+            .semantics { contentDescription = "ROUTIVE" },
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -85,7 +85,7 @@ fun WatchSplash(onFinished: () -> Unit, modifier: Modifier = Modifier) {
             dumbbellProgress = dumbbell.value,
         )
         BasicText(
-            text = "MOVE60",
+            text = "ROUTIVE",
             style = TextStyle(color = Color(Move60Theme.Colors.primary), fontSize = 17.sp),
             modifier = Modifier
                 .graphicsLayer { alpha = dumbbell.value.coerceIn(0f, 1f) }

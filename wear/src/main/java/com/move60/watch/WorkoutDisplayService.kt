@@ -62,7 +62,7 @@ class WorkoutDisplayService : Service(), DataClient.OnDataChangedListener {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val builder = NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_workout)
-            .setContentTitle("MOVE60 운동 진행")
+            .setContentTitle("ROUTIVE 운동 진행")
             .setContentText("눌러서 현재 운동 화면으로 돌아가기")
             .setContentIntent(open)
             .setCategory(NotificationCompat.CATEGORY_ALARM)

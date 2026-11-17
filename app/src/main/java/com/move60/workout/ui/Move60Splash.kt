@@ -63,7 +63,7 @@ fun Move60Splash(onFinished: () -> Unit, modifier: Modifier = Modifier) {
             .graphicsLayer { alpha = layerAlpha.value }
             .background(MaterialTheme.colorScheme.background)
             .pointerInput(Unit) { detectTapGestures { onFinished() } }
-            .semantics { contentDescription = "MOVE60" },
+            .semantics { contentDescription = "ROUTIVE" },
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -74,7 +74,7 @@ fun Move60Splash(onFinished: () -> Unit, modifier: Modifier = Modifier) {
             dumbbellProgress = dumbbell.value,
         )
         Text(
-            text = "MOVE60",
+            text = "ROUTIVE",
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier
