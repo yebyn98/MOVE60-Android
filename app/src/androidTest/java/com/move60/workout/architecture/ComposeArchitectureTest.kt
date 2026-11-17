@@ -42,7 +42,7 @@ class ComposeArchitectureTest {
 
     @Test fun composeNavigationShowsDashboardCalendarAndSettings() {
         // Figma header: the logo mark (52dp) replaces the text wordmark.
-        rule.onNodeWithContentDescription("MOVE60").assertIsDisplayed()
+        rule.onNodeWithContentDescription("ROUTIVE").assertIsDisplayed()
         capture("compose-dashboard.png")
         rule.onNodeWithTag("tab_calendar").performClick()
         rule.onNodeWithText("운동 달력").assertIsDisplayed()

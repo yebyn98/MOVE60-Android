@@ -19,7 +19,7 @@ class HealthConsentScreenTest {
     @Test fun consentScreenHasActionsAndCapturesRealScreenshot() {
         rule.onNodeWithText("건강 데이터 연동").assertIsDisplayed()
         rule.onNodeWithText("동의하고 건강 기록 불러오기").assertIsDisplayed()
-        rule.onNodeWithText("MOVE60 연동 중지 및 워치 데이터 초기화").assertIsDisplayed()
+        rule.onNodeWithText("ROUTIVE 연동 중지 및 워치 데이터 초기화").assertIsDisplayed()
         rule.waitForIdle()
         val image = requireNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot())
         val target = File(rule.activity.getExternalFilesDir(null), "move60-health-connect-screen.png")

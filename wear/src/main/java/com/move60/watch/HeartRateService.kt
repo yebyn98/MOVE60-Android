@@ -186,7 +186,7 @@ class HeartRateService : Service(), SensorEventListener, DataClient.OnDataChange
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         return Notification.Builder(this, CHANNEL)
             .setSmallIcon(android.R.drawable.ic_media_play)
-            .setContentTitle("MOVE60 심박수 측정 중")
+            .setContentTitle("ROUTIVE 심박수 측정 중")
             .setContentText("화면이 꺼져도 운동 심박수를 전송합니다")
             .setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true).setVisibility(Notification.VISIBILITY_PRIVATE)
             .addAction(Notification.Action.Builder(null, "측정 중지", stop).build()).build()
