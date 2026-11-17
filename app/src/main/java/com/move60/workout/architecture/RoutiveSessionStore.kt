@@ -45,10 +45,29 @@ data class RoutiveSession(
     /** Rest after a completed set, null when none. Never started without a user-chosen rest time. */
     val rest: RestState? = null,
     /** The plan as it was when this session started (docs/v61 D1). Null for sessions started before it existed. */
-    val planSnapshotJson: String? = null
+    val planSnapshotJson: String? = null,
+    /** Cardio values the user saved (docs/v71); empty for sessions that never had any. Only ever appended. */
+    val cardioInputs: List<RoutiveCardioInput> = emptyList()
 ) {
     val over: Boolean get() = progress.isOver
     val accumulatedSeconds: Long get() = progress.totalElapsedSeconds
+}
+
+/**
+ * One cardio equipment value the user explicitly SAVED during the cardio stage (docs/v71 step 3). [atStageSeconds] is the ACTIVE
+ * time of that stage at the moment of saving (pauses and rests excluded), so going back to an earlier stage can never reorder it.
+ * One saved input of an elliptical with level and incline is two rows with the same [inputIndex].
+ */
+data class RoutiveCardioInput(
+    val inputIndex: Int, val stageIndex: Int, val atStageSeconds: Int, val equipmentKey: String,
+    val metricKey: String, val valueText: String, val enteredAtEpochMs: Long
+)
+
+sealed interface CardioSaveResult {
+    data object Saved : CardioSaveResult
+    /** Nothing was stored; [reason] says why (no session, not the cardio stage, unknown machine, no value, or a value that is not a number). */
+    data class Rejected(val reason: Reason) : CardioSaveResult
+    enum class Reason { NO_ACTIVE_SESSION, NOT_CARDIO_STAGE, UNKNOWN_EQUIPMENT, NO_VALUE, INVALID_VALUE, NOT_STORED }
 }
 
 /** One id per process. A running session whose tracker token differs was last tracked by a process that no longer exists. */
@@ -143,6 +162,30 @@ class RoutiveSessionStore(
     /** Ends the rest early (or clears the "rest finished" cue). The time already rested stays excluded. */
     fun skipRest(): RoutiveSession? = mutate { s, now -> settle(s, now).let { if (it.rest == null) it else it.copy(rest = null) } }
 
+    /**
+     * Saves the values the user typed for [equipmentKey] (docs/v71): only during the cardio stage of a session that is not over,
+     * and only metrics the machine has ([CardioMetrics.forEquipment]); a blank field is simply not recorded (nothing is estimated
+     * or carried over). Every value must be a number. Any problem stores nothing. Cancelling never calls this.
+     */
+    fun saveCardioInput(equipmentKey: String, values: Map<com.move60.workout.domain.CardioMetric, String>): CardioSaveResult {
+        val metrics = com.move60.workout.domain.CardioMetrics.forEquipment(equipmentKey)
+        if (metrics.isEmpty()) return CardioSaveResult.Rejected(CardioSaveResult.Reason.UNKNOWN_EQUIPMENT)
+        val typed = metrics.mapNotNull { m -> values[m]?.trim()?.takeIf { it.isNotEmpty() }?.let { m to it } }
+        if (typed.isEmpty()) return CardioSaveResult.Rejected(CardioSaveResult.Reason.NO_VALUE)
+        if (typed.any { (_, v) -> com.move60.workout.domain.CardioMetrics.parse(v) == null }) return CardioSaveResult.Rejected(CardioSaveResult.Reason.INVALID_VALUE)
+        val current = read() ?: return CardioSaveResult.Rejected(CardioSaveResult.Reason.NO_ACTIVE_SESSION)
+        if (current.over) return CardioSaveResult.Rejected(CardioSaveResult.Reason.NO_ACTIVE_SESSION)
+        val now = clock()
+        val s = settle(current, now)
+        if (s.progress.kind != com.move60.workout.domain.StageKind.CARDIO) return CardioSaveResult.Rejected(CardioSaveResult.Reason.NOT_CARDIO_STAGE)
+        val index = (s.cardioInputs.maxOfOrNull { it.inputIndex } ?: -1) + 1
+        val at = s.progress.elapsedSeconds[s.progress.stageIndex].toInt()
+        val rows = typed.map { (m, v) -> RoutiveCardioInput(index, s.progress.stageIndex, at, equipmentKey, m.key, v, now) }
+        val next = s.copy(cardioInputs = s.cardioInputs + rows)
+        // The user chose to save: commit() (not apply()) so the value is on disk when this returns.
+        return if (writeChecked(next)) CardioSaveResult.Saved else CardioSaveResult.Rejected(CardioSaveResult.Reason.NOT_STORED)
+    }
+
     fun advance(): RoutiveSession? = progressed { it.advance() }
     fun skip(): RoutiveSession? = progressed { it.skip() }
     fun back(): RoutiveSession? = progressed { it.back() }
@@ -155,7 +198,8 @@ class RoutiveSessionStore(
             session.intervals, session.progress.endedEarly,
             sets?.completedSetsForSession(session.startedAtEpochMs).orEmpty().map { TimerSet(it.exerciseId, it.setNumber, it.kg, it.reps) },
             stages = session.progress.plan.mapIndexed { i, p -> TimerStage(p.kind, p.plannedSeconds, session.progress.elapsedSeconds[i]) },
-            planSnapshotJson = session.planSnapshotJson
+            planSnapshotJson = session.planSnapshotJson,
+            cardioInputs = session.cardioInputs.map { TimerCardioInput(it.inputIndex, it.stageIndex, it.atStageSeconds, it.equipmentKey, it.metricKey, it.valueText, null, it.enteredAtEpochMs) }
         )
 
     // ---- internals ----------------------------------------------------------------------------------------------
@@ -213,8 +257,17 @@ class RoutiveSessionStore(
     }
 
     private fun write(s: RoutiveSession, durable: Boolean): RoutiveSession {
+        val edit = prefs.edit().putString(KEY, toJson(s).toString())
+        if (durable) edit.commit() else edit.apply()
+        return s
+    }
+
+    /** Like a durable [write] but reports whether the data reached the disk (used where the user must be told a save failed). */
+    private fun writeChecked(s: RoutiveSession): Boolean = prefs.edit().putString(KEY, toJson(s).toString()).commit()
+
+    private fun toJson(s: RoutiveSession): JSONObject {
         val p = s.progress
-        val json = JSONObject()
+        return JSONObject()
             .put("routineId", s.routineId).put("routineName", s.routineName)
             .put("recordDate", s.recordDate.toString()).put("day", s.day).put("startedAt", s.startedAtEpochMs)
             .put("running", s.running).put("checkpointAt", s.checkpointEpochMs).put("autoPaused", s.autoPaused).put("trackerToken", s.trackerToken)
@@ -226,9 +279,14 @@ class RoutiveSessionStore(
             .put("skipped", JSONArray().also { a -> p.skipped.sorted().forEach { a.put(it) } })
             .put("performed", JSONArray().also { a -> p.performed.sorted().forEach { a.put(it) } })
             .put("intervals", JSONArray().also { a -> s.intervals.forEach { a.put(JSONArray().put(it.first).put(it.second)) } })
-        val edit = prefs.edit().putString(KEY, json.toString())
-        if (durable) edit.commit() else edit.apply()
-        return s
+            // Versioned so a session stored before cardio inputs existed (no key) reads as "no inputs".
+            .put("cardioV", 1)
+            .put("cardio", JSONArray().also { a ->
+                s.cardioInputs.forEach {
+                    a.put(JSONObject().put("i", it.inputIndex).put("st", it.stageIndex).put("at", it.atStageSeconds).put("eq", it.equipmentKey)
+                        .put("m", it.metricKey).put("v", it.valueText).put("t", it.enteredAtEpochMs))
+                }
+            })
     }
 
     private fun read(): RoutiveSession? = try {
@@ -255,9 +313,23 @@ class RoutiveSessionStore(
             o.optBoolean("autoPaused"), o.optString("trackerToken"),
             o.optJSONObject("rest")?.let { RestState(it.getString("exerciseId"), it.getLong("total"), it.getLong("elapsed"), it.optBoolean("cued")) },
             // Missing key (a session started before this existed) and JSON null both mean "no plan snapshot".
-            if (o.isNull("planSnapshot")) null else o.getString("planSnapshot").takeIf { it.isNotEmpty() }
+            if (o.isNull("planSnapshot")) null else o.getString("planSnapshot").takeIf { it.isNotEmpty() },
+            readCardio(o)
         )
     } catch (_: Exception) { null }   // unreadable data is left in place, never overwritten or deleted by a read
+
+    /** Saved cardio values; an entry that cannot be read is skipped on its own (the session and the other values are kept). */
+    private fun readCardio(o: JSONObject): List<RoutiveCardioInput> {
+        if (o.optInt("cardioV", 0) < 1) return emptyList()
+        val a = o.optJSONArray("cardio") ?: return emptyList()
+        return (0 until a.length()).mapNotNull { i ->
+            runCatching {
+                a.getJSONObject(i).let { c ->
+                    RoutiveCardioInput(c.getInt("i"), c.getInt("st"), c.getInt("at"), c.getString("eq"), c.getString("m"), c.getString("v"), c.getLong("t"))
+                }
+            }.getOrNull()
+        }
+    }
 
     companion object { const val NAME = "move60_routive_session_v1"; private const val KEY = "active"; private const val COMMITTED_KEY = "committed_started_at" }
 }

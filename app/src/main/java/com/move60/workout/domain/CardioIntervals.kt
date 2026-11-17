@@ -27,6 +27,13 @@ object CardioMetrics {
         else -> emptyList()
     }
 
+    /** The cardio stage lists machines by name (`WorkoutData.CARDIO_FIRST/SECOND`); returns the `Equipment` key, or null for anything else. */
+    fun equipmentKeyOf(exerciseName: String): String? = when (exerciseName) {
+        "실내 사이클" -> "INDOOR_CYCLE"
+        "일립티컬" -> "ELLIPTICAL"
+        else -> null
+    }
+
     /** Parses what the user typed: a finite, non-negative number. Anything else is rejected (null) instead of guessed. */
     fun parse(text: String): Double? {
         val value = text.trim().replace(',', '.').toDoubleOrNull() ?: return null
