@@ -75,6 +75,8 @@ class ComposeFirstRunTest {
 
                 // The new default space's equipment list opens on top of the normal start.
                 rule.waitUntil(15_000) { rule.onAllNodesWithTag("my_equipment").fetchSemanticsNodes().isNotEmpty() }
+                // The container is already there while the space is still loading; the checklist rows only exist once it is Ready.
+                rule.waitUntil(15_000) { rule.onAllNodesWithTag("my_eq_LEG_PRESS").fetchSemanticsNodes().isNotEmpty() }
                 rule.onNodeWithTag("my_eq_LEG_PRESS").assertIsDisplayed()
                 capture("compose-firstrun-equipment.png")
                 rule.onNodeWithTag("my_back").performClick()
