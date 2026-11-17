@@ -39,6 +39,23 @@ class ChallengeServiceTest {
     private suspend fun status(id: String = "c1") = dao.challenge(id)!!.status
     private fun snapshot(c: ChallengeEntity) = JSONObject(c.endSnapshotJson!!)
 
+    @Test fun challengePeriodHasInclusiveEndAndCannotCreateZeroDayPeriod() {
+        val d = java.time.LocalDate.parse("2026-11-17")
+        assertEquals(d, ChallengeService.inclusiveEndDate(d, 1))
+        assertEquals(java.time.LocalDate.parse("2026-11-23"), ChallengeService.inclusiveEndDate(d, 7))
+        val dateInSeoul = Instant.parse("2026-11-17T15:30:00Z").atZone(java.time.ZoneId.of("Asia/Seoul")).toLocalDate()
+        val dateInUtc = Instant.parse("2026-11-17T15:30:00Z").atZone(java.time.ZoneId.of("UTC")).toLocalDate()
+        assertEquals(java.time.LocalDate.parse("2026-11-18"), dateInSeoul)
+        assertEquals(java.time.LocalDate.parse("2026-11-17"), dateInUtc)
+        assertEquals(java.time.LocalDate.parse("2026-11-24"), ChallengeService.inclusiveEndDate(dateInSeoul, 7))
+        try {
+            ChallengeService.inclusiveEndDate(d, 0)
+            org.junit.Assert.fail("zero-day challenge must be rejected")
+        } catch (_: IllegalArgumentException) {
+            // expected
+        }
+    }
+
     @Test fun ac01_validSessionEarlierOnStartDayIsCreditedRetroactively() = runBlocking {
         at("2026-11-15", 9, 30); assertTrue(store("morning", "2026-11-15", 9, 12) is CommitResult.Committed)
         at("2026-11-15", 14)
@@ -215,7 +232,9 @@ class ChallengeServiceTest {
         val bad = listOf(
             challengeOf(id = "z", start = "2026-11-15", end = "2026-11-21", zone = "Mars/Base") to ChallengeReject.INVALID_ZONE,
             challengeOf(id = "z", start = "2026-11-15", end = "2026-11-14") to ChallengeReject.INVALID_DATE,
-            challengeOf(id = "z", start = "2026-11-15", end = "2026-11-21", target = 0) to ChallengeReject.INVALID_FIELD
+            challengeOf(id = "z", start = "2026-11-15", end = "2026-11-21", target = 0) to ChallengeReject.INVALID_FIELD,
+            challengeOf(id = "z", start = "2026-11-15", end = "2026-11-21").copy(name = " ".repeat(3)) to ChallengeReject.INVALID_FIELD,
+            challengeOf(id = "z", start = "2026-11-15", end = "2026-11-21").copy(name = "x".repeat(ChallengeService.MAX_NAME + 1)) to ChallengeReject.INVALID_FIELD
         )
         for ((c, reason) in bad) { val r = service.create(c); assertTrue("$reason -> $r", r is ChallengeResult.Rejected && r.reason == reason) }
     }

@@ -34,7 +34,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.move60.workout.ui.Move60Button
 import com.move60.workout.ui.Move60Card
-import java.time.LocalDate
 
 /**
  * Challenge / project tab (Figma 도전·프로젝트 group). Start day is always today (confirmed policy), the end date is
@@ -58,9 +57,21 @@ fun ChallengeScreen(onBack: () -> Unit, viewModel: ChallengeViewModel = hiltView
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             val active = state.active
-            if (active != null) item { ActiveChallenge(active, viewModel) }
-            else if (!state.loading) item { CreateChallenge(viewModel) }
-            if (state.ended.isNotEmpty()) {
+            if (state.loadError) {
+                item {
+                    Move60Card(Modifier.testTag("challenge_load_error")) {
+                        Text("도전 정보를 불러오지 못했어요.", style = MaterialTheme.typography.titleMedium)
+                        Text("저장된 운동 기록은 유지됩니다. 다시 확인해 주세요.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Move60Button(onClick = { viewModel.refresh() },
+                            modifier = Modifier.testTag("challenge_load_retry")) { Text("다시 확인") }
+                    }
+                }
+            } else {
+                if (active != null) item { ActiveChallenge(active, viewModel) }
+                else if (!state.loading) item { CreateChallenge(viewModel) }
+            }
+            if (!state.loadError && state.ended.isNotEmpty()) {
                 item {
                     Text("지난 도전", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -77,15 +88,28 @@ private fun ActiveChallenge(card: ChallengeCard, viewModel: ChallengeViewModel) 
     var confirmAbandon by rememberSaveable { mutableStateOf(false) }
     var editing by rememberSaveable { mutableStateOf(false) }
     var draftName by rememberSaveable(card.id) { mutableStateOf(card.name) }
+    var savingName by rememberSaveable(card.id) { mutableStateOf(false) }
     Move60Card(Modifier.testTag("challenge_active")) {
         if (editing) {
             OutlinedTextField(draftName, { draftName = it.take(ChallengeService.MAX_NAME) },
-                label = { Text("도전 이름") }, singleLine = true,
+                label = { Text("도전 이름") }, singleLine = true, enabled = !savingName,
                 modifier = Modifier.fillMaxWidth().testTag("challenge_name_field"))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Move60Button(onClick = { viewModel.rename(card.id, draftName); editing = false },
-                    modifier = Modifier.testTag("challenge_name_save")) { Text("저장") }
-                Move60Button(onClick = { draftName = card.name; editing = false }, primary = false) { Text("취소") }
+                Move60Button(
+                    onClick = {
+                        if (!savingName) {
+                            savingName = true
+                            viewModel.rename(card.id, draftName) { saved ->
+                                savingName = false
+                                if (saved) editing = false
+                            }
+                        }
+                    },
+                    enabled = !savingName,
+                    modifier = Modifier.testTag("challenge_name_save")
+                ) { Text(if (savingName) "저장 중" else "저장") }
+                Move60Button(onClick = { draftName = card.name; editing = false },
+                    enabled = !savingName, primary = false) { Text("취소") }
             }
         } else {
             Text(card.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
@@ -130,11 +154,11 @@ private fun CreateChallenge(viewModel: ChallengeViewModel) {
         Text("새 도전 시작", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         // Policy 1: no start-date input. The start is the creation day (in the challenge time zone) and cannot change.
         val zone = remember { java.time.ZoneId.systemDefault() }
-        val start = remember { java.time.LocalDate.now(zone) }
+        val start = java.time.LocalDate.now(zone)
         Text("시작일", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text("$start · 도전을 만드는 날부터 시작해요.", modifier = Modifier.testTag("challenge_start_info"))
         Text(
-            if (daysN != null && daysN >= 1) "종료 예정일 ${start.plusDays(daysN - 1L)}" else "종료 예정일 · 기간을 입력하면 계산돼요",
+            if (daysN != null && daysN >= 1) "종료 예정일 ${ChallengeService.inclusiveEndDate(start, daysN)}" else "종료 예정일 · 기간을 입력하면 계산돼요",
             modifier = Modifier.testTag("challenge_end_info")
         )
         Text("도전 시간대 기준 ${zone.id}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
@@ -149,7 +173,7 @@ private fun CreateChallenge(viewModel: ChallengeViewModel) {
         Text("하루 실제 운동시간 10분 이상이면 운동일 1일로 인정돼요.", style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         Move60Button(
-            onClick = { viewModel.create(name, targetN!!, LocalDate.now().plusDays(daysN!! - 1L)) },
+            onClick = { viewModel.create(name, targetN!!, daysN!!, zone) },
             enabled = valid, modifier = Modifier.fillMaxWidth().testTag("challenge_start")
         ) { Text("도전 시작") }
     }

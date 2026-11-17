@@ -65,6 +65,8 @@ distribution_steps = [i for i, step in enumerate(publish_steps) if 'scripts/publ
 assert len(legal_steps) == 1 and len(distribution_steps) == 1, 'Missing/duplicate legal or publication gate'
 assert legal_steps[0] < distribution_steps[0], 'Privacy policy check must run before distribution'
 assert publish_steps[legal_steps[0]].get('continue-on-error', 'false') == 'false', 'Cannot bypass privacy policy validation'
+legal_verifier = (root/'scripts/verify-release-legal.py').read_text()
+assert 'oss_licenses.json' in legal_verifier and '"not transitive" in scope' in legal_verifier, 'Do not bypass the known incomplete OSS dependency notice'
 
 for workflow in [release,smoke]:
     for job in workflow['jobs'].values():
