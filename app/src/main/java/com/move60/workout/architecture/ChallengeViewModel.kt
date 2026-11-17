@@ -61,9 +61,16 @@ class ChallengeViewModel @Inject constructor(committer: SessionCommitter) : View
     }
 
     /** Start date is always the creation day (confirmed policy); the period end is inclusive. */
-    fun create(name: String, targetDays: Int, endDate: LocalDate, zone: ZoneId = ZoneId.systemDefault()) {
+    fun create(name: String, targetDays: Int, periodDays: Int, zone: ZoneId = ZoneId.systemDefault()) {
         viewModelScope.launch {
+            // Capture the creation day once, so a midnight crossing cannot desynchronise
+            // the start and inclusive end dates (both are interpreted in the challenge zone).
             val today = LocalDate.now(zone)
+            if (periodDays < 1 || targetDays !in 1..periodDays) {
+                reload("기간과 목표 운동일수를 확인해 주세요.")
+                return@launch
+            }
+            val endDate = ChallengeService.inclusiveEndDate(today, periodDays)
             val trimmed = name.trim()
             val entity = ChallengeEntity(
                 UUID.randomUUID().toString(), trimmed, today.toString(), endDate.toString(), zone.id,
@@ -85,10 +92,25 @@ class ChallengeViewModel @Inject constructor(committer: SessionCommitter) : View
         }
     }
 
-    fun rename(id: String, name: String) {
+    /** Keep the draft editor open until persistence AND the refreshed read succeed. */
+    fun rename(id: String, name: String, onResult: (Boolean) -> Unit) {
         viewModelScope.launch {
-            val ok = service.rename(id, name)
-            reload(if (ok) null else "이름은 1~${ChallengeService.MAX_NAME}자로 입력해 주세요.")
+            try {
+                val trimmed = name.trim()
+                if (trimmed.isEmpty() || trimmed.length > ChallengeService.MAX_NAME) {
+                    reload("이름은 1~${ChallengeService.MAX_NAME}자로 입력해 주세요.")
+                    onResult(false)
+                    return@launch
+                }
+                val saved = service.rename(id, trimmed)
+                reload(if (saved) null else "도전 이름을 저장하지 못했어요. 다시 시도해 주세요.")
+                onResult(saved)
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                _state.value = _state.value.copy(message = "도전 이름을 저장하지 못했어요. 다시 시도해 주세요.")
+                onResult(false)
+            }
         }
     }
 
