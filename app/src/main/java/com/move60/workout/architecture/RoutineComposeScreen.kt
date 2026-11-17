@@ -52,6 +52,7 @@ private val stageOrder = listOf(StageKind.WARM_UP, StageKind.STRENGTH, StageKind
 @Composable
 fun RoutineComposeScreen(onBack: () -> Unit, viewModel: RoutineComposeViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val space by viewModel.space.collectAsStateWithLifecycle()
     var picking by remember { mutableStateOf<StageKind?>(null) }
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -96,9 +97,21 @@ fun RoutineComposeScreen(onBack: () -> Unit, viewModel: RoutineComposeViewModel 
             }
             item {
                 Move60Card(Modifier.testTag("routine_equipment")) {
-                    Text("사용 가능한 기구", style = MaterialTheme.typography.titleMedium)
-                    Text("등록된 기구가 아직 없어요.", style = MaterialTheme.typography.bodyMedium)
-                    Text("등록된 기구 + 맨몸 동작만 운동 후보에 포함", style = MaterialTheme.typography.bodySmall,
+                    Text("운동 후보 기준 공간", style = MaterialTheme.typography.titleMedium)
+                    when (val sp = space) {
+                        CandidateSpace.Loading -> Text("운동 공간을 불러오고 있어요.", style = MaterialTheme.typography.bodyMedium)
+                        CandidateSpace.NoSpace -> Text("기본 운동 공간이 없어요. 마이 > 운동 공간에서 등록하면 보유 기구에 맞는 운동 후보를 볼 수 있어요.",
+                            style = MaterialTheme.typography.bodyMedium)
+                        CandidateSpace.Failed -> Text("운동 공간을 불러오지 못했어요. 운동은 직접 구성해서 고를 수 있어요.",
+                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+                        is CandidateSpace.Ready -> {
+                            Text(sp.name, style = MaterialTheme.typography.bodyMedium)
+                            Text(if (sp.equipment.isEmpty()) "등록된 기구가 없어요 · 맨몸 운동만 후보가 돼요"
+                                else "등록 기구: " + sp.equipment.mapNotNull { Equipment.fromKey(it)?.label }.sorted().joinToString(", "),
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    Text("승인된 운동만 후보로 보여요. 후보에 없는 운동도 직접 구성에서 고를 수 있어요.", style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
@@ -163,7 +176,7 @@ fun RoutineComposeScreen(onBack: () -> Unit, viewModel: RoutineComposeViewModel 
             text = {
                 Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
                     if (options.isEmpty()) Text("선택할 수 있는 항목이 없어요.")
-                    options.forEach { o ->
+                    @Composable fun OptionRow(o: RoutineExerciseInput) {
                         val on = current.any { it.id == o.id }
                         Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable {
                             current = if (on) current.filterNot { it.id == o.id } else current + o
@@ -172,6 +185,20 @@ fun RoutineComposeScreen(onBack: () -> Unit, viewModel: RoutineComposeViewModel 
                             Text(o.name, modifier = Modifier.padding(start = 8.dp))
                         }
                     }
+                    if (kind == StageKind.STRENGTH) {
+                        val candidates = viewModel.candidates(kind)
+                        val candidateIds = candidates.map { it.id }.toSet()
+                        Text("보유 기구에 맞는 운동", style = MaterialTheme.typography.titleSmall, modifier = Modifier.testTag("routine_candidates_title"))
+                        if (candidates.isEmpty()) Text(
+                            if (space is CandidateSpace.Ready) "이 공간의 기구로 고를 수 있는 승인된 운동이 아직 없어요. 아래에서 직접 구성해 주세요."
+                            else "운동 공간을 확인할 수 없어 후보를 보여 줄 수 없어요. 아래에서 직접 구성해 주세요.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.testTag("routine_candidates_empty"))
+                        candidates.forEach { OptionRow(it) }
+                        Text("직접 구성 · 모든 운동", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp).testTag("routine_manual_title"))
+                        // Already chosen items stay visible (and removable) even when they are not on today's list or no longer a candidate.
+                        (options + current).distinctBy { it.id }.filter { it.id !in candidateIds }.forEach { OptionRow(it) }
+                    } else options.forEach { OptionRow(it) }
                 }
             },
             confirmButton = { TextButton(onClick = { viewModel.setSelection(kind, current); picking = null }, modifier = Modifier.testTag("routine_picker_ok")) { Text("선택 완료") } },

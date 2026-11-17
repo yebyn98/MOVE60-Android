@@ -52,6 +52,11 @@ internal fun boundedNumber(text: String, range: LongRange, label: String): Resul
     return if (n in range) Result.success(n) else Result.failure(IllegalArgumentException("$label: ${range.first}~${range.last} 사이로 입력해 주세요"))
 }
 
+/** Approved exercises doable with [registered] (one space), named from the app's own data. Order follows the rule table; no values are invented. */
+internal fun candidateInputs(data: WorkoutData, registered: Set<String>): List<RoutineExerciseInput> =
+    com.move60.workout.domain.ExerciseEquipmentRules.candidates(com.move60.workout.domain.ExerciseEquipmentRules.RULES.keys, registered)
+        .mapNotNull { id -> data.exerciseName(id)?.let { RoutineExerciseInput(id, it) } }
+
 /** Maps a minutes text field to seconds. Blank -> null (unknown). Returns Result.failure for non-positive/garbage input. */
 internal fun minutesToSeconds(text: String): Result<Long?> {
     val t = text.trim()
@@ -64,10 +69,26 @@ internal fun minutesToSeconds(text: String): Result<Long?> {
 @HiltViewModel
 class RoutineComposeViewModel @Inject constructor(
     private val data: WorkoutData,
-    private val service: RoutinePlanService
+    private val service: RoutinePlanService,
+    private val spaceSource: DefaultSpaceEquipment
 ) : ViewModel() {
     private val _state = MutableStateFlow(RoutineComposeUiState())
     val state: StateFlow<RoutineComposeUiState> = _state.asStateFlow()
+
+    private val _space = MutableStateFlow<CandidateSpace>(CandidateSpace.Loading)
+    /** The default space whose equipment decides the candidates (never merged with other spaces). */
+    val space: StateFlow<CandidateSpace> = _space.asStateFlow()
+    init { viewModelScope.launch { _space.value = spaceSource.load() } }
+
+    /**
+     * "Exercises that fit the equipment": every one of the app's own exercises that the PO approved and that the DEFAULT space's equipment
+     * allows. This is NOT limited to today's pool; the manual list below stays as it was. Only strength exercises have rules.
+     */
+    fun candidates(kind: StageKind): List<RoutineExerciseInput> {
+        if (kind != StageKind.STRENGTH) return emptyList()
+        val ready = _space.value as? CandidateSpace.Ready ?: return emptyList()
+        return candidateInputs(data, ready.equipment)
+    }
 
     /** Candidate exercises per stage, taken from the app's own curated catalog (no invented items). */
     val catalog: Map<StageKind, List<RoutineExerciseInput>> by lazy {
