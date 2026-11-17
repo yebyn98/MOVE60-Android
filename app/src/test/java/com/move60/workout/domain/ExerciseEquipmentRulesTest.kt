@@ -10,7 +10,7 @@ class ExerciseEquipmentRulesTest {
 
     @Test fun anApprovedBodyWeightExerciseIsACandidateWithoutAnyEquipment() {
         val c = candidates(none)
-        for (id in listOf("gluteBridge", "deadBug", "birdDog", "plank", "sidePlank", "heelSlide", "wallPushup", "chairSquat"))
+        for (id in listOf("gluteBridge", "deadBug", "birdDog", "plank", "sidePlank", "heelSlide", "wallPushup", "chairSquat", "bodySquat", "march"))
             assertTrue("$id is body weight", id in c)
     }
     @Test fun orRowsNeedOnlyOneOfTheirWays() {
@@ -22,17 +22,21 @@ class ExerciseEquipmentRulesTest {
         assertTrue("pallofPress" in candidates(setOf("CABLE_MACHINE"))); assertTrue("pallofPress" in candidates(setOf("RESISTANCE_BAND")))
         assertTrue("clamshell: mat = body weight" , "clamshell" in candidates(none))
     }
-    @Test fun anUnapprovedRowNeverShowsEvenWithTheEquipment() {
-        val all = setOf("LEG_PRESS", "DUMBBELL", "BENCH", "STEP_BOX", "CABLE_MACHINE", "LAT_PULLDOWN", "RESISTANCE_BAND", "LEG_CURL_MACHINE",
-            "HIP_ABDUCTION_MACHINE", "SEATED_ROW_MACHINE", "CHEST_PRESS_MACHINE", "HIP_THRUST_MACHINE")
-        val shown = candidates(all)
-        for ((id, rule) in ExerciseEquipmentRules.RULES) if (!rule.approved) assertFalse("$id is not approved", id in shown)
-        assertFalse("legPress" in shown); assertFalse("bodySquat" in shown)
+    @Test fun aRowThatIsNotApprovedNeverShowsEvenWithTheEquipment() {
+        // All 35 rows are approved now; the flag still gates any row the PO has not approved (e.g. an exercise added later).
+        val rules = mapOf("newMove" to EquipmentRule(listOf(setOf("DUMBBELL")), approved = false), "plank" to ExerciseEquipmentRules.RULES.getValue("plank"))
+        assertFalse(ExerciseEquipmentRules.isCandidate("newMove", setOf("DUMBBELL"), rules))
+        assertEquals(listOf("plank"), ExerciseEquipmentRules.candidates(listOf("newMove", "plank"), setOf("DUMBBELL"), rules))
+    }
+    @Test fun equipmentRowsNeedTheirEquipment() {
+        assertFalse("legPress" in candidates(none)); assertTrue("legPress" in candidates(setOf("LEG_PRESS")))
+        assertFalse("gobletSquat" in candidates(setOf("LEG_PRESS"))); assertTrue("gobletSquat" in candidates(setOf("DUMBBELL")))
+        assertFalse("boxSquat" in candidates(setOf("DUMBBELL"))); assertTrue("boxSquat" in candidates(setOf("BENCH")))
     }
     @Test fun aRowWithTwoEquipmentNeedsBoth() {
         val rule = EquipmentRule(listOf(setOf("BENCH", "DUMBBELL")), approved = true)
         assertFalse(rule.satisfiedBy(setOf("BENCH"))); assertFalse(rule.satisfiedBy(setOf("DUMBBELL"))); assertTrue(rule.satisfiedBy(setOf("BENCH", "DUMBBELL")))
-        assertEquals("the PO has not approved this row", false, ExerciseEquipmentRules.RULES.getValue("dbChestPress").approved)
+        assertFalse("dumbbell chest press needs both", "dbChestPress" in candidates(setOf("BENCH"))); assertTrue("dbChestPress" in candidates(setOf("BENCH", "DUMBBELL")))
         assertEquals(listOf(setOf("BENCH", "DUMBBELL")), ExerciseEquipmentRules.RULES.getValue("dbChestPress").anyOf)
     }
     @Test fun unknownIdsAreNeverCandidatesAndOrderAndRepeatsAreKept() {
@@ -41,7 +45,7 @@ class ExerciseEquipmentRulesTest {
     }
     @Test fun aRuleNeedsAtLeastOneWayAndEveryApprovedRowIsExplicit() {
         assertThrows(IllegalArgumentException::class.java) { EquipmentRule(emptyList(), true) }
-        assertEquals(13, ExerciseEquipmentRules.RULES.values.count { it.approved })   // only the rows the PO decided; the rest wait for approval
+        assertEquals(35, ExerciseEquipmentRules.RULES.values.count { it.approved })   // the PO approved every row on 2026-11-17
         assertEquals(35, ExerciseEquipmentRules.RULES.size)
     }
 }

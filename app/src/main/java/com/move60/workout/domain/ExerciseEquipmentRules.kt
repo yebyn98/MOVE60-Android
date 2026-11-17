@@ -22,32 +22,33 @@ object ExerciseEquipmentRules {
     private fun rule(anyOf: List<Set<String>>, approved: Boolean) = EquipmentRule(anyOf, approved)
 
     /**
-     * Approved = the PO decided this row in the conversation (mat exercises count as body weight, wall/chair as body weight, calf raise =
-     * body weight or dumbbell, "A or B" = one is enough). The other rows wait for the PO's approval of the review table.
+     * Every row is approved by the PO (2026-11-17): first the rows decided one by one (mat exercises count as body weight, wall/chair as
+     * body weight, calf raise = body weight or dumbbell, "A or B" = one is enough), then "나머지 승인" for the rest of the review table.
+     * The `approved` flag stays: a new exercise added later is NOT a candidate until the PO approves its row and it is set to true.
      */
     val RULES: Map<String, EquipmentRule> = linkedMapOf(
-        "legPress" to rule(one("LEG_PRESS"), false),
-        "gobletSquat" to rule(one("DUMBBELL"), false),
-        "boxSquat" to rule(one("BENCH"), false),
-        "stepUp" to rule(one("STEP_BOX"), false),
+        "legPress" to rule(one("LEG_PRESS"), true),
+        "gobletSquat" to rule(one("DUMBBELL"), true),
+        "boxSquat" to rule(one("BENCH"), true),
+        "stepUp" to rule(one("STEP_BOX"), true),
         "gluteBridge" to rule(listOf(BODY), true),
         "hipThrust" to rule(one("HIP_THRUST_MACHINE") + one("BENCH"), true),
-        "cableKickback" to rule(one("CABLE_MACHINE"), false),
-        "hipAbduction" to rule(one("HIP_ABDUCTION_MACHINE"), false),
-        "legCurl" to rule(one("LEG_CURL_MACHINE"), false),
-        "rdl" to rule(one("DUMBBELL"), false),
+        "cableKickback" to rule(one("CABLE_MACHINE"), true),
+        "hipAbduction" to rule(one("HIP_ABDUCTION_MACHINE"), true),
+        "legCurl" to rule(one("LEG_CURL_MACHINE"), true),
+        "rdl" to rule(one("DUMBBELL"), true),
         "calfRaise" to rule(listOf(BODY) + one("DUMBBELL"), true),
         "reverseLunge" to rule(listOf(BODY) + one("DUMBBELL"), true),
-        "latPulldown" to rule(one("LAT_PULLDOWN"), false),
-        "seatedRow" to rule(one("SEATED_ROW_MACHINE"), false),
-        "cableRow" to rule(one("CABLE_MACHINE"), false),
-        "chestPress" to rule(one("CHEST_PRESS_MACHINE"), false),
-        "dbChestPress" to rule(one("BENCH", "DUMBBELL"), false),
-        "inclinePushup" to rule(one("BENCH"), false),
-        "facePull" to rule(one("CABLE_MACHINE"), false),
-        "lateralRaise" to rule(one("DUMBBELL"), false),
-        "bicepCurl" to rule(one("DUMBBELL"), false),
-        "tricepPushdown" to rule(one("CABLE_MACHINE"), false),
+        "latPulldown" to rule(one("LAT_PULLDOWN"), true),
+        "seatedRow" to rule(one("SEATED_ROW_MACHINE"), true),
+        "cableRow" to rule(one("CABLE_MACHINE"), true),
+        "chestPress" to rule(one("CHEST_PRESS_MACHINE"), true),
+        "dbChestPress" to rule(one("BENCH", "DUMBBELL"), true),
+        "inclinePushup" to rule(one("BENCH"), true),
+        "facePull" to rule(one("CABLE_MACHINE"), true),
+        "lateralRaise" to rule(one("DUMBBELL"), true),
+        "bicepCurl" to rule(one("DUMBBELL"), true),
+        "tricepPushdown" to rule(one("CABLE_MACHINE"), true),
         "deadBug" to rule(listOf(BODY), true),
         "birdDog" to rule(listOf(BODY), true),
         "plank" to rule(listOf(BODY), true),
@@ -55,20 +56,20 @@ object ExerciseEquipmentRules {
         "pallofPress" to rule(one("CABLE_MACHINE") + one("RESISTANCE_BAND"), true),
         "wallPushup" to rule(listOf(BODY), true),
         "chairSquat" to rule(listOf(BODY), true),
-        "bandRow" to rule(one("RESISTANCE_BAND"), false),
+        "bandRow" to rule(one("RESISTANCE_BAND"), true),
         "clamshell" to rule(listOf(BODY) + one("RESISTANCE_BAND"), true),
         "heelSlide" to rule(listOf(BODY), true),
-        "bodySquat" to rule(listOf(BODY), false),
-        "march" to rule(listOf(BODY), false),
-        "farmerCarry" to rule(one("DUMBBELL"), false)
+        "bodySquat" to rule(listOf(BODY), true),
+        "march" to rule(listOf(BODY), true),
+        "farmerCarry" to rule(one("DUMBBELL"), true)
     )
 
-    fun isCandidate(exerciseId: String, registered: Set<String>): Boolean {
-        val r = RULES[exerciseId] ?: return false          // no rule = never a candidate (it stays available for manual composition)
+    fun isCandidate(exerciseId: String, registered: Set<String>, rules: Map<String, EquipmentRule> = RULES): Boolean {
+        val r = rules[exerciseId] ?: return false          // no rule = never a candidate (it stays available for manual composition)
         return r.approved && r.satisfiedBy(registered)
     }
 
     /** The ids (keeping the given order, without repeats) that are approved AND doable with the equipment of ONE space. */
-    fun candidates(exerciseIds: Collection<String>, registered: Set<String>): List<String> =
-        exerciseIds.distinct().filter { isCandidate(it, registered) }
+    fun candidates(exerciseIds: Collection<String>, registered: Set<String>, rules: Map<String, EquipmentRule> = RULES): List<String> =
+        exerciseIds.distinct().filter { isCandidate(it, registered, rules) }
 }

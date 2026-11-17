@@ -101,11 +101,12 @@ class ComposeExerciseCandidatesTest {
                 openStrengthPicker()
                 rule.onNodeWithTag("routine_candidates_title").assertIsDisplayed()
                 rule.onNodeWithTag("routine_candidates_empty").assertDoesNotExist()
-                // Dumbbell only: the approved body-weight / dumbbell-or-body-weight rows are there; unapproved dumbbell rows are not.
-                for (id in listOf("plank", "calfRaise", "reverseLunge", "gluteBridge"))
-                    assertTrue("$id is an approved row that fits", rule.onAllNodesWithTag("routine_option_$id").fetchSemanticsNodes().isNotEmpty())
-                for (id in listOf("gobletSquat", "bicepCurl", "legPress"))
-                    assertTrue("$id is not approved or needs other equipment, so it must not be in the candidate section", id !in candidateSectionIds())
+                // Dumbbell only: body-weight and dumbbell rows are candidates; rows that need other equipment are not.
+                val shown = candidateSectionIds()
+                for (id in listOf("plank", "calfRaise", "reverseLunge", "gluteBridge", "gobletSquat", "bicepCurl", "farmerCarry"))
+                    assertTrue("$id fits a dumbbell-only space", id in shown)
+                for (id in listOf("legPress", "cableKickback", "latPulldown", "boxSquat"))
+                    assertTrue("$id needs equipment this space does not have, so it must not be in the candidate section", id !in shown)
                 captureScreen("compose-candidates-picker.png")
             }
         } finally { cleanE2e() }

@@ -42,7 +42,7 @@ class ExerciseEquipmentRulesDataTest {
     @Test fun candidatesComeFromAllExercisesNotOnlyTodaysPoolAndCarryOnlyTheirOwnName() {
         val data = WorkoutData(context)
         val none = candidateInputs(data, emptySet())
-        assertEquals("no equipment: only the approved body-weight ways", setOf("gluteBridge", "calfRaise", "reverseLunge", "deadBug", "birdDog", "plank", "sidePlank", "wallPushup", "chairSquat", "clamshell", "heelSlide"), none.map { it.id }.toSet())
+        assertEquals("no equipment: only the body-weight ways", setOf("gluteBridge", "calfRaise", "reverseLunge", "deadBug", "birdDog", "plank", "sidePlank", "wallPushup", "chairSquat", "clamshell", "heelSlide", "bodySquat", "march"), none.map { it.id }.toSet())
         assertTrue("names are the app's own", none.all { it.name == data.exerciseName(it.id) && it.plannedSeconds == null && it.targetSets == null && it.targetReps == null && it.restSeconds == null })
         val withBench = candidateInputs(data, setOf("BENCH", "CABLE_MACHINE")).map { it.id }
         assertTrue("hipThrust" in withBench && "pallofPress" in withBench && "legPress" !in withBench)
