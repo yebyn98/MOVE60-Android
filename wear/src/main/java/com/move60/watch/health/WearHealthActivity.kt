@@ -265,19 +265,19 @@ fun HealthScreen(
                         maxLines = 3
                     )
                 }
-                item {
+                // Calories are not shown anywhere until the calculation policy is decided (docs/v66), so the measurement is not offered
+                // either. Only a user who had already turned it on keeps a control, and only to turn it off (consent stays revocable).
+                if (state.kcalOptIn) item {
                     HealthCard {
                         Text("워치 칼로리 측정", color = secondary, fontSize = 12.sp)
-                        Text("운동 중 워치가 계산한 총 칼로리(기초대사 포함)를 폰에 보내요. 꺼두면 보내지 않아요.",
+                        Text("지금은 칼로리를 표시하지 않아요. 이미 켜 둔 측정을 끄면 폰으로 보내지 않아요.",
                             color = secondary, fontSize = 10.sp, textAlign = TextAlign.Center, maxLines = 4)
                         androidx.wear.compose.material.Chip(
                             onClick = onToggleKcal,
-                            label = { Text(if (state.kcalOptIn) "측정 끄기" else "측정 켜기", fontSize = 12.sp) },
+                            label = { Text("측정 끄기", fontSize = 12.sp) },
                             secondaryLabel = { Text(state.kcalStatus, fontSize = 10.sp, maxLines = 2) },
                             modifier = Modifier.fillMaxWidth().testTag("wear_kcal_chip"),
-                            colors = if (state.kcalOptIn) androidx.wear.compose.material.ChipDefaults.secondaryChipColors()
-                                else androidx.wear.compose.material.ChipDefaults.primaryChipColors(
-                                    backgroundColor = brand, contentColor = Color.Black)
+                            colors = androidx.wear.compose.material.ChipDefaults.secondaryChipColors()
                         )
                     }
                 }

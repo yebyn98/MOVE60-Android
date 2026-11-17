@@ -33,6 +33,7 @@ class KcalNoticeTest {
 
     @Test fun theTextDoesNotMentionAnyNumberOrPlaceholder() {
         assertFalse(KcalNoticePolicy.TITLE.contains("0") || KcalNoticePolicy.BODY.contains("0"))
-        assertTrue(KcalNoticePolicy.BODY.contains("보존"))
+        assertEquals("the approved wording, unchanged",
+            "칼로리 정보는 산정 기준을 검토하는 동안 표시하지 않습니다. 기존 운동 기록은 그대로 유지됩니다.", KcalNoticePolicy.TEXT)
     }
 }

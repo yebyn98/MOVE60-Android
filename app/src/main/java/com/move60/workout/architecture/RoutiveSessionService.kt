@@ -39,7 +39,9 @@ class RoutiveSessionService : Service() {
         const val ACTION_TOGGLE = "com.move60.workout.ROUTIVE_TOGGLE"
         const val EXTRA_OPEN_SESSION = "move60_open_routive_session"
         const val NOTIFICATION_ID = 4260
-        private const val CHANNEL = "move60_routive_session_v1"
+        private const val CHANNEL = "move60_routive_session_v2"
+        /** v1 was created with a PUBLIC lock-screen default, which a channel keeps for good; it is replaced by a PRIVATE one. */
+        private const val LEGACY_CHANNEL = "move60_routive_session_v1"
         /** Upper bound for keeping the service alive while the finished session is saved. */
         private const val COMMIT_WAIT_MS = 20_000L
 
@@ -63,9 +65,10 @@ class RoutiveSessionService : Service() {
         super.onCreate()
         store = RoutiveSessionStore(this)
         val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        try { manager.deleteNotificationChannel(LEGACY_CHANNEL) } catch (_: Exception) { }
         manager.createNotificationChannel(NotificationChannel(CHANNEL, "운동 진행 · ROUTIVE", NotificationManager.IMPORTANCE_LOW).apply {
-            description = "진행 중인 운동의 단계와 시간을 보여줘요"
-            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+            description = "진행 중인 운동의 단계와 시간을 보여줘요. 잠금화면에서는 운동 내용을 기본으로 숨겨요"
+            lockscreenVisibility = Notification.VISIBILITY_PRIVATE
             setSound(null, null); enableVibration(false)
         })
     }
@@ -126,10 +129,17 @@ class RoutiveSessionService : Service() {
         val openPending = PendingIntent.getActivity(this, 1, open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val toggle = PendingIntent.getService(this, 2, Intent(this, RoutiveSessionService::class.java).setAction(ACTION_TOGGLE),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        // Exercise, stage and time are private on the lock screen; only this generic version may show there.
+        val lockScreen = Notification.Builder(this, CHANNEL)
+            .setSmallIcon(R.drawable.ic_fitness)
+            .setContentTitle("ROUTIVE · 운동 진행 중").setContentText("잠금을 해제하면 자세히 볼 수 있어요")
+            .setContentIntent(openPending).setVisibility(Notification.VISIBILITY_PUBLIC)
+            .setOngoing(true).setOnlyAlertOnce(true).setShowWhen(false)
+            .build()
         return Notification.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_fitness)
             .setContentTitle(text.title).setContentText(text.body)
-            .setContentIntent(openPending).setVisibility(Notification.VISIBILITY_PUBLIC)
+            .setContentIntent(openPending).setVisibility(Notification.VISIBILITY_PRIVATE).setPublicVersion(lockScreen)
             .setOngoing(true).setOnlyAlertOnce(true).setShowWhen(false).setCategory(Notification.CATEGORY_SERVICE)
             .apply { if (!saving) addAction(Notification.Action.Builder(null, text.actionLabel, toggle).build()) }
             .apply { if (Build.VERSION.SDK_INT >= 31) setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE) }

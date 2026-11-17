@@ -832,12 +832,12 @@ class MainActivity : Activity() {
             12, false, textSecondary))
         addGap(detailContent, 12)
         if (task.id.isNotEmpty() && info != null) {
-            // Two public-domain frames loop like a short clip; stick figure only when no image exists.
+            // Two public-domain frames loop like a short clip; without a licensed pair an empty state is shown (no drawn diagram).
             detailContent.addView(ExerciseGuide.create(this, task.id),
                 LinearLayout.LayoutParams(-1, -2))
             addGap(detailContent, 4)
             detailContent.addView(label(
-                "${info.area} · ${info.equipment} · 시작·끝 자세 반복 이미지",
+                "${info.area} · ${info.equipment}" + if (ExerciseGuide.hasGuide(this, task.id)) " · 시작·끝 자세 반복 이미지" else "",
                 11, false, textSecondary))
             addGap(detailContent, 16)
         }

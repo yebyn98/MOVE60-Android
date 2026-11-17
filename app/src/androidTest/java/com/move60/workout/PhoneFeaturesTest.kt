@@ -234,7 +234,13 @@ class PhoneFeaturesTest {
         assertEquals(29, ids.size)
         ids.forEach { assertTrue("missing second frame for $it", "${it}_1.jpg" in files) }
         assertTrue(ExerciseGuide.create(context, "legPress").tag == "exercise_guide_loop")
-        assertTrue(ExerciseGuide.create(context, "birdDog") is ExerciseDiagram)
+        // docs/v66 PO decision 4: no unverified drawn diagram; the honest empty state instead.
+        val empty = ExerciseGuide.create(context, "birdDog")
+        assertEquals(ExerciseGuide.EMPTY_TAG, empty.tag)
+        assertEquals("이 운동의 동작 안내는 아직 제공되지 않아요.", (empty as TextView).text.toString())
+        listOf("birdDog", "wallPushup", "bandRow", "clamshell", "heelSlide", "march").forEach {
+            assertFalse("$it has no licensed pair", ExerciseGuide.hasGuide(context, it))
+        }
     }
     @Test fun lastStageHasEnabledFinishAction() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->

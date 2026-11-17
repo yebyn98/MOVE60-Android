@@ -9,8 +9,10 @@ import android.content.Context
 object KcalNoticePolicy {
     fun show(seen: Boolean, existingUser: Boolean): Boolean = !seen && existingUser
 
-    const val TITLE = "칼로리 표시를 더 이상 제공하지 않아요"
-    const val BODY = "이전 운동 기록은 그대로 보존돼요."
+    /** The wording the PO approved (docs/v66 5-3), shown as one text. */
+    const val TITLE = "칼로리 정보는 산정 기준을 검토하는 동안 표시하지 않습니다."
+    const val BODY = "기존 운동 기록은 그대로 유지됩니다."
+    const val TEXT = "$TITLE $BODY"
 }
 
 class KcalNoticeStore(context: Context) {

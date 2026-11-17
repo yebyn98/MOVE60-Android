@@ -64,7 +64,7 @@ class WorkoutTileService : TileService() {
         }
         val info = when {
             state.finished && state.isRoutive4 -> "총 ${(state.activeSeconds + 30) / 60}분 수행"   // no kcal or set total is invented
-            state.finished -> "${state.completedSets}/${state.totalSets}세트 · 약 ${state.estimatedKcal.toInt()}kcal"
+            state.finished -> "${state.completedSets}/${state.totalSets}세트"   // kcal is not shown (docs/v66 PO decision)
             rest -> "남은 약 ${(state.restSeconds()+59)/60}분"
             state.isStrength -> state.exerciseName.ifBlank { state.setLabel }.take(15)
             state.isTimed -> state.detail.ifBlank { "운동 진행" }

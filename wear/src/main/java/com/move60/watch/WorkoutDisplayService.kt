@@ -66,7 +66,7 @@ class WorkoutDisplayService : Service(), DataClient.OnDataChangedListener {
             .setContentText("눌러서 현재 운동 화면으로 돌아가기")
             .setContentIntent(open)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setOngoing(true).setOnlyAlertOnce(true)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
         ongoing = OngoingActivity.Builder(this, ID, builder)

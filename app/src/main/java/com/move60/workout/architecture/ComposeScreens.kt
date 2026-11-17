@@ -469,8 +469,7 @@ fun WorkoutCalendar(
             verticalArrangement = Arrangement.spacedBy(16.dp)) {
             if (kcalNotice) item {
                 Move60Card(Modifier.testTag("kcal_notice")) {
-                    Text(KcalNoticePolicy.TITLE, style = cardTitle)
-                    Text(KcalNoticePolicy.BODY, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                    Text(KcalNoticePolicy.TEXT, style = MaterialTheme.typography.bodyMedium)
                     TextButton(onClick = { kcalNotice = false }, modifier = Modifier.heightIn(min = 48.dp).testTag("kcal_notice_dismiss")) { Text("확인") }
                 }
             }
@@ -761,10 +760,11 @@ fun WorkoutSettings(
     // null = unknown (offline / not checked), true = newer build published, false = latest.
     var updateAvailable by remember { mutableStateOf<Boolean?>(null) }
     LaunchedEffect(updateManager) { updateManager.peekAvailability { updateAvailable = it } }
-    var weight by remember(settings.weightKg) {
-        mutableStateOf(settings.weightKg.toInt().toString())
-    }
     var diagnostics by remember { mutableStateOf<String?>(null) }
+    var showOss by remember { mutableStateOf(false) }
+    val privacyUrl = remember {
+        com.move60.workout.domain.PrivacyPolicyLink.validOrNull(context.getString(com.move60.workout.R.string.privacy_policy_url))
+    }
     val widgetScope = rememberCoroutineScope()
     val notificationPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -809,44 +809,8 @@ fun WorkoutSettings(
                     }
                 }
             }
-            item {
-                Move60Group("내 정보", Modifier.testTag("settings_group_profile")) {
-                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text("칼로리 계산 체중", style = MaterialTheme.typography.titleMedium)
-                        // Figma weight_field: black 48dp field, "63 kg" value, small elevated save button.
-                        Row(Modifier.fillMaxWidth().height(48.dp)
-                            .background(MaterialTheme.colorScheme.background, MaterialTheme.shapes.small)
-                            .border(1.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.small)
-                            .padding(start = 16.dp, end = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                                BasicTextField(value = weight, onValueChange = { weight = it },
-                                    modifier = Modifier.widthIn(min = 24.dp, max = 120.dp).width(IntrinsicSize.Min)
-                                        .testTag("settings_weight_field"),
-                                    singleLine = true,
-                                    textStyle = MaterialTheme.typography.bodyMedium.copy(
-                                        color = MaterialTheme.colorScheme.onSurface),
-                                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
-                                Text(" kg")
-                            }
-                            // 60x36 visual button inside a 48dp-high touch area.
-                            Box(Modifier.height(48.dp).clickable(role = Role.Button, onClickLabel = "체중 저장") {
-                                viewModel.setWeight(weight)
-                            }.testTag("settings_weight_save"), contentAlignment = Alignment.Center) {
-                                Box(Modifier.size(width = 60.dp, height = 36.dp)
-                                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
-                                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp)),
-                                    contentAlignment = Alignment.Center) {
-                                    Text("저장", fontWeight = FontWeight.Bold,
-                                        style = MaterialTheme.typography.labelMedium)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            // The calorie-weight setting is hidden: it only fed the kcal estimate, which is not shown (docs/v66). The saved value
+            // (`calorie_weight_kg`) and its stored data are untouched.
             item {
                 Move60Group("앱", Modifier.testTag("settings_group_app")) {
                     Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 16.dp),
@@ -898,6 +862,21 @@ fun WorkoutSettings(
                         }
                     }
                     Move60Divider()
+                    // Legal: the OSS list is always offered; the privacy policy only when the operator configured a real HTTPS address.
+                    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(role = Role.Button, onClickLabel = "오픈소스 라이선스 보기") { showOss = true }
+                        .padding(horizontal = 16.dp).testTag("settings_oss_row"), verticalAlignment = Alignment.CenterVertically) {
+                        Text("오픈소스 라이선스", modifier = Modifier.weight(1f))
+                    }
+                    if (privacyUrl != null) {
+                        Move60Divider()
+                        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(role = Role.Button, onClickLabel = "개인정보처리방침 열기") {
+                            try { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(privacyUrl))) }
+                            catch (_: Exception) { widgetScope.launch { message.showSnackbar("링크를 열 수 있는 앱이 없어요.") } }
+                        }.padding(horizontal = 16.dp).testTag("settings_privacy_row"), verticalAlignment = Alignment.CenterVertically) {
+                            Text("개인정보처리방침", modifier = Modifier.weight(1f))
+                        }
+                    }
+                    Move60Divider()
                     // Fixed row height: the update button replaces the version text without moving anything.
                     Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 16.dp)
                         .testTag("settings_version_row"),
@@ -925,6 +904,29 @@ fun WorkoutSettings(
                 }
             }
         }
+    }
+    if (showOss) {
+        val notice = remember { OssNoticeReader.load(context) }
+        AlertDialog(
+            onDismissRequest = { showOss = false },
+            title = { Text("오픈소스 라이선스") },
+            text = {
+                DialogDim()
+                if (notice == null) Text("라이선스 목록을 불러오지 못했어요.", modifier = Modifier.testTag("oss_unavailable"))
+                else LazyColumn(Modifier.heightIn(max = 420.dp).testTag("oss_list")) {
+                    item { Text(notice.scope + ". 전이 의존성은 아직 포함되지 않았어요.", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp)) }
+                    items(notice.libraries) { lib ->
+                        Column(Modifier.padding(vertical = 6.dp)) {
+                            Text(lib.name + " " + lib.version, style = MaterialTheme.typography.bodyMedium)
+                            Text(lib.licenses.joinToString(", "), style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showOss = false }) { Text("닫기") } }
+        )
     }
     diagnostics?.let { text ->
         AlertDialog(

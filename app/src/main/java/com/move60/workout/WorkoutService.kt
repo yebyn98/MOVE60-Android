@@ -30,8 +30,10 @@ class WorkoutService : Service() {
     companion object {
         const val ACTION_SYNC = "com.move60.workout.ACTION_SYNC"
         const val EXTRA_SNAPSHOT = "snapshot"
-        const val CHANNEL_PROGRESS = "move60_native_timer_v12"
-        private const val CHANNEL_PHASE = "move60_native_phase_v12"
+        const val CHANNEL_PROGRESS = "move60_native_timer_v13"
+        private const val CHANNEL_PHASE = "move60_native_phase_v13"
+        /** Earlier channels were created with a PUBLIC lock-screen default, which a channel keeps for good; they are replaced (docs/v67: workout details are hidden on the lock screen by default). */
+        private val LEGACY_PUBLIC_CHANNELS = listOf("move60_native_timer_v12", "move60_native_phase_v12")
         private const val ONGOING_ID = 601
         /** True after a card posting error; resets with the process so a transient failure is retried later. */
         @Volatile private var cardFailedInThisProcess = false
@@ -61,6 +63,8 @@ class WorkoutService : Service() {
                         manager.notify(603, Notification.Builder(this@WorkoutService,"move60_rest_v26")
                             .setSmallIcon(R.drawable.ic_fitness).setContentTitle("휴식 완료")
                             .setContentText(TrainingProgress.next(store)?.label ?: "다음 운동을 진행하세요")
+                            .setVisibility(Notification.VISIBILITY_PRIVATE)
+                            .setPublicVersion(genericPublicVersion("move60_rest_v26", null))
                             .setAutoCancel(true).build())
                     }
                     WatchStatePublisher.publishSnapshot(this@WorkoutService, store.snapshot())
@@ -75,11 +79,12 @@ class WorkoutService : Service() {
     override fun onCreate() {
         super.onCreate()
         val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        LEGACY_PUBLIC_CHANNELS.forEach { try { manager.deleteNotificationChannel(it) } catch (_: Exception) { } }
         manager.createNotificationChannel(NotificationChannel(
             CHANNEL_PROGRESS, "운동 진행 · 잠금화면 타이머", NotificationManager.IMPORTANCE_DEFAULT
         ).apply {
-            description = "MOVE60: 안정형 진행 알림과 잠금화면 카운트다운"
-            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+            description = "MOVE60: 운동 진행 알림. 잠금화면에서는 운동 내용을 기본으로 숨겨요"
+            lockscreenVisibility = Notification.VISIBILITY_PRIVATE
             setSound(null, null)
             enableVibration(false)
         })
@@ -92,7 +97,7 @@ class WorkoutService : Service() {
         manager.createNotificationChannel(NotificationChannel(
             CHANNEL_PHASE, "운동 구간 전환", NotificationManager.IMPORTANCE_DEFAULT
         ).apply {
-            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+            lockscreenVisibility = Notification.VISIBILITY_PRIVATE
         })
     }
 
@@ -226,6 +231,17 @@ class WorkoutService : Service() {
         return Cue(stageNames[stage], title, detail, round, effort, countdownEnd, progress, dayNames[day - 1], countUp = kind == com.move60.workout.domain.StageKind.STRENGTH)
     }
 
+    private fun genericPublicVersion(channel: String, pending: PendingIntent?): Notification =
+        Notification.Builder(this, channel)
+            .setSmallIcon(R.drawable.ic_fitness)
+            .setColor(Move60Theme.Colors.primary)
+            .setContentTitle("MOVE60 · 운동 진행 중")
+            .setContentText("잠금을 해제하면 자세히 볼 수 있어요")
+            .apply { if (pending != null) setContentIntent(pending) }
+            .setVisibility(Notification.VISIBILITY_PUBLIC)
+            .setOnlyAlertOnce(true).setShowWhen(false).setOngoing(true)
+            .build()
+
     private fun builder(channel: String): Notification.Builder {
         val open = Intent(this, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
@@ -234,7 +250,10 @@ class WorkoutService : Service() {
             .setSmallIcon(R.drawable.ic_fitness)
             .setColor(Move60Theme.Colors.primary)
             .setContentIntent(pending)
-            .setVisibility(Notification.VISIBILITY_PUBLIC)
+            // Workout details are private on the lock screen; only the generic public version (no exercise, stage, time or
+            // heart rate) may show there. The user's own system setting for sensitive notifications still decides.
+            .setVisibility(Notification.VISIBILITY_PRIVATE)
+            .setPublicVersion(genericPublicVersion(channel, pending))
             .setOnlyAlertOnce(true)
             .apply { if (Build.VERSION.SDK_INT >= 31) setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE) }
     }
@@ -278,25 +297,12 @@ class WorkoutService : Service() {
 
     private fun buildNotification(now: Long): Notification {
         val c = cue(now)
-        // Android may choose a public version on the lock screen.
-        // Make it the same widget rather than falling back to plain text there.
-        val publicVersion = builder(CHANNEL_PROGRESS)
-            .setContentTitle("MOVE60 · ${c.title}")
-            .setContentText(c.effort.ifEmpty { c.stageName })
-            .setCustomContentView(remoteView(R.layout.notification_workout_compact, c, now))
-            .setCustomBigContentView(remoteView(R.layout.notification_workout_expanded, c, now))
-            .setStyle(Notification.DecoratedCustomViewStyle())
-            .setCategory(Notification.CATEGORY_PROGRESS)
-            .setVisibility(Notification.VISIBILITY_PUBLIC)
-            .setOngoing(true)
-            .build()
         return builder(CHANNEL_PROGRESS)
             .setContentTitle("MOVE60 · ${c.title}")
             .setContentText(c.effort.ifEmpty { c.stageName })
             .setStyle(Notification.DecoratedCustomViewStyle())
             .setCustomContentView(remoteView(R.layout.notification_workout_compact, c, now))
             .setCustomBigContentView(remoteView(R.layout.notification_workout_expanded, c, now))
-            .setPublicVersion(publicVersion)
             .setOngoing(true)
             .setCategory(Notification.CATEGORY_SERVICE)
             .setShowWhen(false)

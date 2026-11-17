@@ -65,9 +65,9 @@ class ComposeArchitectureTest {
         list.performScrollToNode(hasTestTag("settings_ratio"))
         rule.onNodeWithTag("settings_ratio_slider").assertIsDisplayed()
         rule.onNodeWithTag("settings_ratio_summary", useUnmergedTree = true).assertIsDisplayed()
-        list.performScrollToNode(hasText("칼로리 계산 체중"))
-        rule.onNodeWithText("칼로리 계산 체중").assertIsDisplayed()
-        rule.onNodeWithTag("settings_weight_field").assertIsDisplayed()
+        // docs/v66: the calorie weight setting is hidden while kcal is not shown.
+        rule.onNodeWithText("칼로리 계산 체중").assertDoesNotExist()
+        rule.onNodeWithTag("settings_weight_field").assertDoesNotExist()
         list.performScrollToNode(hasTestTag("settings_sound_toggle"))
         rule.onNodeWithTag("settings_sound_toggle").assertIsDisplayed()
         list.performScrollToNode(hasTestTag("settings_version_row"))

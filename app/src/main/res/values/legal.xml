@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Privacy policy address. INTENTIONALLY EMPTY until the operator supplies the real, working URL (docs/v67):
+         while empty (or not a valid HTTPS address) the app shows no privacy-policy entry. Do not put a temporary or example URL here. -->
+    <string name="privacy_policy_url" translatable="false"></string>
+</resources>
