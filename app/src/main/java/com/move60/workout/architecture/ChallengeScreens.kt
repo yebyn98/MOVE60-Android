@@ -57,9 +57,21 @@ fun ChallengeScreen(onBack: () -> Unit, viewModel: ChallengeViewModel = hiltView
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             val active = state.active
-            if (active != null) item { ActiveChallenge(active, viewModel) }
-            else if (!state.loading) item { CreateChallenge(viewModel) }
-            if (state.ended.isNotEmpty()) {
+            if (state.loadError) {
+                item {
+                    Move60Card(Modifier.testTag("challenge_load_error")) {
+                        Text("도전 정보를 불러오지 못했어요.", style = MaterialTheme.typography.titleMedium)
+                        Text("저장된 운동 기록은 유지됩니다. 다시 확인해 주세요.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Move60Button(onClick = { viewModel.refresh() },
+                            modifier = Modifier.testTag("challenge_load_retry")) { Text("다시 확인") }
+                    }
+                }
+            } else {
+                if (active != null) item { ActiveChallenge(active, viewModel) }
+                else if (!state.loading) item { CreateChallenge(viewModel) }
+            }
+            if (!state.loadError && state.ended.isNotEmpty()) {
                 item {
                     Text("지난 도전", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
