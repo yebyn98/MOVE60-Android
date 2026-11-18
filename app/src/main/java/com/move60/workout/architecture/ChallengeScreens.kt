@@ -15,6 +15,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -46,7 +47,7 @@ fun ChallengeScreen(onBack: () -> Unit, viewModel: ChallengeViewModel = hiltView
     }
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
-        topBar = { ScreenTopBar("도전", null) }
+        topBar = { ScreenTopBar(if (!state.loadError && state.active == null && !state.loading) "나만의 도전 만들기" else "도전", null) }
     ) { inner ->
         LazyColumn(
             Modifier.fillMaxSize().padding(inner).testTag("challenge_list"),
@@ -143,36 +144,144 @@ private fun CreateChallenge(viewModel: ChallengeViewModel) {
     var name by rememberSaveable { mutableStateOf("") }
     var target by rememberSaveable { mutableStateOf("") }
     var days by rememberSaveable { mutableStateOf("") }
+    var customTarget by rememberSaveable { mutableStateOf(false) }
+    var customPeriod by rememberSaveable { mutableStateOf(false) }
+    var showGoalPicker by rememberSaveable { mutableStateOf(false) }
+    var showPeriodPicker by rememberSaveable { mutableStateOf(false) }
+
+    // Figma FINAL/30: presets are quick choices, not additional domain restrictions.
+    val zone = remember { java.time.ZoneId.systemDefault() }
+    val start = java.time.LocalDate.now(zone)
     val targetN = target.toIntOrNull()
     val daysN = days.toIntOrNull()
-    // Inclusive period: start = today, end = today + (days - 1).
-    val valid = name.isNotBlank() && targetN != null && daysN != null && targetN >= 1 && daysN >= 1 && targetN <= daysN
-    Move60Card(Modifier.testTag("challenge_create")) {
-        Text("새 도전 시작", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        // Policy 1: no start-date input. The start is the creation day (in the challenge time zone) and cannot change.
-        val zone = remember { java.time.ZoneId.systemDefault() }
-        val start = java.time.LocalDate.now(zone)
-        Text("시작일", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text("$start · 도전을 만드는 날부터 시작해요.", modifier = Modifier.testTag("challenge_start_info"))
-        Text(
-            if (daysN != null && daysN >= 1) "종료 예정일 ${ChallengeService.inclusiveEndDate(start, daysN)}" else "종료 예정일 · 기간을 입력하면 계산돼요",
-            modifier = Modifier.testTag("challenge_end_info")
+    val valid = name.trim().length in 1..ChallengeService.MAX_NAME &&
+        targetN != null && daysN != null && targetN >= 1 && daysN >= 1 && targetN <= daysN
+
+    Column(Modifier.fillMaxWidth().testTag("challenge_create"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        OutlinedTextField(
+            name, { name = it.take(ChallengeService.MAX_NAME) },
+            label = { Text("도전 이름") }, singleLine = true,
+            modifier = Modifier.fillMaxWidth().testTag("challenge_new_name")
         )
-        Text("도전 시간대 기준 ${zone.id}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-        OutlinedTextField(name, { name = it.take(ChallengeService.MAX_NAME) }, label = { Text("도전 이름") },
-            singleLine = true, modifier = Modifier.fillMaxWidth().testTag("challenge_new_name"))
-        OutlinedTextField(days, { days = it.filter(Char::isDigit).take(3) }, label = { Text("기간 (일, 오늘 포함)") },
-            singleLine = true, modifier = Modifier.fillMaxWidth().testTag("challenge_new_days"))
-        OutlinedTextField(target, { target = it.filter(Char::isDigit).take(3) }, label = { Text("목표 운동일수") },
-            singleLine = true, isError = targetN != null && daysN != null && targetN > daysN,
-            supportingText = { if (targetN != null && daysN != null && targetN > daysN) Text("목표 운동일수는 기간보다 클 수 없어요.") },
-            modifier = Modifier.fillMaxWidth().testTag("challenge_new_target"))
-        Text("하루 실제 운동시간 10분 이상이면 운동일 1일로 인정돼요.", style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        ChallengeSelectionField(
+            label = "목표 운동일수",
+            value = targetN?.let { "운동할 날 ${it}일" } ?: "목표 운동일수를 선택해 주세요.",
+            tag = "challenge_goal_select",
+            onClick = { showGoalPicker = true }
+        )
+        if (customTarget) {
+            OutlinedTextField(
+                target, { target = it.filter(Char::isDigit).take(3) },
+                label = { Text("목표 운동일수 직접 입력") }, singleLine = true,
+                isError = targetN != null && daysN != null && targetN > daysN,
+                supportingText = {
+                    if (targetN != null && daysN != null && targetN > daysN)
+                        Text("목표 운동일수는 기간보다 클 수 없어요.")
+                },
+                modifier = Modifier.fillMaxWidth().testTag("challenge_new_target")
+            )
+        }
+        ChallengeSelectionField(
+            label = "도전 기간",
+            value = when (daysN) {
+                28 -> "4주"
+                42 -> "6주"
+                56 -> "8주"
+                null -> "도전 기간을 선택해 주세요."
+                else -> "${daysN}일"
+            },
+            tag = "challenge_period_select",
+            onClick = { showPeriodPicker = true }
+        )
+        if (customPeriod) {
+            OutlinedTextField(
+                days, { days = it.filter(Char::isDigit).take(3) },
+                label = { Text("도전 기간 직접 입력 (일)") },
+                singleLine = true, modifier = Modifier.fillMaxWidth().testTag("challenge_new_days")
+            )
+        }
+        // v62: no date picker. Start date is generated at creation time in the challenge zone.
+        Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.medium) {
+            Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                Text("시작일", style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("$start · 도전을 만드는 날부터 시작해요.",
+                    modifier = Modifier.testTag("challenge_start_info"))
+            }
+        }
+        // Calculate inline. Do not restore the deleted Figma "INFO / 설정 확인" block.
+        Text(
+            if (daysN != null && daysN >= 1)
+                "종료 예정일 ${ChallengeService.inclusiveEndDate(start, daysN)}"
+            else "종료 예정일 · 기간을 선택하면 계산돼요",
+            modifier = Modifier.testTag("challenge_end_info"),
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        if (targetN != null && daysN != null && targetN > daysN) {
+            Text("목표 운동일수는 도전 기간보다 클 수 없어요.",
+                color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("challenge_target_error"))
+        }
+        Text("하루 유효 운동시간 합산 10분 이상이면 최대 1일 인정돼요.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Move60Button(
-            onClick = { viewModel.create(name, targetN!!, daysN!!, zone) },
+            onClick = { if (valid) viewModel.create(name, targetN!!, daysN!!, zone) },
             enabled = valid, modifier = Modifier.fillMaxWidth().testTag("challenge_start")
-        ) { Text("도전 시작") }
+        ) { Text("도전 만들고 시작하기") }
+    }
+
+    if (showGoalPicker) AlertDialog(
+        onDismissRequest = { showGoalPicker = false },
+        title = { Text("목표 운동일수") },
+        text = {
+            Column {
+                listOf(10, 12, 16).forEach { option ->
+                    TextButton(
+                        onClick = { target = option.toString(); customTarget = false; showGoalPicker = false },
+                        modifier = Modifier.fillMaxWidth().testTag("challenge_goal_${option}")
+                    ) { Text("운동할 날 ${option}일") }
+                }
+                TextButton(
+                    onClick = { customTarget = true; target = ""; showGoalPicker = false },
+                    modifier = Modifier.fillMaxWidth().testTag("challenge_goal_custom")
+                ) { Text("일수 직접 입력") }
+            }
+        },
+        confirmButton = { TextButton(onClick = { showGoalPicker = false }) { Text("취소") } }
+    )
+    if (showPeriodPicker) AlertDialog(
+        onDismissRequest = { showPeriodPicker = false },
+        title = { Text("도전 기간") },
+        text = {
+            Column {
+                listOf(4, 6, 8).forEach { weeks ->
+                    TextButton(
+                        onClick = { days = (weeks * 7).toString(); customPeriod = false; showPeriodPicker = false },
+                        modifier = Modifier.fillMaxWidth().testTag("challenge_period_${weeks}w")
+                    ) { Text("${weeks}주") }
+                }
+                TextButton(
+                    onClick = { customPeriod = true; days = ""; showPeriodPicker = false },
+                    modifier = Modifier.fillMaxWidth().testTag("challenge_period_custom")
+                ) { Text("기간 직접 입력") }
+            }
+        },
+        confirmButton = { TextButton(onClick = { showPeriodPicker = false }) { Text("취소") } }
+    )
+}
+
+@Composable
+private fun ChallengeSelectionField(label: String, value: String, tag: String, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth().testTag(tag),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = MaterialTheme.shapes.medium
+    ) {
+        Column(Modifier.fillMaxWidth().padding(16.dp)) {
+            Text(label, style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(value, style = MaterialTheme.typography.bodyLarge)
+        }
     }
 }
 
