@@ -222,10 +222,10 @@ class ComposeMyTest {
                 rule.waitUntil(10_000) { rule.onAllNodesWithTag("my_report_latest").fetchSemanticsNodes().isNotEmpty() }
                 rule.onNodeWithTag("my_report_chart").assertIsDisplayed()
                 rule.onNodeWithTag("my_report_latest").assertIsDisplayed()
-                rule.onNodeWithText("12분 00초 · 운동 기록 상세 보기").assertIsDisplayed()
+                rule.onNodeWithText("12분 00초 · 운동 기록 상세 보기").performScrollTo().assertIsDisplayed()
                 rule.onNodeWithTag("my_report_composition").performScrollTo().assertIsDisplayed()
                 rule.onNodeWithTag("my_report_ex_legPress").performScrollTo().assertIsDisplayed()
-                rule.onNodeWithText("40kg × 12회 (1세트)").assertIsDisplayed()
+                rule.onNodeWithText("40kg × 12회 (1세트)").performScrollTo().assertIsDisplayed()
                 capture("compose-my-report.png")
                 // The latest-session card opens the real session detail.
                 rule.onNodeWithTag("my_report_latest").performScrollTo().performClick()
