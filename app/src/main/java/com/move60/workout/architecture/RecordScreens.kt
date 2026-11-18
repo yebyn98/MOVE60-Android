@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Schedule
@@ -49,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.move60.workout.ui.Move60Button
+import com.move60.workout.ui.BoxToast
 import com.move60.workout.ui.Move60Card
 import java.time.LocalDate
 
@@ -180,6 +182,8 @@ fun RecordSessionScreen(
     viewModel: RecordSessionViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    var toast by remember { mutableStateOf<String?>(null) }
+    Box(Modifier.fillMaxSize()) {
     Scaffold(containerColor = MaterialTheme.colorScheme.background,
         topBar = { ScreenTopBar("운동 기록 상세", onBack, "record_back") }) { inner ->
         Column(
@@ -191,17 +195,22 @@ fun RecordSessionScreen(
                 RecordLoad.Loading -> Text("기록을 불러오고 있어요.", color = MaterialTheme.colorScheme.secondary)
                 RecordLoad.Missing -> RecordMessage("기록을 찾을 수 없어요", "목록에서 다시 선택해 주세요.")
                 RecordLoad.Failed -> RecordMessage("기록을 불러오지 못했어요.", "저장된 데이터는 유지되며 다시 확인할 수 있어요.", viewModel::load)
-                is RecordLoad.Ready -> SessionContent(s.value, viewModel::exerciseName, viewModel::saveCorrections)
+                is RecordLoad.Ready -> SessionContent(s.value, viewModel::exerciseName, viewModel::saveCorrections,
+                    viewModel::saveCardioCorrection) { toast = "저장하지 못했어요. 다시 시도해 주세요." }
             }
             Spacer(Modifier.height(16.dp))
         }
+    }
+    BoxToast(toast, onDismiss = { toast = null }, modifier = Modifier.align(Alignment.TopCenter))
     }
 }
 
 @Composable
 private fun SessionContent(
     detail: SessionDetail, name: (String) -> String,
-    onSaveCorrections: (List<SetCorrection>, (CorrectionResult) -> Unit) -> Unit
+    onSaveCorrections: (List<SetCorrection>, (CorrectionResult) -> Unit) -> Unit,
+    onSaveCardio: (List<CardioValueEdit>, (CardioCorrectionResult) -> Unit) -> Unit,
+    onSaveFailed: () -> Unit
 ) {
     val s = detail.session
     RecordHeading(
@@ -214,7 +223,7 @@ private fun SessionContent(
             fontWeight = FontWeight.Bold, modifier = Modifier.testTag("record_session_total_time"))
     }
     Text("수행한 운동", style = MaterialTheme.typography.titleMedium)
-    StageCards(detail, name)
+    StageCards(detail, name, onSaveCardio, onSaveFailed)
     CorrectionSection(detail, name, onSaveCorrections)
     Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.testTag("record_session_footnote")) {
         Text("유효 기록은 시간형 활성 합계 60초↑ 또는 근력 1세트 완료↑", color = MaterialTheme.colorScheme.secondary,
@@ -455,7 +464,10 @@ private fun HistoryDialog(history: List<CorrectionEntry>, name: (String) -> Stri
  * order; strength keeps its real sets. A session without stage data shows only the strength card, exactly as before.
  */
 @Composable
-private fun StageCards(detail: SessionDetail, name: (String) -> String) {
+private fun StageCards(
+    detail: SessionDetail, name: (String) -> String,
+    onSaveCardio: (List<CardioValueEdit>, (CardioCorrectionResult) -> Unit) -> Unit, onSaveFailed: () -> Unit
+) {
     if (detail.stages.isEmpty()) {
         StrengthStageCard(detail.exercises, name)
         return
@@ -465,7 +477,7 @@ private fun StageCards(detail: SessionDetail, name: (String) -> String) {
         if (stage.kind == SegmentKind.STRENGTH) {
             strengthShown = true
             StrengthStageCard(detail.exercises, name, stage.actualSeconds, stage.plannedSeconds)
-        } else PlanStageCard(stage, if (stage.kind == SegmentKind.CARDIO_STEADY) detail.cardio else null)
+        } else PlanStageCard(stage, if (stage.kind == SegmentKind.CARDIO_STEADY) detail.cardio else null, onSaveCardio, onSaveFailed)
     }
     // Sets exist but no strength time was stored: still show them rather than hide recorded sets.
     if (!strengthShown && detail.exercises.isNotEmpty()) StrengthStageCard(detail.exercises, name)
@@ -477,7 +489,11 @@ private fun StageCards(detail: SessionDetail, name: (String) -> String) {
  * stage says "수치 미기록" instead of showing numbers.
  */
 @Composable
-private fun PlanStageCard(stage: StageRecord, cardioRecord: CardioStageRecord? = null) {
+private fun PlanStageCard(
+    stage: StageRecord, cardioRecord: CardioStageRecord? = null,
+    onSaveCardio: (List<CardioValueEdit>, (CardioCorrectionResult) -> Unit) -> Unit = { _, _ -> }, onSaveFailed: () -> Unit = {}
+) {
+    var correcting by rememberSaveable(stage.index) { mutableStateOf(false) }
     val cardio = stage.kind == SegmentKind.CARDIO_STEADY
     // Cardio starts collapsed (Figma FINAL 27); the other stages keep their current default until that is decided for the app.
     var open by rememberSaveable(stage.index) { mutableStateOf(!cardio) }
@@ -488,7 +504,7 @@ private fun PlanStageCard(stage: StageRecord, cardioRecord: CardioStageRecord? =
             .border(1.dp, MaterialTheme.colorScheme.outline, shape)
     ) {
         Column(
-            Modifier.fillMaxWidth()
+            Modifier.fillMaxWidth().testTag("record_stage_toggle_${stage.kind.name}")
                 .clickable(onClickLabel = if (open) "접기" else "펼치기", role = Role.Button) { open = !open }
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -526,16 +542,18 @@ private fun PlanStageCard(stage: StageRecord, cardioRecord: CardioStageRecord? =
                 }
                 if (cardio && cardioRecord == null) Text("수치 미기록", color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.testTag("record_cardio_no_values"))
-                if (cardio && cardioRecord != null) CardioIntervalList(cardioRecord)
+                if (cardio && cardioRecord != null) CardioIntervalList(cardioRecord) { correcting = true }
             }
         }
     }
+    if (correcting && cardioRecord != null) CardioCorrectionSheet(cardioRecord, { correcting = false }, onSaveCardio, onSaveFailed)
 }
 
 /** Read-only real intensity intervals of the cardio stage: time range, the typed values, duration. Not-recorded time says so. */
 @Composable
-private fun CardioIntervalList(record: CardioStageRecord) {
+private fun CardioIntervalList(record: CardioStageRecord, onEdit: () -> Unit) {
     val shape = RoundedCornerShape(8.dp)
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
     Column(
         Modifier.fillMaxWidth().testTag("record_cardio_intervals")
             .background(MaterialTheme.colorScheme.surface, shape)
@@ -559,5 +577,18 @@ private fun CardioIntervalList(record: CardioStageRecord) {
                     style = MaterialTheme.typography.bodySmall)
             }
         }
+    }
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("record_cardio_edit_open")
+            .background(MaterialTheme.colorScheme.surface, shape)
+            .border(1.dp, MaterialTheme.colorScheme.outline, shape)
+            .clickable(onClickLabel = "강도 구간 값 정정", role = Role.Button, onClick = onEdit)
+            .padding(horizontal = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(Icons.Outlined.Edit, contentDescription = null)
+        Text("수치 수정", modifier = Modifier.weight(1f))
+        Icon(Icons.Outlined.ChevronRight, contentDescription = null)
+    }
     }
 }

@@ -114,6 +114,9 @@ class ComposeRecordStagesTest {
                 rule.onNodeWithText("실제 10분 · 계획 시간 미정 · 1종목 · 1세트").performScrollTo().assertIsDisplayed()
                 rule.onNodeWithTag("record_stage_CARDIO_STEADY").performScrollTo().assertIsDisplayed()
                 rule.onNodeWithText("실제 15분 · 계획 15분 · 계획 항목 1개").assertIsDisplayed()
+                // The cardio stage is collapsed by default: its items and values only exist after the user opens it.
+                rule.onNodeWithTag("record_cardio_no_values").assertDoesNotExist()
+                rule.onNodeWithTag("record_stage_toggle_CARDIO_STEADY").performClick()
                 rule.onNodeWithText("실내 사이클").assertIsDisplayed()
                 // No cardio console values are stored, so the cardio stage says so instead of showing numbers.
                 rule.onNodeWithTag("record_cardio_no_values").performScrollTo().assertIsDisplayed()

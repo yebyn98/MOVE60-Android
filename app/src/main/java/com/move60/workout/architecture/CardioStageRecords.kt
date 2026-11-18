@@ -19,7 +19,9 @@ data class CardioIntervalRow(
     /** null = not recorded (before the first input). Nothing is estimated or filled in. */
     val values: Map<CardioMetric, String>?,
     /** `Equipment` key of the input that started this interval; null for a not-recorded interval. */
-    val equipmentKey: String?
+    val equipmentKey: String?,
+    /** Saved input that started this interval (the key of a correction); null for a not-recorded interval. */
+    val inputIndex: Int? = null
 ) {
     val seconds: Int get() = endSeconds - startSeconds
     val recorded: Boolean get() = values != null
@@ -64,7 +66,7 @@ object CardioStageRecords {
         val effective = CardioIntervals.effective(parsed, corrections)
         val window = CardioWindow(0, stageActiveSeconds.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt())
         val rows = CardioIntervals.compute(window, effective).intervals.map {
-            CardioIntervalRow(it.startSeconds, it.endSeconds, it.values, it.inputIndex?.let(equipmentOf::get))
+            CardioIntervalRow(it.startSeconds, it.endSeconds, it.values, it.inputIndex?.let(equipmentOf::get), it.inputIndex)
         }
         if (rows.none { it.recorded }) return null
         return CardioStageRecord(stageIndex, rows, rows.mapNotNull { it.equipmentKey }.distinct().size > 1)
