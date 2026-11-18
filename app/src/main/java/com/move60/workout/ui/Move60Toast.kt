@@ -12,6 +12,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -51,15 +60,42 @@ val LocalMove60Toast = compositionLocalOf { Move60ToastState() }
 fun Move60ToastHost(state: Move60ToastState, modifier: Modifier = Modifier, durationMs: Long = 3_000L) {
     val message = state.message ?: return
     LaunchedEffect(state.token) { delay(durationMs); state.dismiss() }
-    val shape = RoundedCornerShape(12.dp)
     Box(modifier.fillMaxWidth().padding(top = 64.dp, start = 16.dp, end = 16.dp), contentAlignment = Alignment.TopCenter) {
-        Text(
-            message, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyMedium,
-            maxLines = 2, overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.testTag("move60_toast").semantics { liveRegion = LiveRegionMode.Polite }
-                .background(MaterialTheme.colorScheme.surfaceVariant, shape)
-                .border(1.dp, MaterialTheme.colorScheme.outline, shape)
-                .padding(horizontal = 16.dp, vertical = 12.dp)
-        )
+        ToastBubble(message)
+    }
+}
+
+@Composable
+private fun ToastBubble(message: String, tag: String = "move60_toast") {
+    val shape = RoundedCornerShape(12.dp)
+    Text(
+        message, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyMedium,
+        maxLines = 2, overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.testTag(tag).semantics { liveRegion = LiveRegionMode.Polite }
+            .background(MaterialTheme.colorScheme.surfaceVariant, shape)
+            .border(1.dp, MaterialTheme.colorScheme.outline, shape)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+    )
+}
+
+/**
+ * The same toast for content that lives in its OWN window (a modal bottom sheet or dialog). The root [Move60ToastHost] belongs to the
+ * activity window, which such a window covers together with its scrim, so there the toast would sit dimmed underneath. Put this once
+ * inside the sheet/dialog content: it shows the same message at the same place (top-center, 64dp from the top of the window) above
+ * the scrim. The window is full screen for a modal bottom sheet; the position is measured from the top of that window.
+ */
+@Composable
+fun Move60WindowToast(state: Move60ToastState, durationMs: Long = 3_000L) {
+    val message = state.message ?: return
+    LaunchedEffect(state.token) { delay(durationMs); state.dismiss() }
+    val top = with(LocalDensity.current) { 64.dp.roundToPx() }
+    val provider = remember(top) {
+        object : PopupPositionProvider {
+            override fun calculatePosition(anchorBounds: IntRect, windowSize: IntSize, layoutDirection: LayoutDirection, popupContentSize: IntSize) =
+                IntOffset((windowSize.width - popupContentSize.width) / 2, top)
+        }
+    }
+    Popup(popupPositionProvider = provider, properties = PopupProperties(focusable = false, clippingEnabled = false)) {
+        Box(Modifier.padding(horizontal = 16.dp)) { ToastBubble(message, "move60_toast_window") }
     }
 }

@@ -118,4 +118,6 @@ session_cardio_inputs
 - `Move60ToastState` + `Move60ToastHost`(`ui/Move60Toast.kt`). 앱 루트(`Move60ComposeApp`)가 `LocalMove60Toast`를 제공하고 호스트를 한 번 그린다. 위치는 항상 top-center, 상단에서 64dp. 버튼·대화상자 없음, 3초 후 사라지며 새 메시지는 이전 것을 대체, 같은 문구를 다시 띄우면 타이머가 다시 시작한다(캘린더 "운동한 기록이 없습니다."는 탭할 때마다).
 - 기존 Compose 스낵바 4곳(홈 이벤트, 캘린더, 도전, 설정)과 기록 상세 저장 실패를 모두 공통 토스트로 옮겼다. 하단 스낵바와 `calendar_toast` 태그는 없어졌다(이 태그를 쓰는 테스트는 없었다).
 - **옮기지 않은 것:** 레거시 네이티브 화면의 `android.widget.Toast`(`MainActivity` 5곳, `UpdateManager`, `CrashReporter`)는 Compose가 아니라 같은 컴포넌트를 쓸 수 없다. 네이티브 상세 화면의 Compose 전환 전까지 시스템 토스트가 남는다.
-- 시트·대화상자가 열려 있으면 그 창의 스크림 아래에 토스트가 어둡게 보일 수 있다(별도 창). 에뮬레이터 캡처로 확인해야 한다.
+- **시트 위 토스트:** `ModalBottomSheet`는 별도 창(`ModalBottomSheetWindow`)이라 루트 호스트의 토스트가 시트·스크림 아래에 깔려 어둡게 보인다(Figma 27-E는 스크림 위에 밝게 표시). 그래서 시트 안에서 `Move60WindowToast`(Popup, 창 상단 64dp)가 같은 문구를 같은 위치에 한 번 더 그린다. 다른 별도 창(대화상자·시트)을 새로 만들 때도 내용 안에 이것을 넣어야 한다. 근력 정정 `AlertDialog`는 자체 안내 문구를 쓰므로 해당 없음.
+- **네이티브 토스트:** 레거시 네이티브 화면의 `android.widget.Toast`는 모두 `Move60NativeToast`(`NativeToast.kt`)로 바꿨다. `MainActivity` 4곳, `CrashReporter` 1곳, `UpdateManager`(Compose 설정 화면에서 쓰면 앱 공통 토스트를 넘겨받고, 네이티브에서는 `Move60NativeToast`). 같은 모양(top-center 64dp·3초·한 번에 하나, 토큰 `Radius/Space.compact`). 남은 시스템 토스트는 없다(`grep Toast` 기준).
+- **검증 상태:** 위 두 가지 모두 컴파일·실행하지 못했다. 시트+토스트는 계측 테스트 `ComposeCardioSheetToastTest`가 실제 화면 캡처 `compose-cardio-sheet-toast.png`를 남기도록 했고, CI 에뮬레이터 결과를 확인해야 "겹침 해결"이라고 말할 수 있다. 네이티브 토스트 캡처 테스트는 아직 없다.

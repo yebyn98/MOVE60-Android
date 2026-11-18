@@ -29,7 +29,7 @@ import org.junit.runner.RunWith
 
 /**
  * Policy 6 on a real emulator: correct a set in the session detail, see the new value with the stored original beside it,
- * read the history, and see that invalid input cannot be saved. Seeds one session on a PAST date (day 10, so it never
+ * and see that invalid input cannot be saved (the user-facing history screen was removed on 2026-11-18). Seeds one session on a PAST date (day 10, so it never
  * collides with other tests' "today") and removes only its own `record-corr-*` rows afterwards.
  */
 @RunWith(AndroidJUnit4::class)

@@ -64,7 +64,7 @@ object CrashReporter {
             .setNegativeButton("삭제") { _, _ ->
                 p.edit().remove(KEY).remove("last_warning").remove("crash_epoch")
                     .putBoolean("crash_acknowledged", true).apply()
-                android.widget.Toast.makeText(activity, "오류 기록을 삭제했어요.", android.widget.Toast.LENGTH_SHORT).show()
+                Move60NativeToast.show(activity, "오류 기록을 삭제했어요.")
             }
             .setPositiveButton("복사") { _, _ -> if (detail.isNotBlank()) copy(activity, detail) }.show()
     }

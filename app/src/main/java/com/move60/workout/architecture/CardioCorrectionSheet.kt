@@ -76,6 +76,8 @@ internal fun CardioCorrectionSheet(
     val canSave = row != null && changed.isNotEmpty() && valid && !saving
 
     ModalBottomSheet(onDismissRequest = { if (!saving) onDismiss() }, modifier = Modifier.testTag("cardio_correction_sheet")) {
+        // The sheet is its own window above the activity's toast host: show the same toast inside it, above the scrim.
+        com.move60.workout.ui.Move60WindowToast(com.move60.workout.ui.LocalMove60Toast.current)
         Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 24.dp).padding(bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Text("강도 구간 값 정정", style = MaterialTheme.typography.titleLarge)

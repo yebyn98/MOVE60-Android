@@ -11,7 +11,6 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.Settings
-import android.widget.Toast
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -23,7 +22,7 @@ import kotlin.concurrent.thread
  * Reads a public, read-only update manifest. Never stores a GitHub token in the APK.
  * The private source repo is separate from the public binary distribution repo.
  */
-class UpdateManager(private val activity: Activity) {
+class UpdateManager(private val activity: Activity, private val notify: ((String) -> Unit)? = null) {
     companion object {
         private const val MANIFEST_URL = "https://raw.githubusercontent.com/yebyn98/MOVE60-Updates/main/latest.json"
         private const val MAX_MANIFEST_BYTES = 24 * 1024
@@ -250,7 +249,13 @@ class UpdateManager(private val activity: Activity) {
         receiver = null
     }
 
-    private fun toast(message: String) = activity.runOnUiThread { if (!activity.isFinishing) Toast.makeText(activity, message, Toast.LENGTH_LONG).show() }
+    /** Short feedback. A Compose host passes [notify] so its own toast is used; native screens get the matching native toast. */
+    private fun toast(message: String) = activity.runOnUiThread {
+        if (!activity.isFinishing) {
+            val show: (String) -> Unit = notify ?: { m: String -> Move60NativeToast.show(activity, m) }
+            show(message)
+        }
+    }
     private fun inform(message: String) = activity.runOnUiThread {
         if (!activity.isFinishing && !activity.isDestroyed) MaterialAlertDialogBuilder(activity)
             .setTitle("ROUTIVE 업데이트").setMessage(message).setPositiveButton("확인", null).show()

@@ -737,7 +737,7 @@ fun WorkoutSettings(
     val toast = com.move60.workout.ui.LocalMove60Toast.current
     val context = LocalContext.current
     val activity = context as ComponentActivity
-    val updateManager = remember(activity) { UpdateManager(activity) }
+    val updateManager = remember(activity) { UpdateManager(activity) { toast.show(it) } }
     LifecycleResumeEffect(updateManager) {
         updateManager.resumePendingInstall()
         onPauseOrDispose { }
