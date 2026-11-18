@@ -44,7 +44,7 @@ The new pure Kotlin RoutinePlanningPolicy domain is not yet wired to the legacy 
 
 ## Third slice — Room v2 schema, safe migration, atomic commit and challenge lifecycle (2026-11-15)
 
-Updated for the approved policies C-20261115-01..04 (see `ROUTIVE_AI_HANDOFF_LOG.md` for the reflection table).
+Updated for the approved policies C-20261115-01..04 (see `archive/ROUTIVE_AI_HANDOFF_LOG.md` for the reflection table).
 Implemented in code and covered by JVM tests (real Room via Robolectric); AC-01..13 have named tests:
 - `WorkoutDatabase` v1 -> v2, additive only (`RoutiveMigrations.MIGRATION_1_2`, 15 CREATE statements, 11 tables).
   Legacy `daily_workouts` / `workout_sets` and SharedPreferences stores are untouched. DB file name unchanged
