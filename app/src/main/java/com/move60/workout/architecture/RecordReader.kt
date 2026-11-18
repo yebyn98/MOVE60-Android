@@ -166,16 +166,19 @@ object RecordFormat {
     }
 
     /**
-     * Set values exactly as stored. Equal sets: `20kg × 12회 × 3세트`; different sets:
+     * Completed set values as recorded (excluding flagged conflicting v58 duplicates). Equal sets: `20kg × 12회 × 3세트`; different sets:
      * `40kg × 12회 · 45kg × 12회 (2세트)`; one set: `40kg × 10회 (1세트)`.
      */
     fun setSummary(sets: List<ShownSet>): String {
-        if (sets.isEmpty()) return ""
-        val each = sets.map { "${it.kg}kg × ${it.reps}회" }
+        // A differing v58 value is retained for historical comparison, not another completed set.
+        // Stored corrections use originalKg/originalReps instead and must still be counted.
+        val completed = sets.filterNot { it.differsFromStored }
+        if (completed.isEmpty()) return ""
+        val each = completed.map { "${it.kg}kg × ${it.reps}회" }
         return when {
-            sets.size == 1 -> "${each.single()} (1세트)"
-            each.distinct().size == 1 -> "${each.first()} × ${sets.size}세트"
-            else -> "${each.joinToString(" · ")} (${sets.size}세트)"
+            completed.size == 1 -> "${each.single()} (1세트)"
+            each.distinct().size == 1 -> "${each.first()} × ${completed.size}세트"
+            else -> "${each.joinToString(" · ")} (${completed.size}세트)"
         }
     }
 

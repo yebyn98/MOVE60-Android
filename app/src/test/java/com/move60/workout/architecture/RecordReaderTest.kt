@@ -132,6 +132,33 @@ class RecordReaderTest {
         assertEquals(prefsBefore, context.getSharedPreferences("move60_set_records_v1", Context.MODE_PRIVATE).all.toSortedMap())
     }
 
+    /** RC-01: the report summary must not double-count a conflicting linked v58 set. */
+    @Test fun reportSummaryIgnoresConflictingLegacyButPreservesRealLegacyAndCorrectedSets() = runBlocking {
+        val id = "timer-2026-11-09-d1-111"
+        commit(id, "2026-11-09", 20, 35, 600,
+            listOf(completedSet(id, "legPress", 1, "40", "12")))
+        store.write(1, "legPress", 1, SetRecordStore.Record("45", "12", "5", true), nov9, token = 111L)
+        store.write(1, "legPress", 2, SetRecordStore.Record("50", "8", "5", true), nov9, token = 111L)
+        val legacyBefore = context.getSharedPreferences("move60_set_records_v1", Context.MODE_PRIVATE).all.toSortedMap()
+
+        val before = reader.session(id)!!.exercises.single().sets
+        assertEquals(3, before.size) // stored set, conflicting old value, and a genuine legacy-only set
+        assertEquals(1, before.count { it.differsFromStored })
+        assertEquals("40kg × 12회 · 50kg × 8회 (2세트)", RecordFormat.setSummary(before))
+        assertEquals("40kg × 12회 (1세트)", RecordFormat.setSummary(before.filter { it.setNumber == 1 }))
+        assertEquals("50kg × 8회 (1세트)", RecordFormat.setSummary(before.filter { it.setNumber == 2 }))
+
+        val correction = SessionCorrectionService(db).apply(id,
+            listOf(SetCorrection("legPress", 1, "42.5", null)))
+        assertTrue(correction is CorrectionResult.Saved)
+        val after = reader.session(id)!!.exercises.single().sets
+        assertEquals("42.5kg × 12회 · 50kg × 8회 (2세트)", RecordFormat.setSummary(after))
+        assertTrue(after.any { it.origin == SetOrigin.STORED && it.originalKg == "40" && !it.differsFromStored })
+        assertEquals("40", db.routiveDao().sets(id).single().weightKg)
+        assertEquals(legacyBefore,
+            context.getSharedPreferences("move60_set_records_v1", Context.MODE_PRIVATE).all.toSortedMap())
+    }
+
     @Test fun formattingShowsStoredValuesWithoutInventingAnything() {
         assertEquals("60분 20초", RecordFormat.duration(3620))
         assertEquals("15분 00초", RecordFormat.duration(900))
