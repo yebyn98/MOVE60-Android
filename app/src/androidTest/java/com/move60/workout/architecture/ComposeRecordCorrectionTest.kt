@@ -83,6 +83,8 @@ class ComposeRecordCorrectionTest {
                 rule.waitUntil(10_000) { rule.onAllNodesWithTag("record_session_$id").fetchSemanticsNodes().isNotEmpty() }
                 rule.onNodeWithTag("record_session_$id").performScrollTo().performClick()
                 rule.waitUntil(10_000) { rule.onAllNodesWithTag("record_edit_open").fetchSemanticsNodes().isNotEmpty() }
+                // The strength card starts collapsed: open it to read the stored sets.
+                rule.onNodeWithTag("record_stage_toggle").performScrollTo().performClick()
                 rule.onNodeWithTag("record_exercise_sets_legPress").assertTextEquals("40kg × 12회 · 45kg × 12회 (2세트)")
 
                 // Open the edit dialog: nothing is changed yet, so saving is not possible.
@@ -102,13 +104,13 @@ class ComposeRecordCorrectionTest {
                 captureScreen("compose-record-correction-dialog.png")
                 rule.onNodeWithTag("record_edit_save").performClick()
 
-                // The record is reloaded only after the save succeeded: new value on top, stored original beside it.
+                // The record is reloaded only after the save succeeded: the new value is shown, with no correction mark and no original line.
                 rule.waitUntil(15_000) {
                     runCatching {
                         rule.onNodeWithTag("record_exercise_sets_legPress").assertTextEquals("42.5kg × 12회 · 45kg × 12회 (2세트)")
                     }.isSuccess
                 }
-                rule.onNodeWithText("1세트 수정됨 · 원본 40kg × 12회").assertIsDisplayed()
+                rule.onNodeWithText("1세트 수정됨 · 원본 40kg × 12회").assertDoesNotExist()
 
                 // There is no history screen for the user; the history rows stay stored (see SessionCorrectionServiceTest).
                 rule.onNodeWithTag("record_history_open").assertDoesNotExist()

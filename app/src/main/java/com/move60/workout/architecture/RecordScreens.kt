@@ -234,7 +234,8 @@ private fun StrengthStageCard(
     exercises: List<ExerciseSets>, name: (String) -> String,
     actualSeconds: Long? = null, plannedSeconds: Long? = null
 ) {
-    var open by rememberSaveable { mutableStateOf(true) }
+    // Every stage card starts collapsed (PO decision 2026-11-18, Figma FINAL 27).
+    var open by rememberSaveable { mutableStateOf(false) }
     val shape = RoundedCornerShape(14.dp)
     Column(
         Modifier.fillMaxWidth().testTag("record_stage_strength")
@@ -291,11 +292,7 @@ private fun ExerciseCard(ex: ExerciseSets, name: (String) -> String) {
             modifier = Modifier.testTag("record_exercise_sets_${ex.exerciseId}"))
         if (legacyCount > 0) Text("이전 버전 기록 ${legacyCount}세트 포함", color = MaterialTheme.colorScheme.secondary,
             style = MaterialTheme.typography.bodySmall)
-        // Policy 6: a corrected value is shown with the stored original beside it.
-        base.filter { it.originalKg != null || it.originalReps != null }.forEach {
-            Text("${it.setNumber}세트 수정됨 · 원본 ${it.originalKg ?: it.kg}kg × ${it.originalReps ?: it.reps}회",
-                color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall)
-        }
+        // PO decision 2026-11-18: no correction mark and no "original" line. The original values stay stored (session_adjustments).
         differing.forEach {
             Text("${it.setNumber}세트: 이전 버전 값 ${it.kg}kg × ${it.reps}회 · 저장된 값과 달라요",
                 color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall)
@@ -459,8 +456,8 @@ private fun PlanStageCard(
 ) {
     var correcting by rememberSaveable(stage.index) { mutableStateOf(false) }
     val cardio = stage.kind == SegmentKind.CARDIO_STEADY
-    // Cardio starts collapsed (Figma FINAL 27); the other stages keep their current default until that is decided for the app.
-    var open by rememberSaveable(stage.index) { mutableStateOf(!cardio) }
+    // Every stage card starts collapsed (PO decision 2026-11-18, Figma FINAL 27).
+    var open by rememberSaveable(stage.index) { mutableStateOf(false) }
     val shape = RoundedCornerShape(14.dp)
     Column(
         Modifier.fillMaxWidth().testTag("record_stage_${stage.kind.name}")

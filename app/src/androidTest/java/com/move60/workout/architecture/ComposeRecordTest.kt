@@ -110,6 +110,9 @@ class ComposeRecordTest {
                 rule.waitUntil(10_000) { rule.onAllNodesWithTag("record_session_total_time").fetchSemanticsNodes().isNotEmpty() }
                 rule.onNodeWithTag("record_session_total_time").assertTextEquals("15분 00초")
                 rule.onNodeWithTag("record_stage_summary", useUnmergedTree = true).assertTextEquals("2종목 · 3세트")
+                // Stage cards start collapsed: the stored sets exist only after the user opens the card.
+                rule.onNodeWithTag("record_exercise_legPress").assertDoesNotExist()
+                rule.onNodeWithTag("record_stage_toggle").performClick()
                 rule.onNodeWithTag("record_exercise_sets_legPress").assertTextEquals("40kg × 12회 · 45kg × 12회 (2세트)")
                 rule.onNodeWithTag("record_exercise_sets_legCurl").assertTextEquals("20kg × 12회 (1세트)")
                 rule.onNodeWithText(legPress).assertIsDisplayed()

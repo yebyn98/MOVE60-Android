@@ -229,6 +229,9 @@ class ComposeMyTest {
                 capture("compose-my-report.png")
                 // The latest-session card opens the real session detail.
                 rule.onNodeWithTag("my_report_latest").performScrollTo().performClick()
+                // The session detail opens with every stage collapsed: open the strength card to see the sets.
+                rule.waitUntil(10_000) { rule.onAllNodesWithTag("record_stage_toggle").fetchSemanticsNodes().isNotEmpty() }
+                rule.onNodeWithTag("record_stage_toggle").performScrollTo().performClick()
                 rule.waitUntil(10_000) { rule.onAllNodesWithTag("record_exercise_sets_legPress").fetchSemanticsNodes().isNotEmpty() }
             }
         } finally {
