@@ -61,7 +61,7 @@ assert "WorkManagerInitializer" in read("app/src/main/AndroidManifest.xml")
 targets=read("scripts/release-targets.json")
 assert '"phone": true' in targets and '"watch":' in targets  # watch is released only when its code changes
 
-# Launcher icon + first-screen intro (approved logo: 60-tick plate + dumbbell).
+# Launcher icon (approved ROUTIVE R symbol) + first-screen intro (in-app 60-tick mark, wordmark reveal).
 import subprocess,sys
 manifest_text=read("app/src/main/AndroidManifest.xml")
 assert 'android:icon="@mipmap/ic_launcher"' in manifest_text and 'android:roundIcon="@mipmap/ic_launcher_round"' in manifest_text

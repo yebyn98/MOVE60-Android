@@ -1,20 +1,26 @@
-# MOVE60 logo, launcher icon and first-screen intro
+# ROUTIVE launcher icon and first-screen intro
 
-**Logo: 60-tick plate + dumbbell.** An outer ring, 60 minute ticks (all 60 lit, matching the Figma logo) and a
-dumbbell in the heart color. Colors are design tokens (`primary` #ABC5B1, `outline` #3D4D42,
-`heart` #FF6B81, plate `surface` #1B2720). Chosen from the Figma logo exploration board.
+**Launcher icon: the approved ROUTIVE "R" symbol** (Figma file `KA37z3LKnJi0tFkzwsCt4z`, page "04 브랜드 · ROUTIVE 최종 로고",
+node `977:397` "Symbol / Forest (original)"; brand guide frame `515:389`). The vector is the exact export of that node (three
+paths, 320 x 300 box, unmodified): Forest `#003521` on the Ivory `#F5F1E9` plate. Figma marks the master "수정 금지", so the paths are
+never edited by hand.
+
+**In-app mark (first-screen intro, `Move60LogoMark`) is still the earlier 60-tick plate + dumbbell.** Whether the splash mark
+should also become the R symbol is a design decision that was not made; only the launcher icon and the wordmark animation changed.
 
 ## Where it lives
 - Launcher icon (phone + watch): adaptive icon, `mipmap-anydpi-v26/ic_launcher(.xml|_round.xml)`
-  with `ic_launcher_foreground` (full color), `ic_launcher_monochrome` (Android 13 themed icon) and
-  `ic_launcher_background` (= `move60_surface`). minSdk is 26, so no legacy PNGs are needed.
-- The vector files are **generated**: edit geometry in `scripts/generate-logo-assets.py` and rerun it;
+  with `ic_launcher_foreground` (Forest symbol), `ic_launcher_monochrome` (same paths, one color, for the Android 13 themed icon)
+  and `ic_launcher_background` (= Ivory `#F5F1E9`, `values/ic_launcher.xml`). The symbol is 48dp wide inside the 108dp canvas, well
+  within the 66dp safe zone. minSdk is 26, so no legacy PNGs are needed.
+- The vector files are **generated**: change `scripts/generate-logo-assets.py` and rerun it;
   `verify-compose-architecture.py` fails if committed files drift (`--check`).
 - Compose mark: `ui/Move60Logo.kt` (same geometry, theme colors). First-screen intro:
   `ui/Move60Splash.kt`.
 
 ## First-screen intro
-About 1.7 s: ring sweep -> ticks light up clockwise -> dumbbell pop + wordmark -> fade out over the
+About 2.4 s: ring sweep -> ticks light up clockwise -> dumbbell pop -> the "ROUTIVE" wordmark appears slowly from left to right
+(a soft edge sweeps over the letters while the word drifts up a few dp, 1.1 s with a symmetric ease-in-out, starting at 0.65 s) -> short hold -> fade out over the
 dashboard. Tap skips it. It plays only on a fresh launch (`savedInstanceState == null`; rotation does
 not replay it) and is skipped when the system animation scale is 0 (also keeps CI emulators, which
 disable animations, deterministic). The watch plays the same sequence (`WatchSplash.kt`, same

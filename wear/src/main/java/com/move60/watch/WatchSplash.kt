@@ -2,6 +2,7 @@ package com.move60.watch
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -28,6 +29,10 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
@@ -44,7 +49,7 @@ import kotlin.math.sin
 
 /**
  * Watch first-screen intro: the same sequence and timing as the phone's `Move60Splash`
- * (ring sweep, 60 ticks lighting clockwise, dumbbell pop, wordmark, fade out). Tapping skips it.
+ * (ring sweep, 60 ticks lighting clockwise, dumbbell pop, wordmark revealed slowly from left to right, fade out). Tapping skips it.
  * [onFinished] may be called more than once and must be idempotent.
  */
 @Composable
@@ -52,6 +57,7 @@ fun WatchSplash(onFinished: () -> Unit, modifier: Modifier = Modifier) {
     val ring = remember { Animatable(0f) }
     val ticks = remember { Animatable(0f) }
     val dumbbell = remember { Animatable(0f) }
+    val word = remember { Animatable(0f) }
     val layerAlpha = remember { Animatable(1f) }
 
     LaunchedEffect(Unit) {
@@ -62,6 +68,7 @@ fun WatchSplash(onFinished: () -> Unit, modifier: Modifier = Modifier) {
                 delay(700)
                 dumbbell.animateTo(1f, spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMedium))
             }
+            launch { delay(650); word.animateTo(1f, tween(1100, easing = WORD_REVEAL_EASING)) }
         }
         delay(350)
         layerAlpha.animateTo(0f, tween(250))
@@ -88,11 +95,31 @@ fun WatchSplash(onFinished: () -> Unit, modifier: Modifier = Modifier) {
             text = "ROUTIVE",
             style = TextStyle(color = Color(Move60Theme.Colors.primary), fontSize = 17.sp),
             modifier = Modifier
-                .graphicsLayer { alpha = dumbbell.value.coerceIn(0f, 1f) }
-                .padding(top = 10.dp),
+                .padding(top = 10.dp)
+                .softReveal(word.value),
         )
     }
 }
+
+private val WORD_REVEAL_EASING = CubicBezierEasing(0.37f, 0f, 0.63f, 1f)
+
+/** Same reveal as the phone's `softReveal`: a soft edge moves left to right while the content drifts up 6dp. */
+private fun Modifier.softReveal(progress: Float): Modifier = this
+    .graphicsLayer {
+        translationY = (1f - progress.coerceIn(0f, 1f)) * 6.dp.toPx()
+        compositingStrategy = CompositingStrategy.Offscreen
+    }
+    .drawWithContent {
+        drawContent()
+        if (progress < 1f) {
+            val fade = size.width * 0.5f
+            val edge = progress.coerceIn(0f, 1f) * (size.width + fade)
+            drawRect(
+                brush = Brush.horizontalGradient(listOf(Color.Black, Color.Transparent), startX = edge - fade, endX = edge),
+                blendMode = BlendMode.DstIn,
+            )
+        }
+    }
 
 /** Same geometry as the phone's `Move60LogoMark` (200px design grid centered on the ring). */
 @Composable

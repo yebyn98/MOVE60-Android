@@ -1,67 +1,32 @@
 #!/usr/bin/env python3
-"""Generate the MOVE60 launcher-icon resources (adaptive icon vectors) for phone and watch.
+"""Generate the ROUTIVE launcher-icon resources (adaptive icon vectors) for phone and watch.
 
-Logo: "60-tick plate + dumbbell" -- an outer ring, 60 minute ticks (all lit, as in the current Figma logo) and a
-dumbbell in the heart color. Geometry comes from the approved Figma board (200px grid, origin at
-the ring center); colors come from design/tokens.json so the icon stays on the design system.
+Logo: the approved ROUTIVE "R" symbol (Figma file KA37z3LKnJi0tFkzwsCt4z, page 04, frame 515:389 "FINAL / ROUTIVE Brand
+Guide v1.1", node 977:397 "Symbol / Forest (original)"). The three paths below are the symbol's exact exported vector
+(320 x 300 box, no edits): Forest #003521 on the Ivory #F5F1E9 plate. The monochrome layer (Android 13 themed icon) uses
+the same paths in a single color. The plate color is `values/ic_launcher.xml` (not generated).
 
     python3 scripts/generate-logo-assets.py          # rewrite the files
     python3 scripts/generate-logo-assets.py --check  # fail if committed files drifted
 """
-import json
-import math
 import sys
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
-tokens = json.loads((root / "design/tokens.json").read_text(encoding="utf-8"))["colors"]
 
-# --- geometry (Figma px, relative to ring center) -------------------------------------------
-RING_R, RING_W = 63.84, 7.6            # outer ring centerline radius / stroke
-TICK_IN, TICK_OUT, TICK_W = 40.30, 50.92, 2.43
-TICKS, LIT = 60, 60                    # 60 minutes, all 60 lit (Figma launcher icon and app logo)
-# dumbbell parts: (x, y, w, h, corner) with x/y relative to the ring center
-DUMBBELL = [
-    (-12.4, -2.9, 24.8, 6.8, 2.0),     # bar
-    (-21.4, -14.2, 9.0, 29.3, 3.0),    # left inner plate
-    (-30.4, -8.6, 9.0, 18.0, 3.0),     # left outer plate
-    (12.4, -14.2, 9.0, 29.3, 3.0),     # right inner plate
-    (21.4, -8.6, 9.0, 18.0, 3.0),      # right outer plate
+FOREST = "#003521"
+VIEW_W, VIEW_H = 320.0, 300.0          # source box of the symbol
+# Exact path data of the approved symbol (R body, lower stem, sparkle).
+SYMBOL_PATHS = [
+    "M0.272982 204.166C-2.7913 239.797 20.7017 251.542 32.682 252.94C16.3944 246.227 12.067 221.473 12.1147 209.935C12.2351 180.823 29.8345 160.653 32.8897 156.178C35.9449 151.704 48.9082 139.025 55.9499 134.676L75.4784 122.613C80.3227 119.621 97.1537 111.425 105.187 108.191V179.254L125.962 168.503L126.169 7.49572C167.221 1.83163 186.508 5.53211 191.195 7.49572C235.995 26.2659 235.963 76.298 230.46 101.635C223.937 131.665 198.945 151.015 186.625 155.654L137.18 174.272C121.028 180.354 90.5894 196.323 77.3482 205.739C64.5254 213.665 48.1423 233.081 42.0307 242.451C31.2554 258.971 35.1057 274.006 38.0835 279.163C32.9313 263.01 44.8792 245.666 50.5484 239.042C50.5484 239.042 56.7324 231.818 61.0855 227.818C63.371 225.719 95.7838 202.884 108.511 198.397C118.767 192.638 156.778 177.331 174.575 170.601L201.79 220.686C209.666 236.425 226.444 260.094 233.913 270.63L234.199 271.034C242.529 282.785 259.116 292.766 266.608 295.683C287.181 303.695 301.026 298.655 305.25 295.683C287.466 299.879 266.449 277.364 258.298 269.46C253.288 264.602 244.379 250.755 240.64 244.287L212.178 193.939L228.798 187.121C237.44 183.345 249.018 175.582 253.728 172.174C267.355 162.312 275.118 152.777 277.411 149.361C285.78 136.892 287.245 128.208 286.76 125.236C284.101 142.228 262.021 160.953 251.027 167.454C243.434 171.944 236.576 175.574 227.136 179.254C219.988 182.041 214.352 183.87 207.192 186.072L193.896 161.947C210.516 155.864 227.666 143.95 233.784 138.085C251.527 121.073 256.074 98.6436 256.844 90.3595C260.893 46.8094 238.047 22.1878 225.889 14.5758C202.443 -0.103133 170.559 -1.15778 157.332 0.67781L118.275 3.82453L81.0877 4.34899C100.533 5.60768 105.256 23.4042 105.187 32.1451V103.733C74.2735 116.11 47.1567 135.032 37.668 143.329C9.4931 167.966 1.10818 194.454 0.272982 204.166Z",
+    "M125.546 200.233L105.602 209.935V261.856C104.937 278.219 97.2922 287.554 93.5527 290.176C90.2287 292.904 84.1347 294.11 81.5032 294.372H149.23L141.543 292.012C128.081 288.865 125.685 269.898 126.169 260.807L125.546 200.233Z",
+    "M302.341 63.0878C301.012 83.2269 289.322 88.6113 283.644 88.7861C296.441 88.7861 301.857 105.569 302.965 113.96C303.131 96.7578 314.391 90.0098 320 88.7861C306.704 87.5274 302.688 71.1295 302.341 63.0878Z",
 ]
-OUTER_EDGE = RING_R + RING_W / 2       # 67.64px -> mapped to the adaptive-icon safe radius
-SAFE_RADIUS_DP = 31.0                  # 66dp safe zone diameter is 62dp here for mask margin
-S = SAFE_RADIUS_DP / OUTER_EDGE
-C = 54.0                               # adaptive icon viewport is 108dp
-
-
-def f(v):
-    return f"{v:.2f}".rstrip("0").rstrip(".")
-
-
-def circle(r):
-    return f"M{f(C - r)},{f(C)}a{f(r)},{f(r)} 0 1,0 {f(2 * r)},0a{f(r)},{f(r)} 0 1,0 {f(-2 * r)},0"
-
-
-def tick_path(indices):
-    parts = []
-    for i in indices:
-        a = math.radians(i * 360 / TICKS - 90)
-        x1, y1 = C + math.cos(a) * TICK_IN * S, C + math.sin(a) * TICK_IN * S
-        x2, y2 = C + math.cos(a) * TICK_OUT * S, C + math.sin(a) * TICK_OUT * S
-        parts.append(f"M{f(x1)},{f(y1)}L{f(x2)},{f(y2)}")
-    return "".join(parts)
-
-
-def rect(x, y, w, h, r):
-    x, y, w, h, r = C + x * S, C + y * S, w * S, h * S, r * S
-    return (f"M{f(x + r)},{f(y)}h{f(w - 2 * r)}a{f(r)},{f(r)} 0 0,1 {f(r)},{f(r)}v{f(h - 2 * r)}"
-            f"a{f(r)},{f(r)} 0 0,1 {f(-r)},{f(r)}h{f(-(w - 2 * r))}a{f(r)},{f(r)} 0 0,1 {f(-r)},{f(-r)}"
-            f"v{f(-(h - 2 * r))}a{f(r)},{f(r)} 0 0,1 {f(r)},{f(-r)}z")
-
-
-def dumbbell():
-    return "".join(rect(*p) for p in DUMBBELL)
-
+# Placement in the 108dp adaptive-icon viewport: the symbol is 48dp wide (about 45dp tall), centered; the 66dp safe zone
+# (circle) comfortably contains it, so round, squircle and themed masks never clip it.
+SCALE = 48.0 / VIEW_W
+TX = 54.0 - VIEW_W / 2 * SCALE
+TY = 54.0 - VIEW_H / 2 * SCALE
 
 HEAD = ('<?xml version="1.0" encoding="utf-8"?>\n<!-- Generated by scripts/generate-logo-assets.py; '
         'do not edit by hand. -->\n')
@@ -70,32 +35,19 @@ VECTOR_OPEN = ('<vector xmlns:android="http://schemas.android.com/apk/res/androi
                '    android:viewportWidth="108" android:viewportHeight="108">\n')
 
 
-def stroke_path(data, color, width, cap="butt"):
-    return (f'    <path android:pathData="{data}" android:strokeColor="{color}" '
-            f'android:strokeWidth="{f(width)}" android:strokeLineCap="{cap}" '
-            f'android:fillColor="#00000000" />\n')
-
-
-def fill_path(data, color):
-    return f'    <path android:pathData="{data}" android:fillColor="{color}" />\n'
+def symbol(color):
+    out = f'    <group android:translateX="{TX:.3f}" android:translateY="{TY:.3f}" android:scaleX="{SCALE:.5f}" android:scaleY="{SCALE:.5f}">\n'
+    for d in SYMBOL_PATHS:
+        out += f'        <path android:pathData="{d}" android:fillColor="{color}" />\n'
+    return out + "    </group>\n"
 
 
 def foreground():
-    out = HEAD + VECTOR_OPEN
-    out += stroke_path(circle(RING_R * S), "@color/move60_accent", RING_W * S)
-    if LIT < TICKS:  # an empty pathData would be an invalid vector path
-        out += stroke_path(tick_path(range(LIT, TICKS)), "@color/move60_outline", TICK_W * S)
-    out += stroke_path(tick_path(range(LIT)), "@color/move60_accent", TICK_W * S)
-    out += fill_path(dumbbell(), "@color/move60_heart")
-    return out + "</vector>\n"
+    return HEAD + VECTOR_OPEN + symbol(FOREST) + "</vector>\n"
 
 
 def monochrome():
-    out = HEAD + VECTOR_OPEN
-    out += stroke_path(circle(RING_R * S), "#FF000000", RING_W * S)
-    out += stroke_path(tick_path(range(LIT)), "#FF000000", TICK_W * S)
-    out += fill_path(dumbbell(), "#FF000000")
-    return out + "</vector>\n"
+    return HEAD + VECTOR_OPEN + symbol("#FF000000") + "</vector>\n"
 
 
 def adaptive(with_mono=True):
@@ -131,7 +83,6 @@ def main():
         else:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(text, encoding="utf-8")
-    assert tokens["primary"].upper() == "#ABC5B1" and tokens["heart"].upper() == "#FF6B81"
     if drift:
         print("Logo assets drifted; rerun scripts/generate-logo-assets.py:\n  " + "\n  ".join(drift))
         sys.exit(1)
