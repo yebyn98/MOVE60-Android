@@ -7,7 +7,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.border
 import androidx.compose.material3.RadioButton
 import androidx.compose.material.icons.outlined.TrackChanges
-import androidx.compose.material.icons.outlined.ShowChart
+import androidx.compose.material.icons.automirrored.outlined.ShowChart
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.foundation.selection.selectable
@@ -473,7 +473,7 @@ private fun ReportContent(report: MyReport, name: (String) -> String, onOpenSess
 private fun purposeIcon(p: WorkoutPurpose) = when (p) {
     WorkoutPurpose.WEIGHT_MANAGEMENT -> Icons.Outlined.TrackChanges
     WorkoutPurpose.STRENGTH -> Icons.Outlined.FitnessCenter
-    WorkoutPurpose.FITNESS -> Icons.Outlined.ShowChart
+    WorkoutPurpose.FITNESS -> Icons.AutoMirrored.Outlined.ShowChart
     WorkoutPurpose.HABIT -> Icons.Outlined.CalendarMonth
 }
 
