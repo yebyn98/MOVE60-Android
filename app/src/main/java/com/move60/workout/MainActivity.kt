@@ -751,7 +751,7 @@ class MainActivity : Activity() {
                 val record = SetRecordStore.Record(kg.text.toString(), reps.text.toString(), retainedEffort, checked)
                 if (checked && !record.valid) {
                     check.isChecked = false
-                    Toast.makeText(this, "중량(맨몸 0kg)과 횟수를 확인해 주세요.", Toast.LENGTH_SHORT).show()
+                    Move60NativeToast.show(this, "중량(맨몸 0kg)과 횟수를 확인해 주세요.")
                 } else {
                     session.toggleChecked(key, checked)
                     setRecords.write(session.day, task.id, set, record, token = session.sessionStartedAt)
@@ -766,8 +766,7 @@ class MainActivity : Activity() {
                     if (checked && done == count) {
                         val next = TrainingProgress.next(session)
                         if (next != null && next.task.id != task.id) {
-                            Toast.makeText(this, "${task.name} 완료 · ${next.task.name}${movedSuffix(next.task.name)} 이동했어요",
-                                Toast.LENGTH_SHORT).show()
+                            Move60NativeToast.show(this, "${task.name} 완료 · ${next.task.name}${movedSuffix(next.task.name)} 이동했어요")
                             Haptics.exerciseChanged(this)
                         }
                         handler.post { renderCurrent() }
@@ -871,8 +870,7 @@ class MainActivity : Activity() {
                 try {
                     startActivity(videoSearch)
                 } catch (_: android.content.ActivityNotFoundException) {
-                    Toast.makeText(this, "영상을 열 수 있는 브라우저가 필요해요.",
-                        Toast.LENGTH_LONG).show()
+                    Move60NativeToast.show(this, "영상을 열 수 있는 브라우저가 필요해요.")
                 }
             }.apply { contentDescription = task.name + " 운동 가이드 영상 검색" })
             addGap(detailContent, 12)
@@ -1106,7 +1104,7 @@ class MainActivity : Activity() {
                 if (Build.VERSION.SDK_INT >= 26) startForegroundService(intent) else startService(intent)
             } catch (e: Exception) {
                 CrashReporter.log(this, "서비스 시작 오류: " + e.javaClass.simpleName + ": " + e.message)
-                Toast.makeText(this, "알림 서비스를 시작하지 못했어요. 알림 진단을 확인하세요.", Toast.LENGTH_LONG).show()
+                Move60NativeToast.show(this, "알림 서비스를 시작하지 못했어요. 알림 진단을 확인하세요.")
             }
         } else {
             // Pausing or finishing stops the service; persist the new UI snapshot and

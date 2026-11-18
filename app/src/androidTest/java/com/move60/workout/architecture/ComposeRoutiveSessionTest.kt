@@ -209,6 +209,8 @@ class ComposeRoutiveSessionTest {
             captureScreen("compose-routive-skip-last-dialog.png")
             rule.onNodeWithTag("routive_skip_last_confirm").performClick()
             waitTag("result_screen", 20_000)
+            // The result screen exists while the save is still running ("결과를 저장하고 있어요"): wait for the final judgement text.
+            rule.waitUntil(20_000) { rule.onAllNodes(hasText("오늘 운동을 마쳤어요")).fetchSemanticsNodes().isNotEmpty() }
             rule.onNode(hasText("오늘 운동을 마쳤어요")).assertIsDisplayed()          // skip is not an automatic PARTIAL
             capture("compose-routive-result-skip-last.png")
         } finally {

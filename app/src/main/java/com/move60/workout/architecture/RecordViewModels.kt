@@ -88,4 +88,13 @@ class RecordSessionViewModel @Inject constructor(
             onResult(result)
         }
     }
+
+    /** docs/v71 step 5: corrected cardio values are new history rows. Only [CardioCorrectionResult.Saved] reloads the record. */
+    fun saveCardioCorrection(edits: List<CardioValueEdit>, onResult: (CardioCorrectionResult) -> Unit) {
+        viewModelScope.launch {
+            val result = SessionCorrectionService(db).applyCardio(sessionId, edits)
+            if (result is CardioCorrectionResult.Saved) load()
+            onResult(result)
+        }
+    }
 }

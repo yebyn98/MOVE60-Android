@@ -59,13 +59,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.Snackbar
-import androidx.compose.material3.SnackbarDuration
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.foundation.shape.RoundedCornerShape
 import kotlinx.coroutines.launch
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
@@ -142,17 +138,16 @@ fun WorkoutDashboard(
         if ((state.finished || state.endedEarly) && state.sessionId > 0 && state.recordDate.isNotEmpty())
             onWorkoutFinished("timer-${state.recordDate}-d${state.day}-${state.sessionId}")
     }
-    val snackbar = remember { SnackbarHostState() }
+    val toast = com.move60.workout.ui.LocalMove60Toast.current
     val context = LocalContext.current
     val openDetail = onOpenWorkout
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
-            if (event is WorkoutUiEvent.Message) snackbar.showSnackbar(event.message)
+            if (event is WorkoutUiEvent.Message) toast.show(event.message)
         }
     }
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
-        snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             // Figma TopBar: 52dp logo mark on the left, 48dp calendar / settings buttons (24dp icons) on the right.
             Row(
@@ -402,7 +397,7 @@ fun WorkoutCalendar(
     androidx.compose.runtime.LaunchedEffect(Unit) {
         if (viewModel.kcalNoticeVisible()) { kcalNotice = true; viewModel.kcalNoticeShown() }
     }
-    val snackbar = remember { SnackbarHostState() }
+    val toast = com.move60.workout.ui.LocalMove60Toast.current
     val scope = rememberCoroutineScope()
     var conflictItems by remember { mutableStateOf(viewModel.conflicts()) }
     val conflicts = conflictItems.size
@@ -416,8 +411,7 @@ fun WorkoutCalendar(
         scope.launch {
             val hasStoredSession = viewModel.dayRecord(date)?.sessions?.isNotEmpty() == true
             if (!viewModel.trained(date) && !hasStoredSession) {
-                snackbar.currentSnackbarData?.dismiss()
-                snackbar.showSnackbar("운동한 기록이 없습니다.", duration = SnackbarDuration.Short)
+                toast.show("운동한 기록이 없습니다.")
             }
         }
     }
@@ -454,14 +448,6 @@ fun WorkoutCalendar(
         )
     }
     Scaffold(containerColor = MaterialTheme.colorScheme.background,
-        snackbarHost = {
-            SnackbarHost(snackbar) { data ->
-                Snackbar(data, modifier = Modifier.testTag("calendar_toast"),
-                    shape = RoundedCornerShape(24.dp),
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    contentColor = MaterialTheme.colorScheme.secondary)
-            }
-        },
         topBar = { ScreenTopBar("운동 달력", null) }
     ) { inner ->
         LazyColumn(Modifier.fillMaxSize().padding(inner).testTag("calendar_list"),
@@ -748,10 +734,10 @@ fun WorkoutSettings(
 ) {
     val settings by viewModel.state.collectAsStateWithLifecycle()
     val split by viewModel.split.collectAsStateWithLifecycle()
-    val message = remember { SnackbarHostState() }
+    val toast = com.move60.workout.ui.LocalMove60Toast.current
     val context = LocalContext.current
     val activity = context as ComponentActivity
-    val updateManager = remember(activity) { UpdateManager(activity) }
+    val updateManager = remember(activity) { UpdateManager(activity) { toast.show(it) } }
     LifecycleResumeEffect(updateManager) {
         updateManager.resumePendingInstall()
         onPauseOrDispose { }
@@ -769,12 +755,11 @@ fun WorkoutSettings(
     val notificationPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { diagnostics = notificationDiagnostics(context, viewModel.sessionRunning()) }
-    LaunchedEffect(viewModel) { viewModel.messages.collect { message.showSnackbar(it) } }
+    LaunchedEffect(viewModel) { viewModel.messages.collect { toast.show(it) } }
     val version = remember {
         context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "—"
     }
     Scaffold(containerColor = MaterialTheme.colorScheme.background,
-        snackbarHost = { SnackbarHost(message) },
         topBar = { ScreenTopBar("앱 설정", null) }
     ) { inner ->
         LazyColumn(Modifier.fillMaxSize().padding(inner).testTag("settings_list"),
@@ -850,13 +835,11 @@ fun WorkoutSettings(
                             if (Build.VERSION.SDK_INT >= 26 && manager.isRequestPinAppWidgetSupported) {
                                 val provider = ComponentName(context, WorkoutWidget::class.java)
                                 val requested = manager.requestPinAppWidget(provider, null, null)
-                                widgetScope.launch { message.showSnackbar(
+                                toast.show(
                                     if (requested) "런처의 위젯 추가 요청을 확인해 주세요."
                                     else "홈 화면을 길게 눌러 위젯에서 ROUTIVE을 추가해 주세요."
-                                ) }
-                            } else widgetScope.launch {
-                                message.showSnackbar("홈 화면을 길게 눌러 위젯에서 ROUTIVE을 추가해 주세요.")
-                            }
+                                )
+                            } else toast.show("홈 화면을 길게 눌러 위젯에서 ROUTIVE을 추가해 주세요.")
                         }, primary = false, modifier = Modifier.testTag("settings_widget_pin")) {
                             Text("위젯 추가", maxLines = 1)
                         }
@@ -872,7 +855,7 @@ fun WorkoutSettings(
                         Move60Divider()
                         Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(role = Role.Button, onClickLabel = "개인정보처리방침 열기") {
                             try { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(privacyUrl))) }
-                            catch (_: Exception) { widgetScope.launch { message.showSnackbar("링크를 열 수 있는 앱이 없어요.") } }
+                            catch (_: Exception) { toast.show("링크를 열 수 있는 앱이 없어요.") }
                         }.padding(horizontal = 16.dp).testTag("settings_privacy_row"), verticalAlignment = Alignment.CenterVertically) {
                             Text("개인정보처리방침", modifier = Modifier.weight(1f))
                             Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = secondary)

@@ -22,6 +22,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -123,7 +125,9 @@ fun Move60ComposeApp(showIntro: Boolean = false, openCalendar: Boolean = false, 
         // Tapping the ongoing workout notification returns to the existing session screen (every tap, also when the app is open).
         if (openSessionRequest > 0) nav.navigate("routive_session") { launchSingleTop = true }
     }
+    val toast = remember { com.move60.workout.ui.Move60ToastState() }
     Move60ComposeTheme {
+      androidx.compose.runtime.CompositionLocalProvider(com.move60.workout.ui.LocalMove60Toast provides toast) {
         Box {
             Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
                 NavHost(
@@ -189,7 +193,9 @@ fun Move60ComposeApp(showIntro: Boolean = false, openCalendar: Boolean = false, 
                     }
                 }
             }
+            com.move60.workout.ui.Move60ToastHost(toast, Modifier.align(Alignment.TopCenter))
             if (introVisible) Move60Splash(onFinished = { introVisible = false })
         }
+      }
     }
 }

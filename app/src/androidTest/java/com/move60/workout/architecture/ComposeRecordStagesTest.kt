@@ -107,14 +107,21 @@ class ComposeRecordStagesTest {
                 rule.onNodeWithText("하체 루틴").assertIsDisplayed()
                 rule.onNodeWithTag("record_stage_WARMUP").performScrollTo().assertIsDisplayed()
                 rule.onNodeWithText("실제 5분 · 계획 5분 · 계획 항목 1개").assertIsDisplayed()
+                // Every stage card starts collapsed: the plan items exist only after the user opens the card.
+                rule.onNodeWithText("제자리 걷기").assertDoesNotExist()
+                capture("compose-record-session-stages.png")
+                rule.onNodeWithTag("record_stage_toggle_WARMUP").performClick()
                 rule.onNodeWithText("제자리 걷기").assertIsDisplayed()
                 rule.onNodeWithText("계획 2분").assertIsDisplayed()
-                capture("compose-record-session-stages.png")
+                capture("compose-record-session-stages-opened.png")
 
                 rule.onNodeWithText("실제 10분 · 계획 시간 미정 · 1종목 · 1세트").performScrollTo().assertIsDisplayed()
                 rule.onNodeWithTag("record_stage_CARDIO_STEADY").performScrollTo().assertIsDisplayed()
                 rule.onNodeWithText("실제 15분 · 계획 15분 · 계획 항목 1개").assertIsDisplayed()
-                rule.onNodeWithText("실내 사이클").assertIsDisplayed()
+                // The cardio stage is collapsed like the others: its items and values only exist after the user opens it.
+                rule.onNodeWithTag("record_cardio_no_values").assertDoesNotExist()
+                rule.onNodeWithTag("record_stage_toggle_CARDIO_STEADY").performClick()
+                rule.onNodeWithText("실내 사이클").performScrollTo().assertIsDisplayed()
                 // No cardio console values are stored, so the cardio stage says so instead of showing numbers.
                 rule.onNodeWithTag("record_cardio_no_values").performScrollTo().assertIsDisplayed()
                 rule.onNodeWithText("수치 미기록").assertIsDisplayed()

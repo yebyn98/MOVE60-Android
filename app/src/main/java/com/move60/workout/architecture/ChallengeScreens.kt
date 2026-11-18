@@ -15,8 +15,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -42,13 +40,12 @@ import com.move60.workout.ui.Move60Card
 @Composable
 fun ChallengeScreen(onBack: () -> Unit, viewModel: ChallengeViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val snackbar = remember { SnackbarHostState() }
+    val toast = com.move60.workout.ui.LocalMove60Toast.current
     LaunchedEffect(state.message) {
-        state.message?.let { snackbar.showSnackbar(it); viewModel.messageShown() }
+        state.message?.let { toast.show(it); viewModel.messageShown() }
     }
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
-        snackbarHost = { SnackbarHost(snackbar) },
         topBar = { ScreenTopBar("도전", null) }
     ) { inner ->
         LazyColumn(
