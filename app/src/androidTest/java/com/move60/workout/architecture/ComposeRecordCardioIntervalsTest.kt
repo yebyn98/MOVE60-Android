@@ -69,16 +69,18 @@ class ComposeRecordCardioIntervalsTest {
                 val total = 900L
                 val start = date.atTime(20, 35).atZone(zone).toEpochSecond()
                 val session = SessionEntity(id, null, zone.id, start * 1000, (start + total) * 1000,
-                    SessionCompletion.COMPLETED.name, total, 1, false, RoutivePlanSnapshot.toJson(routine), 0L)
+                    SessionCompletion.COMPLETED.name, total, 0, false, RoutivePlanSnapshot.toJson(routine), 0L)
                 val segments = listOf(SessionSegmentEntity(id, 0, "CARDIO_STEADY", 900, 900, null, null))
                 // Two level changes inside the 15-minute stage: 0:00 level 6, 7:00 level 8 (both real stored rows, not UI-only values).
                 val inputs = listOf(
                     SessionCardioInputEntity(id, 0, 0, 0, "INDOOR_CYCLE", "level", "6", null, 0L),
                     SessionCardioInputEntity(id, 1, 0, 420, "INDOOR_CYCLE", "level", "8", null, 0L)
                 )
-                SessionCommitter(db).commit(
+                val result = SessionCommitter(db).commit(
                     SessionBundle(session, listOf(SessionActiveIntervalEntity(id, 0, start, start + total)), emptyList(), segments, inputs)
                 )
+                // A rejected fixture would silently leave an empty calendar: fail here with the reason instead.
+                check(result is CommitResult.Committed || result is CommitResult.AlreadyCommitted) { "fixture was not stored: $result" }
             }
             db.close()
 
