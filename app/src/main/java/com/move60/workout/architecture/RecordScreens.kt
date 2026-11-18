@@ -259,7 +259,7 @@ private fun StrengthStageCard(
             )
             Text(
                 (timeParts + if (exercises.isEmpty()) listOf("완료한 세트가 없어요")
-                else listOf("${exercises.size}종목 · ${exercises.sumOf { e -> e.sets.size }}세트")).joinToString(" · "),
+                else listOf("${exercises.size}종목 · ${exercises.sumOf { e -> e.sets.count { !it.differsFromStored } }}세트")).joinToString(" · "),
                 color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.testTag("record_stage_summary")
             )
@@ -275,10 +275,9 @@ private fun StrengthStageCard(
 @Composable
 private fun ExerciseCard(ex: ExerciseSets, name: (String) -> String) {
     val shape = RoundedCornerShape(8.dp)
-    // RecordReader already overlays each saved correction onto the displayed set.
-    // A corrected set still counts as one completed set; filtering it out hides the user’s latest value.
-    val displayed = ex.sets
-    val legacyCount = displayed.count { it.origin == SetOrigin.LEGACY }
+    val base = ex.sets.filter { !it.differsFromStored }
+    val differing = ex.sets.filter { it.differsFromStored }
+    val legacyCount = base.count { it.origin == SetOrigin.LEGACY }
     Column(
         Modifier.fillMaxWidth().testTag("record_exercise_${ex.exerciseId}")
             .background(MaterialTheme.colorScheme.surface, shape)
@@ -289,12 +288,15 @@ private fun ExerciseCard(ex: ExerciseSets, name: (String) -> String) {
             Box(Modifier.width(3.dp).height(22.dp).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(2.dp)))
             Text(name(ex.exerciseId), fontWeight = FontWeight.Medium)
         }
-        Text(RecordFormat.setSummary(displayed), color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall,
+        Text(RecordFormat.setSummary(base), color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.testTag("record_exercise_sets_${ex.exerciseId}"))
         if (legacyCount > 0) Text("이전 버전 기록 ${legacyCount}세트 포함", color = MaterialTheme.colorScheme.secondary,
             style = MaterialTheme.typography.bodySmall)
-        // PO decision 2026-11-18: corrections are shown as current values without
-        // a correction badge or an original-value line. Append-only originals remain in session_adjustments.
+        // PO decision 2026-11-18: no correction mark and no "original" line. The original values stay stored (session_adjustments).
+        differing.forEach {
+            Text("${it.setNumber}세트: 이전 버전 값 ${it.kg}kg × ${it.reps}회 · 저장된 값과 달라요",
+                color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall)
+        }
     }
 }
 

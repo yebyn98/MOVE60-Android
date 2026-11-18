@@ -66,13 +66,15 @@ class RecordSessionViewModel @Inject constructor(
 
     init { load() }
 
+    private suspend fun readSession(): RecordLoad<SessionDetail> = try {
+        reader.session(sessionId)?.let { RecordLoad.Ready(it) } ?: RecordLoad.Missing
+    } catch (_: Exception) {
+        RecordLoad.Failed
+    }
+
     fun load() {
         _state.value = RecordLoad.Loading
-        viewModelScope.launch {
-            _state.value = try {
-                reader.session(sessionId)?.let { RecordLoad.Ready(it) } ?: RecordLoad.Missing
-            } catch (_: Exception) { RecordLoad.Failed }
-        }
+        viewModelScope.launch { _state.value = readSession() }
     }
 
     fun exerciseName(id: String): String = data.exerciseName(id) ?: id
@@ -84,7 +86,9 @@ class RecordSessionViewModel @Inject constructor(
     fun saveCorrections(edits: List<SetCorrection>, onResult: (CorrectionResult) -> Unit) {
         viewModelScope.launch {
             val result = SessionCorrectionService(db).apply(sessionId, edits)
-            if (result is CorrectionResult.Saved) load()
+            // A successful correction must refresh the visible data without switching to Loading.
+            // Removing SessionContent from composition would collapse the user's expanded stage card.
+            if (result is CorrectionResult.Saved) _state.value = readSession()
             onResult(result)
         }
     }
@@ -93,7 +97,7 @@ class RecordSessionViewModel @Inject constructor(
     fun saveCardioCorrection(edits: List<CardioValueEdit>, onResult: (CardioCorrectionResult) -> Unit) {
         viewModelScope.launch {
             val result = SessionCorrectionService(db).applyCardio(sessionId, edits)
-            if (result is CardioCorrectionResult.Saved) load()
+            if (result is CardioCorrectionResult.Saved) _state.value = readSession()
             onResult(result)
         }
     }
