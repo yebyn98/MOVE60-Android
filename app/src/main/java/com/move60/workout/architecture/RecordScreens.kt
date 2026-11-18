@@ -50,7 +50,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.move60.workout.ui.Move60Button
-import com.move60.workout.ui.BoxToast
 import com.move60.workout.ui.Move60Card
 import java.time.LocalDate
 
@@ -182,8 +181,7 @@ fun RecordSessionScreen(
     viewModel: RecordSessionViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    var toast by remember { mutableStateOf<String?>(null) }
-    Box(Modifier.fillMaxSize()) {
+    val toast = com.move60.workout.ui.LocalMove60Toast.current
     Scaffold(containerColor = MaterialTheme.colorScheme.background,
         topBar = { ScreenTopBar("운동 기록 상세", onBack, "record_back") }) { inner ->
         Column(
@@ -196,12 +194,10 @@ fun RecordSessionScreen(
                 RecordLoad.Missing -> RecordMessage("기록을 찾을 수 없어요", "목록에서 다시 선택해 주세요.")
                 RecordLoad.Failed -> RecordMessage("기록을 불러오지 못했어요.", "저장된 데이터는 유지되며 다시 확인할 수 있어요.", viewModel::load)
                 is RecordLoad.Ready -> SessionContent(s.value, viewModel::exerciseName, viewModel::saveCorrections,
-                    viewModel::saveCardioCorrection) { toast = "저장하지 못했어요. 다시 시도해 주세요." }
+                    viewModel::saveCardioCorrection) { toast.show("저장하지 못했어요. 다시 시도해 주세요.") }
             }
             Spacer(Modifier.height(16.dp))
         }
-    }
-    BoxToast(toast, onDismiss = { toast = null }, modifier = Modifier.align(Alignment.TopCenter))
     }
 }
 
@@ -329,7 +325,6 @@ private fun CorrectionSection(
     onSave: (List<SetCorrection>, (CorrectionResult) -> Unit) -> Unit
 ) {
     var editing by rememberSaveable { mutableStateOf(false) }
-    var showHistory by rememberSaveable { mutableStateOf(false) }
     // Only sets stored in this session can be corrected; v58 values live in SharedPreferences and stay as they were saved.
     val editable = detail.exercises.flatMap { it.sets }.filter { it.origin == SetOrigin.STORED }
     Column(Modifier.fillMaxWidth().testTag("record_correction_section"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -339,11 +334,8 @@ private fun CorrectionSection(
             Text("기록을 수정하면 이전 값과 수정 내역이 보존돼요.", color = MaterialTheme.colorScheme.secondary,
                 style = MaterialTheme.typography.bodySmall)
         }
-        Move60Button(onClick = { showHistory = true }, primary = false,
-            modifier = Modifier.fillMaxWidth().testTag("record_history_open")) { Text("수정 이력 보기") }
     }
     if (editing) CorrectionDialog(editable, name, onDismiss = { editing = false }, onSave = onSave)
-    if (showHistory) HistoryDialog(detail.history, name) { showHistory = false }
 }
 
 @Composable
@@ -428,34 +420,6 @@ private fun CorrectionDialog(
         dismissButton = {
             TextButton(onClick = onDismiss, enabled = !saving, modifier = Modifier.heightIn(min = 48.dp).testTag("record_edit_cancel")) { Text("취소") }
         }
-    )
-}
-
-@Composable
-private fun HistoryDialog(history: List<CorrectionEntry>, name: (String) -> String, onClose: () -> Unit) {
-    val zone = remember { java.time.ZoneId.systemDefault() }
-    val format = remember { java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm") }
-    AlertDialog(
-        onDismissRequest = onClose,
-        modifier = Modifier.testTag("record_history_dialog"),
-        title = { Text("수정 이력 보기") },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (history.isEmpty()) Text("수정 이력이 없어요.", modifier = Modifier.testTag("record_history_empty"))
-                // Newest first; each row keeps the value before and after the change and when it was saved.
-                history.asReversed().forEach { h ->
-                    val weight = h.attribute == CorrectionField.WEIGHT
-                    val unit = if (weight) "kg" else "회"
-                    Column(Modifier.testTag("record_history_item"), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text("${name(h.exerciseId)} · ${h.setNumber}세트 · ${if (weight) "중량" else "횟수"}", fontWeight = FontWeight.Medium)
-                        Text("${h.oldValue.orEmpty()}$unit → ${h.newValue.orEmpty()}$unit", modifier = Modifier.testTag("record_history_change"))
-                        Text(java.time.Instant.ofEpochMilli(h.createdAtEpochMs).atZone(zone).format(format),
-                            color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            }
-        },
-        confirmButton = { TextButton(onClick = onClose, modifier = Modifier.heightIn(min = 48.dp)) { Text("닫기") } }
     )
 }
 

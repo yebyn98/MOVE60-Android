@@ -19,3 +19,5 @@
 
 ## 검증 상태
 JVM `SessionCorrectionServiceTest`(9) · `RecordCorrectionReadTest`(3), 에뮬레이터 `ComposeRecordCorrectionTest`(캡처 `compose-record-correction-dialog.png`, `compose-record-history-dialog.png`). **CI 결과 대기.** 실기기 미검증.
+
+> **2026-11-18 변경(PO 결정):** 사용자 화면의 "수정 이력 보기"(이력 대화상자)를 제거했다. 정정은 계속 `session_adjustments`에 이전·새 값·시각으로 **보존**되고(삭제 없음, `SessionCorrectionService.history`·`SessionDetail.history`는 유지), 화면에서만 보이지 않는다. 계측 테스트는 이력 버튼이 없음을 확인하며 `compose-record-history-dialog.png` 캡처는 더 만들지 않는다.

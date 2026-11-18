@@ -110,13 +110,8 @@ class ComposeRecordCorrectionTest {
                 }
                 rule.onNodeWithText("1세트 수정됨 · 원본 40kg × 12회").assertIsDisplayed()
 
-                // History: old value, new value and time are kept.
-                rule.onNodeWithTag("record_history_open").performScrollTo().performClick()
-                rule.onNodeWithTag("record_history_dialog").assertIsDisplayed()
-                rule.onNodeWithTag("record_history_change").assertTextEquals("40kg → 42.5kg")
-                captureScreen("compose-record-history-dialog.png")
-                rule.onNodeWithText("닫기").performClick()
-                rule.onNodeWithTag("record_history_dialog").assertDoesNotExist()
+                // There is no history screen for the user; the history rows stay stored (see SessionCorrectionServiceTest).
+                rule.onNodeWithTag("record_history_open").assertDoesNotExist()
             }
         } finally {
             if (db.isOpen) db.close()
