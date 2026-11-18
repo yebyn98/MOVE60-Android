@@ -14,6 +14,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
@@ -21,7 +22,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Real-screen evidence for the challenge tab: create (start fixed to today) -> active card -> abandon confirm dialog. */
+/** Real-screen evidence for the challenge tab: choose start date -> create -> active card -> abandon confirm dialog. */
 @RunWith(AndroidJUnit4::class)
 class ComposeChallengeTest {
     @get:Rule val rule = createAndroidComposeRule<ComposeActivity>()
@@ -124,12 +125,13 @@ class ComposeChallengeTest {
         }
         rule.onNodeWithTag("challenge_name_field").assertIsDisplayed()
         // After a successful write, refresh and only then close the editor.
-        rule.onNodeWithTag("challenge_name_field").performTextReplacement("11월 실천 도전")
+        val uniqueEndedName = "실천 도전 " + java.util.UUID.randomUUID().toString().take(8)
+        rule.onNodeWithTag("challenge_name_field").performTextReplacement(uniqueEndedName)
         rule.onNodeWithTag("challenge_name_save").performClick()
         rule.waitUntil(5_000) {
             rule.onAllNodes(hasTestTag("challenge_rename")).fetchSemanticsNodes().isNotEmpty()
         }
-        rule.onNodeWithText("11월 실천 도전").assertIsDisplayed()
+        rule.onNodeWithText(uniqueEndedName).assertIsDisplayed()
         // Figma 03: the active challenge is summarised on the today home and opens the challenge tab.
         rule.onNodeWithTag("tab_today").performClick()
         rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("dashboard_challenge_card")).fetchSemanticsNodes().isNotEmpty() }
@@ -141,9 +143,10 @@ class ComposeChallengeTest {
         rule.onNodeWithTag("challenge_abandon_dialog").assertIsDisplayed()
         captureScreen("compose-challenge-abandon-dialog.png")
         rule.onNodeWithTag("challenge_abandon_confirm").performClick()
-        rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("challenge_ended_ABANDONED")).fetchSemanticsNodes().isNotEmpty() }
-        rule.onNodeWithTag("challenge_list").performScrollToNode(hasTestTag("challenge_ended_ABANDONED"))
-        rule.onNodeWithTag("challenge_ended_ABANDONED").assertIsDisplayed()
+        // Other tests and previous runs may leave multiple abandoned cards.
+        // Verify this particular challenge by its unique saved name, not by a non-unique status tag.
+        rule.onNodeWithTag("challenge_list").performScrollToNode(hasText(uniqueEndedName))
+        rule.onNodeWithText(uniqueEndedName).assertIsDisplayed()
         capture("compose-challenge-ended.png")
     }
 }
