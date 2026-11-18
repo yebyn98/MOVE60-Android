@@ -42,6 +42,30 @@ class ComposeChallengeTest {
         }
     }
 
+    @Test fun defaultGoalAndPeriodArePersistedAsNumericChallengeValues() {
+        rule.onNodeWithTag("tab_challenge").performClick()
+        rule.waitUntil(5_000) {
+            rule.onAllNodes(hasTestTag("challenge_create")).fetchSemanticsNodes().isNotEmpty() ||
+                rule.onAllNodes(hasTestTag("challenge_active")).fetchSemanticsNodes().isNotEmpty()
+        }
+        if (rule.onAllNodes(hasTestTag("challenge_active")).fetchSemanticsNodes().isNotEmpty()) {
+            rule.onNodeWithTag("challenge_abandon").performClick()
+            rule.onNodeWithTag("challenge_abandon_confirm").performClick()
+            rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("challenge_create")).fetchSemanticsNodes().isNotEmpty() }
+        }
+        val start = java.time.LocalDate.now(java.time.ZoneId.systemDefault())
+        rule.onNodeWithText("운동할 날 12일").assertIsDisplayed()
+        rule.onNodeWithText("4주").assertIsDisplayed()
+        rule.onNodeWithText("종료 예정일 ${start.plusDays(27)}").assertIsDisplayed()
+        rule.onNodeWithTag("challenge_new_name").performTextInput("기본 선택값 기록 검증")
+        rule.onNodeWithTag("challenge_start").assertIsEnabled().performClick()
+        rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("challenge_active")).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithText("0 / 12일 달성 (누적)").assertIsDisplayed()
+        rule.onNodeWithText("${start} ~ ${start.plusDays(27)} · 28일 남음").assertIsDisplayed()
+        rule.onNodeWithTag("challenge_abandon").performClick()
+        rule.onNodeWithTag("challenge_abandon_confirm").performClick()
+    }
+
     @Test fun createRenameAndAbandonWithConfirmation() {
         rule.onNodeWithTag("tab_challenge").performClick()
         rule.waitUntil(5_000) {
@@ -55,8 +79,15 @@ class ComposeChallengeTest {
             rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("challenge_create")).fetchSemanticsNodes().isNotEmpty() }
         }
         rule.onNodeWithTag("challenge_start").assertIsNotEnabled()
+        // Figma FINAL/30's displayed presets must also be the real numeric form state.
+        rule.onNodeWithText("운동할 날 12일").assertIsDisplayed()
+        rule.onNodeWithText("4주").assertIsDisplayed()
         rule.onNodeWithTag("challenge_new_name").performTextInput("11월 꾸준히")
         // Figma FINAL/30: 4/6/8-week picker calculates an inclusive end date.
+        rule.onNodeWithTag("challenge_period_select").performClick()
+        rule.onNodeWithTag("challenge_period_dropdown").assertIsDisplayed()
+        rule.onNodeWithTag("challenge_period_6w").performClick()
+        rule.onNodeWithText("6주").assertIsDisplayed()
         rule.onNodeWithTag("challenge_period_select").performClick()
         rule.onNodeWithTag("challenge_period_4w").performClick()
         val start = java.time.LocalDate.now(java.time.ZoneId.systemDefault())
