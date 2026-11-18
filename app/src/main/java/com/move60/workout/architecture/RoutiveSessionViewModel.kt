@@ -23,10 +23,17 @@ data class RoutiveSetUi(val number: Int, val kg: String, val reps: String)
 data class RoutiveExerciseUi(
     val id: String, val name: String, val plannedLabel: String, val done: List<RoutiveSetUi>,
     /** Targets chosen by the user in the routine; null = not set (never a default). */
-    val targetSets: Int? = null, val targetReps: Int? = null, val restSeconds: Long? = null
+    val targetSets: Int? = null, val targetReps: Int? = null, val restSeconds: Long? = null,
+    /** Cardio machine values the user saved (docs/v71); null for anything that is not a known cardio machine. */
+    val cardio: RoutiveCardioUi? = null
 ) {
     val nextSetNumber: Int get() = (done.maxOfOrNull { it.number } ?: 0) + 1
 }
+
+/** The values the machine has ([metrics], in the order the sheet asks for them) and what the user saved so far, oldest first. */
+data class RoutiveCardioUi(val equipmentKey: String, val metrics: List<com.move60.workout.domain.CardioMetric>, val entries: List<RoutiveCardioEntryUi>)
+/** One saved input: [atStageSeconds] into the cardio stage and the values as typed, e.g. "레벨 5 · 경사 2". */
+data class RoutiveCardioEntryUi(val inputIndex: Int, val atStageSeconds: Int, val text: String)
 
 /** What happened to the record after the session ended. Never shown as saved until the commit is confirmed. */
 sealed interface RoutiveOutcome {
@@ -79,7 +86,8 @@ internal fun buildRoutiveUi(
     val ui = exercises.map { e ->
         RoutiveExerciseUi(e.id, e.name, formatPlanned(e.plannedSeconds),
             perExercise[e.id].orEmpty().sortedBy { it.setNumber }.map { RoutiveSetUi(it.setNumber, it.kg, it.reps) },
-            e.targetSets, e.targetReps, e.restSeconds)
+            e.targetSets, e.targetReps, e.restSeconds,
+            cardio = if (kind == StageKind.CARDIO) cardioUi(e.name, session) else null)
     }
     val allSetsDone = kind == StageKind.STRENGTH && ui.isNotEmpty() && ui.all { it.done.isNotEmpty() }
     return RoutiveSessionUiState(
@@ -93,6 +101,19 @@ internal fun buildRoutiveUi(
         rest = session.rest?.takeIf { kind == StageKind.STRENGTH }?.let { RoutiveRestUi(it.exerciseId, it.remainingSeconds, it.totalSeconds, it.done) },
         heartText = com.move60.workout.domain.HeartRateFreshness.display(heartBpm, heartAgeMs)
     )
+}
+
+/** The sheet and the saved list of one cardio machine; null when the exercise is not a machine that has values to enter. */
+internal fun cardioUi(exerciseName: String, session: RoutiveSession): RoutiveCardioUi? {
+    val key = com.move60.workout.domain.CardioMetrics.equipmentKeyOf(exerciseName) ?: return null
+    val metrics = com.move60.workout.domain.CardioMetrics.forEquipment(key)
+    if (metrics.isEmpty()) return null
+    val entries = session.cardioInputs.filter { it.equipmentKey == key && it.stageIndex == session.progress.stageIndex }
+        .groupBy { it.inputIndex }.toSortedMap().map { (index, rows) ->
+            val text = metrics.mapNotNull { m -> rows.firstOrNull { it.metricKey == m.key }?.let { "${m.label} ${it.valueText}" } }.joinToString(" · ")
+            RoutiveCardioEntryUi(index, rows.first().atStageSeconds, text)
+        }
+    return RoutiveCardioUi(key, metrics, entries)
 }
 
 /** Rest only sits between sets: none after the exercise's last target set. An unknown target cannot tell, so rest runs. */
@@ -170,6 +191,18 @@ class RoutiveSessionViewModel @Inject constructor(
         sets.write(s.day, exerciseId, last.setNumber, SetRecordStore.Record(last.kg, last.reps, "5", false), s.recordDate, s.startedAtEpochMs)
         if (s.rest?.exerciseId == exerciseId) store.skipRest()
         viewModelScope.launch { publish(store.active()) }
+    }
+
+    /**
+     * Saves what the user typed for a cardio machine of the current stage. Only a successful save changes anything; the dialog
+     * stays open on a refusal so the user can fix the value (nothing is stored then).
+     */
+    fun saveCardioInput(exerciseName: String, values: Map<com.move60.workout.domain.CardioMetric, String>): CardioSaveResult {
+        val key = com.move60.workout.domain.CardioMetrics.equipmentKeyOf(exerciseName)
+            ?: return CardioSaveResult.Rejected(CardioSaveResult.Reason.UNKNOWN_EQUIPMENT)
+        val result = store.saveCardioInput(key, values)
+        if (result is CardioSaveResult.Saved) viewModelScope.launch { publish(store.active()) }
+        return result
     }
 
     /** Ends the rest early or dismisses the "rest finished" cue. */
