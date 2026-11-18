@@ -56,12 +56,23 @@ class ComposeChallengeTest {
         }
         rule.onNodeWithTag("challenge_start").assertIsNotEnabled()
         rule.onNodeWithTag("challenge_new_name").performTextInput("11월 꾸준히")
-        rule.onNodeWithTag("challenge_new_days").performTextInput("7")
-        // Policy 1: no start-date input; the start is today and the planned end is today + 6 for a 7-day period.
+        // Figma FINAL/30: 4/6/8-week picker calculates an inclusive end date.
+        rule.onNodeWithTag("challenge_period_select").performClick()
+        rule.onNodeWithTag("challenge_period_4w").performClick()
         val start = java.time.LocalDate.now(java.time.ZoneId.systemDefault())
         rule.onNodeWithText("$start · 도전을 만드는 날부터 시작해요.").assertIsDisplayed()
+        rule.onNodeWithText("종료 예정일 ${start.plusDays(27)}").assertIsDisplayed()
+        rule.onNodeWithTag("challenge_goal_select").performClick()
+        rule.onNodeWithTag("challenge_goal_12").performClick()
+        rule.onNodeWithTag("challenge_start").assertIsEnabled()
+        // Existing non-preset input must remain usable: 7-day goal rejects 8 credited days.
+        rule.onNodeWithTag("challenge_period_select").performClick()
+        rule.onNodeWithTag("challenge_period_custom").performClick()
+        rule.onNodeWithTag("challenge_new_days").performTextInput("7")
         rule.onNodeWithText("종료 예정일 ${start.plusDays(6)}").assertIsDisplayed()
-        rule.onNodeWithTag("challenge_new_target").performTextInput("8")        // target > period: rejected in the form
+        rule.onNodeWithTag("challenge_goal_select").performClick()
+        rule.onNodeWithTag("challenge_goal_custom").performClick()
+        rule.onNodeWithTag("challenge_new_target").performTextInput("8")        // target > period: rejected
         rule.onNodeWithTag("challenge_start").assertIsNotEnabled()
         capture("compose-challenge-create-invalid.png")
         rule.onNodeWithTag("challenge_new_target").performTextReplacement("4")
