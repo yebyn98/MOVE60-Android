@@ -117,7 +117,7 @@ class ComposeRecordStagesTest {
                 // The cardio stage is collapsed by default: its items and values only exist after the user opens it.
                 rule.onNodeWithTag("record_cardio_no_values").assertDoesNotExist()
                 rule.onNodeWithTag("record_stage_toggle_CARDIO_STEADY").performClick()
-                rule.onNodeWithText("실내 사이클").assertIsDisplayed()
+                rule.onNodeWithText("실내 사이클").performScrollTo().assertIsDisplayed()
                 // No cardio console values are stored, so the cardio stage says so instead of showing numbers.
                 rule.onNodeWithTag("record_cardio_no_values").performScrollTo().assertIsDisplayed()
                 rule.onNodeWithText("수치 미기록").assertIsDisplayed()

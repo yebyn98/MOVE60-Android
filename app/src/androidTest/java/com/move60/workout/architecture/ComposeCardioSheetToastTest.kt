@@ -64,10 +64,10 @@ class ComposeCardioSheetToastTest {
             }
         }
         // Nothing changed yet: save is off. The only recorded interval is selected for the user.
-        rule.onNodeWithTag("cardio_stepper_level_value").assertTextEquals("레벨 6")
+        rule.onNodeWithTag("cardio_stepper_level_value", useUnmergedTree = true).assertTextEquals("레벨 6")
         rule.onNodeWithTag("cardio_save").assertIsNotEnabled()
         rule.onNodeWithTag("cardio_stepper_level_plus").performClick()
-        rule.onNodeWithTag("cardio_stepper_level_value").assertTextEquals("레벨 7")
+        rule.onNodeWithTag("cardio_stepper_level_value", useUnmergedTree = true).assertTextEquals("레벨 7")
         rule.onNodeWithTag("cardio_save").assertIsEnabled().performClick()
 
         // The toast exists inside the sheet's own window, with the same text; the sheet and the typed value are still there.
@@ -75,7 +75,7 @@ class ComposeCardioSheetToastTest {
         rule.onNodeWithTag("move60_toast_window").assertIsDisplayed()
         rule.onNodeWithTag("move60_toast_window").assertTextEquals("저장하지 못했어요. 다시 시도해 주세요.")
         rule.onNodeWithTag("cardio_correction_sheet").assertIsDisplayed()
-        rule.onNodeWithTag("cardio_stepper_level_value").assertTextEquals("레벨 7")
+        rule.onNodeWithTag("cardio_stepper_level_value", useUnmergedTree = true).assertTextEquals("레벨 7")
         rule.onNodeWithTag("cardio_save").assertIsEnabled()
         captureScreen("compose-cardio-sheet-toast.png")
     }
