@@ -14,7 +14,7 @@ import java.time.temporal.ChronoUnit
 import org.json.JSONArray
 import org.json.JSONObject
 
-enum class ChallengeReject { TARGET_EXCEEDS_PERIOD, INVALID_FIELD, INVALID_ZONE, INVALID_DATE, START_DATE_NOT_CREATION_DAY, ACTIVE_CHALLENGE_EXISTS }
+enum class ChallengeReject { TARGET_EXCEEDS_PERIOD, INVALID_FIELD, INVALID_ZONE, INVALID_DATE, START_DATE_IN_PAST, ACTIVE_CHALLENGE_EXISTS }
 
 sealed interface ChallengeResult {
     /** [creditedDays] counts dates already credited at creation, i.e. same-day retroactive credit (C-20261115-01). */
@@ -37,7 +37,7 @@ sealed interface AbandonResult {
  * Challenge lifecycle on top of committed sessions (P-10..14, P-20, P-21, P-24, P-25, E-03):
  *  - day credit is RE-COMPUTED from stored valid sessions' UTC active intervals in the challenge's own fixed zone,
  *    so adding workouts or re-running after a failure/retry never double counts and always shows the latest total
- *  - at most one ACTIVE challenge (P-13); the start day must be the creation day (a past start date is NOT approved)
+ *  - at most one ACTIVE challenge (P-13); the start day may be today or a future date (past start dates remain disallowed)
  *  - state comes from the single [ChallengeRules.decide]; terminal states are written once with a frozen snapshot
  *  - nothing here depends on a midnight job: [settleDue] re-derives the same answer at the next launch (AC-13)
  */
@@ -47,7 +47,7 @@ class ChallengeService(private val db: WorkoutDatabase, private val clock: () ->
     companion object {
         const val MAX_NAME = 30
 
-        /** A fixed, inclusive period measured from one creation-day snapshot in the challenge zone. */
+        /** A fixed, inclusive period measured from the selected start date in the challenge zone. */
         fun inclusiveEndDate(start: LocalDate, periodDays: Int): LocalDate {
             require(periodDays >= 1) { "Period must contain at least one day" }
             return start.plusDays(periodDays.toLong() - 1L)
@@ -150,8 +150,8 @@ class ChallengeService(private val db: WorkoutDatabase, private val clock: () ->
 
         val nowMs = clock()
         val today = Instant.ofEpochSecond(nowMs / 1000L).atZone(zone).toLocalDate()
-        // Whether a PAST start date may be chosen is not approved, so only the creation day is accepted.
-        if (start != today) return reject(ChallengeReject.START_DATE_NOT_CREATION_DAY, "start=$start today=$today")
+        // Past-date retroactive creation is not approved; today and future dates are selectable.
+        if (start.isBefore(today)) return reject(ChallengeReject.START_DATE_IN_PAST, "start=$start today=$today")
 
         settleAllActive(nowMs)                       // an overdue challenge must end before P-13 is checked
         if (dao.activeChallenges().isNotEmpty()) return reject(ChallengeReject.ACTIVE_CHALLENGE_EXISTS, "only one ACTIVE challenge (P-13)")

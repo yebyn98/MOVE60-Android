@@ -71,20 +71,23 @@ class ChallengeViewModel @Inject constructor(committer: SessionCommitter) : View
         _state.value = ChallengeUiState(loading = false, active = activeCard, ended = ended, message = message)
     }
 
-    /** Start date is always the creation day (confirmed policy); the period end is inclusive. */
-    fun create(name: String, targetDays: Int, periodDays: Int, zone: ZoneId = ZoneId.systemDefault()) {
+    /** Selected start date is today or later; end date is inclusive in the fixed challenge zone. */
+    fun create(name: String, targetDays: Int, periodDays: Int, startDate: LocalDate, zone: ZoneId = ZoneId.systemDefault()) {
         viewModelScope.launch {
-            // Capture the creation day once, so a midnight crossing cannot desynchronise
-            // the start and inclusive end dates (both are interpreted in the challenge zone).
+            // Use the selected date for both boundaries; validate it again at save time.
             val today = LocalDate.now(zone)
+            if (startDate.isBefore(today)) {
+                reload("시작일은 오늘 이후 날짜로 선택해 주세요.")
+                return@launch
+            }
             if (periodDays < 1 || targetDays !in 1..periodDays) {
                 reload("기간과 목표 운동일수를 확인해 주세요.")
                 return@launch
             }
-            val endDate = ChallengeService.inclusiveEndDate(today, periodDays)
+            val endDate = ChallengeService.inclusiveEndDate(startDate, periodDays)
             val trimmed = name.trim()
             val entity = ChallengeEntity(
-                UUID.randomUUID().toString(), trimmed, today.toString(), endDate.toString(), zone.id,
+                UUID.randomUUID().toString(), trimmed, startDate.toString(), endDate.toString(), zone.id,
                 targetDays, ChallengeStatus.ACTIVE.name, System.currentTimeMillis(), null, null
             )
             val message = when (val r = service.create(entity)) {
@@ -94,7 +97,8 @@ class ChallengeViewModel @Inject constructor(committer: SessionCommitter) : View
                     ChallengeReject.TARGET_EXCEEDS_PERIOD -> "목표 일수는 기간(일수)보다 클 수 없어요."
                     ChallengeReject.ACTIVE_CHALLENGE_EXISTS -> "진행 중인 도전이 있어요. 종료 후 새로 시작할 수 있어요."
                     ChallengeReject.INVALID_FIELD -> "이름과 목표 일수를 확인해 주세요."
-                    ChallengeReject.INVALID_DATE, ChallengeReject.START_DATE_NOT_CREATION_DAY -> "기간을 확인해 주세요."
+                    ChallengeReject.INVALID_DATE -> "기간을 확인해 주세요."
+                    ChallengeReject.START_DATE_IN_PAST -> "시작일은 오늘 이후 날짜로 선택해 주세요."
                     ChallengeReject.INVALID_ZONE -> "시간대를 확인해 주세요."
                 }
                 is ChallengeResult.Failed -> "도전을 만들지 못했어요. 다시 시도해 주세요."

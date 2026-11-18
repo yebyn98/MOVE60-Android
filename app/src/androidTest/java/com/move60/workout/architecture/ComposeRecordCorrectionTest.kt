@@ -23,6 +23,7 @@ import java.io.File
 import java.time.LocalDate
 import java.time.ZoneId
 import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -104,8 +105,24 @@ class ComposeRecordCorrectionTest {
                 captureScreen("compose-record-correction-dialog.png")
                 rule.onNodeWithTag("record_edit_save").performClick()
 
-                // The record is reloaded only after the save succeeded: the new value is shown, with no correction mark and no original line.
-                rule.waitUntil(15_000) {
+                // Separate the persistence guarantee from the UI refresh guarantee.
+                // The dialog closes only after a successful write and a refreshed record has been read.
+                rule.waitUntil(10_000) {
+                    rule.onAllNodesWithTag("record_edit_dialog").fetchSemanticsNodes().isEmpty()
+                }
+                val verificationDb = Room.databaseBuilder(context, WorkoutDatabase::class.java, dbFile).build()
+                try {
+                    runBlocking {
+                        assertEquals("42.5", SessionCorrectionService(verificationDb).overlay(id)["legPress" to 1]?.kg)
+                        assertEquals("40", verificationDb.routiveDao().sets(id).first { it.setNumber == 1 }.weightKg)
+                    }
+                } finally {
+                    verificationDb.close()
+                }
+
+                // A stored correction must refresh the visible text WITHOUT collapsing the expanded strength stage.
+                rule.onNodeWithTag("record_exercise_sets_legPress").assertIsDisplayed()
+                rule.waitUntil(10_000) {
                     runCatching {
                         rule.onNodeWithTag("record_exercise_sets_legPress").assertTextEquals("42.5kg × 12회 · 45kg × 12회 (2세트)")
                     }.isSuccess

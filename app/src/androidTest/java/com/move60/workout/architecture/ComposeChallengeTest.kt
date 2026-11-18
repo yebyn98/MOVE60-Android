@@ -14,6 +14,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
@@ -21,7 +22,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Real-screen evidence for the challenge tab: create (start fixed to today) -> active card -> abandon confirm dialog. */
+/** Real-screen evidence for the challenge tab: choose start date -> create -> active card -> abandon confirm dialog. */
 @RunWith(AndroidJUnit4::class)
 class ComposeChallengeTest {
     @get:Rule val rule = createAndroidComposeRule<ComposeActivity>()
@@ -42,6 +43,30 @@ class ComposeChallengeTest {
         }
     }
 
+    @Test fun defaultGoalAndPeriodArePersistedAsNumericChallengeValues() {
+        rule.onNodeWithTag("tab_challenge").performClick()
+        rule.waitUntil(5_000) {
+            rule.onAllNodes(hasTestTag("challenge_create")).fetchSemanticsNodes().isNotEmpty() ||
+                rule.onAllNodes(hasTestTag("challenge_active")).fetchSemanticsNodes().isNotEmpty()
+        }
+        if (rule.onAllNodes(hasTestTag("challenge_active")).fetchSemanticsNodes().isNotEmpty()) {
+            rule.onNodeWithTag("challenge_abandon").performClick()
+            rule.onNodeWithTag("challenge_abandon_confirm").performClick()
+            rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("challenge_create")).fetchSemanticsNodes().isNotEmpty() }
+        }
+        val start = java.time.LocalDate.now(java.time.ZoneId.systemDefault())
+        rule.onNodeWithText("운동할 날 12일").assertIsDisplayed()
+        rule.onNodeWithText("4주").assertIsDisplayed()
+        rule.onNodeWithText("종료 예정일 ${start.plusDays(27)}").assertIsDisplayed()
+        rule.onNodeWithTag("challenge_new_name").performTextInput("기본 선택값 기록 검증")
+        rule.onNodeWithTag("challenge_start").assertIsEnabled().performClick()
+        rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("challenge_active")).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithText("0 / 12일 달성 (누적)").assertIsDisplayed()
+        rule.onNodeWithText("${start} ~ ${start.plusDays(27)} · 28일 남음").assertIsDisplayed()
+        rule.onNodeWithTag("challenge_abandon").performClick()
+        rule.onNodeWithTag("challenge_abandon_confirm").performClick()
+    }
+
     @Test fun createRenameAndAbandonWithConfirmation() {
         rule.onNodeWithTag("tab_challenge").performClick()
         rule.waitUntil(5_000) {
@@ -55,13 +80,34 @@ class ComposeChallengeTest {
             rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("challenge_create")).fetchSemanticsNodes().isNotEmpty() }
         }
         rule.onNodeWithTag("challenge_start").assertIsNotEnabled()
+        // Figma FINAL/30's displayed presets must also be the real numeric form state.
+        rule.onNodeWithText("운동할 날 12일").assertIsDisplayed()
+        rule.onNodeWithText("4주").assertIsDisplayed()
         rule.onNodeWithTag("challenge_new_name").performTextInput("11월 꾸준히")
-        rule.onNodeWithTag("challenge_new_days").performTextInput("7")
-        // Policy 1: no start-date input; the start is today and the planned end is today + 6 for a 7-day period.
+        // Figma FINAL/30: 4/6/8-week picker calculates an inclusive end date.
+        rule.onNodeWithTag("challenge_period_select").performClick()
+        rule.onNodeWithTag("challenge_period_dropdown").assertIsDisplayed()
+        rule.onNodeWithTag("challenge_period_6w").performClick()
+        rule.onNodeWithText("6주").assertIsDisplayed()
+        rule.onNodeWithTag("challenge_period_select").performClick()
+        rule.onNodeWithTag("challenge_period_4w").performClick()
         val start = java.time.LocalDate.now(java.time.ZoneId.systemDefault())
-        rule.onNodeWithText("$start · 도전을 만드는 날부터 시작해요.").assertIsDisplayed()
+        rule.onNodeWithTag("challenge_start_date_select").assertIsDisplayed().performClick()
+        rule.onNodeWithTag("challenge_date_picker").assertIsDisplayed()
+        rule.onNodeWithTag("challenge_start_date_cancel").performClick()
+        rule.onNodeWithText(start.format(java.time.format.DateTimeFormatter.ofPattern("yyyy.MM.dd"))).assertIsDisplayed()
+        rule.onNodeWithText("종료 예정일 ${start.plusDays(27)}").assertIsDisplayed()
+        rule.onNodeWithTag("challenge_goal_select").performClick()
+        rule.onNodeWithTag("challenge_goal_12").performClick()
+        rule.onNodeWithTag("challenge_start").assertIsEnabled()
+        // Existing non-preset input must remain usable: 7-day goal rejects 8 credited days.
+        rule.onNodeWithTag("challenge_period_select").performClick()
+        rule.onNodeWithTag("challenge_period_custom").performClick()
+        rule.onNodeWithTag("challenge_new_days").performTextInput("7")
         rule.onNodeWithText("종료 예정일 ${start.plusDays(6)}").assertIsDisplayed()
-        rule.onNodeWithTag("challenge_new_target").performTextInput("8")        // target > period: rejected in the form
+        rule.onNodeWithTag("challenge_goal_select").performClick()
+        rule.onNodeWithTag("challenge_goal_custom").performClick()
+        rule.onNodeWithTag("challenge_new_target").performTextInput("8")        // target > period: rejected
         rule.onNodeWithTag("challenge_start").assertIsNotEnabled()
         capture("compose-challenge-create-invalid.png")
         rule.onNodeWithTag("challenge_new_target").performTextReplacement("4")
@@ -79,12 +125,13 @@ class ComposeChallengeTest {
         }
         rule.onNodeWithTag("challenge_name_field").assertIsDisplayed()
         // After a successful write, refresh and only then close the editor.
-        rule.onNodeWithTag("challenge_name_field").performTextReplacement("11월 실천 도전")
+        val uniqueEndedName = "실천 도전 " + java.util.UUID.randomUUID().toString().take(8)
+        rule.onNodeWithTag("challenge_name_field").performTextReplacement(uniqueEndedName)
         rule.onNodeWithTag("challenge_name_save").performClick()
         rule.waitUntil(5_000) {
             rule.onAllNodes(hasTestTag("challenge_rename")).fetchSemanticsNodes().isNotEmpty()
         }
-        rule.onNodeWithText("11월 실천 도전").assertIsDisplayed()
+        rule.onNodeWithText(uniqueEndedName).assertIsDisplayed()
         // Figma 03: the active challenge is summarised on the today home and opens the challenge tab.
         rule.onNodeWithTag("tab_today").performClick()
         rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("dashboard_challenge_card")).fetchSemanticsNodes().isNotEmpty() }
@@ -96,9 +143,10 @@ class ComposeChallengeTest {
         rule.onNodeWithTag("challenge_abandon_dialog").assertIsDisplayed()
         captureScreen("compose-challenge-abandon-dialog.png")
         rule.onNodeWithTag("challenge_abandon_confirm").performClick()
-        rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("challenge_ended_ABANDONED")).fetchSemanticsNodes().isNotEmpty() }
-        rule.onNodeWithTag("challenge_list").performScrollToNode(hasTestTag("challenge_ended_ABANDONED"))
-        rule.onNodeWithTag("challenge_ended_ABANDONED").assertIsDisplayed()
+        // Other tests and previous runs may leave multiple abandoned cards.
+        // Verify this particular challenge by its unique saved name, not by a non-unique status tag.
+        rule.onNodeWithTag("challenge_list").performScrollToNode(hasText(uniqueEndedName))
+        rule.onNodeWithText(uniqueEndedName).assertIsDisplayed()
         capture("compose-challenge-ended.png")
     }
 }
