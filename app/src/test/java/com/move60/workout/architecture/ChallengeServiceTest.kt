@@ -220,12 +220,21 @@ class ChallengeServiceTest {
         assertNull(dao.challenge("c2"))
     }
 
-    @Test fun pastOrFutureStartDatesAreNotApprovedAndAreRejected() = runBlocking {
-        for (start in listOf("2026-11-14", "2026-11-16")) {
-            val r = service.create(challengeOf(id = "x$start", start = start, end = "2026-11-30"))
-            assertTrue("$start -> $r", r is ChallengeResult.Rejected && r.reason == ChallengeReject.START_DATE_NOT_CREATION_DAY)
-        }
-        assertTrue(dao.activeChallenges().isEmpty())
+    @Test fun pastStartRejectedButFutureStartCanBeScheduledWithoutEarlyCredit() = runBlocking {
+        at("2026-11-15", 8)
+        val past = service.create(challengeOf(id = "past", start = "2026-11-14", end = "2026-11-21"))
+        assertTrue(past is ChallengeResult.Rejected && past.reason == ChallengeReject.START_DATE_IN_PAST)
+        assertNull(dao.challenge("past"))
+        val future = service.create(challengeOf(id = "future", start = "2026-11-16", end = "2026-11-22"))
+        assertEquals(ChallengeResult.Created("future", 0), future)
+        assertEquals("2026-11-16", dao.challenge("future")!!.startDate)
+        assertEquals("2026-11-22", dao.challenge("future")!!.endDate)
+        assertTrue(dao.credits("future").isEmpty())
+        at("2026-11-15", 9); store("beforeFuture", "2026-11-15", 9, 15)
+        assertTrue(dao.credits("future").isEmpty())
+        at("2026-11-16", 10); store("duringFuture", "2026-11-16", 9, 15)
+        assertEquals(1, dao.credits("future").count { it.credited })
+        assertEquals("ACTIVE", dao.challenge("future")!!.status)
     }
 
     @Test fun invalidDefinitionsAreRejected() = runBlocking {
