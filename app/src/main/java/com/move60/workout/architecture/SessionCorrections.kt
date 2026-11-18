@@ -8,8 +8,11 @@ import androidx.room.withTransaction
  * changed: every correction is a new append-only row in `session_adjustments` holding the previous value, the new value and
  * the time, and the screen shows the latest value on top of the untouched original.
  *
+ * Cardio console values (docs/v71) are corrected the same way: a new row whose field is [CorrectionField.cardio]; only the value,
+ * never the time or the original input row. Reading them back is [CardioStageRecords]; writing them is a later step.
+ *
  * Not correctable here: sensor/raw active intervals, the session id, a set that was never recorded (nothing is created),
- * and values the app never stored (RPE, cardio console values) - there is nothing to correct for those.
+ * and values the app never stored (RPE) - there is nothing to correct for those.
  * Corrections cannot change active time or challenge credit, so closed challenge snapshots are untouched by construction.
  */
 object CorrectionField {
@@ -17,6 +20,21 @@ object CorrectionField {
     const val REPS = "repetitions"
 
     fun set(exerciseId: String, setNumber: Int, attribute: String) = "set:$exerciseId:$setNumber:$attribute"
+
+    /** Field of a corrected cardio console value: input [inputIndex], metric [metricKey] ([com.move60.workout.domain.CardioMetric.key]). */
+    fun cardio(inputIndex: Int, metricKey: String) = "cardio:$inputIndex:$metricKey"
+
+    data class ParsedCardio(val inputIndex: Int, val metric: com.move60.workout.domain.CardioMetric)
+
+    /** Null for anything that is not a cardio field this code wrote (including a metric it does not know). */
+    fun parseCardio(field: String): ParsedCardio? {
+        if (!field.startsWith("cardio:")) return null
+        val parts = field.removePrefix("cardio:").split(':')
+        if (parts.size != 2) return null
+        val index = parts[0].toIntOrNull()?.takeIf { it >= 0 } ?: return null
+        val metric = com.move60.workout.domain.CardioMetric.fromKey(parts[1]) ?: return null
+        return ParsedCardio(index, metric)
+    }
 
     data class Parsed(val exerciseId: String, val setNumber: Int, val attribute: String)
 

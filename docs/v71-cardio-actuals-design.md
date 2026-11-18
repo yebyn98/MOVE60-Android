@@ -95,3 +95,11 @@ session_cardio_inputs
 - 저장 위치: 세션 저장소(`RoutiveSession.cardioInputs`, JSON `cardioV:1`)에 즉시 디스크 반영 → 종료 시 `snapshot()`이 `TimerSnapshot.cardioInputs`로 넘기고 2단계의 같은 트랜잭션 저장 경로로 들어간다. 구버전 세션(키 없음)은 입력 없음으로 읽는다.
 - 같은 단계에서 사이클과 일립티컬을 번갈아 쓰면 입력이 섞여 보일 수 있다. 상세 표시(4단계)에서 기구별로 나눠 구간을 계산해야 한다.
 - 워치 입력은 없다(PO 확정: 폰에서만).
+
+## 12. 4단계 구현 결과 (기록 상세 표시, 읽기 전용, 코드 기준)
+- 상태: **구현 완료 · 미검증.** JVM 테스트(`CardioStageRecordsTest`)를 작성했지만 이 작업 환경에서 Gradle이 의존성 jar를 받지 못해(프록시가 Gradle 요청의 jar를 404 처리) **실행하지 못했다**. 컴파일·단위 테스트·에뮬레이터 캡처 모두 CI 또는 로컬 확인이 필요하다.
+- 읽기 모델: `CardioStageRecords.build`가 `session_cardio_inputs`(해당 유산소 단계)와 `session_adjustments`의 `cardio:<inputIndex>:<metricKey>` 행을 읽어 `CardioIntervals.effective` → `compute`로 구간을 계산한다. 창은 `[0, 유산소 단계 실제 시간]`(§11 시각 기준). 아무것도 저장·수정하지 않는다.
+- 정정 필드 규칙은 §4와 같은 `cardio:<inputIndex>:<metricKey>`로 확정(`CorrectionField.cardio/parseCardio`). 근력 필드 `set:…`와 접두어로 구분된다. 정정을 **쓰는** 코드는 5단계다.
+- 화면: 기록 상세 유산소 단계 카드(기본 접힘)에 "실제 강도 구간" 목록 — `시작–종료 / 레벨 N(· 경사 M) / 지속시간`, 입력 전 구간은 `미기록`. 정정 표시·이력 없음. 저장된 값이 없는 세션은 기존 "수치 미기록"을 그대로 보인다. 한 단계에서 두 기구를 썼으면 행에 기구 이름을 붙인다.
+- 접힘 기본값은 유산소 단계에만 적용했다. 준비운동·근력·마무리의 기본 펼침은 기존 테스트(`ComposeRecordTest`)가 전제하므로, 전체 단계 접힘은 별도 변경으로 결정이 필요하다.
+- 아직 없는 것: "수치 수정" 진입 행·수정 시트(5단계), 조회 실패 시 오류+재시도 구분(AC-P08-06 중 유산소 부분은 현재 단계 전체 로드 실패와 같은 처리).

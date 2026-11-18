@@ -63,7 +63,9 @@ data class SessionDetail(
     /** Corrections of this session, oldest first (policy 6). The originals above stay as stored. */
     val history: List<CorrectionEntry> = emptyList(),
     /** Stages that have real time, in stage order. Empty for sessions saved without stage data. */
-    val stages: List<StageRecord> = emptyList()
+    val stages: List<StageRecord> = emptyList(),
+    /** Real cardio intensity intervals (docs/v71); null when no cardio value was saved for this session. */
+    val cardio: CardioStageRecord? = null
 )
 
 class RecordReader(
@@ -138,10 +140,12 @@ class RecordReader(
         }
         val exercises = corrected.groupBy { it.exerciseId }.toSortedMap()
             .map { (id, sets) -> ExerciseSets(id, sets.sortedWith(compareBy({ it.setNumber }, { it.origin }))) }
-        return SessionDetail(
-            date, row(entity, date), exercises, corrections.history(sessionId),
-            stageRecords(sessionId, RoutivePlanSnapshot.parse(entity.planSnapshotJson))
-        )
+        val stages = stageRecords(sessionId, RoutivePlanSnapshot.parse(entity.planSnapshotJson))
+        val cardioStage = stages.firstOrNull { it.kind == SegmentKind.CARDIO_STEADY }
+        val cardio = cardioStage?.let {
+            CardioStageRecords.build(it.index, it.actualSeconds, dao.cardioInputs(sessionId), dao.adjustments(sessionId))
+        }
+        return SessionDetail(date, row(entity, date), exercises, corrections.history(sessionId), stages, cardio)
     }
 }
 
@@ -173,6 +177,25 @@ object RecordFormat {
             each.distinct().size == 1 -> "${each.first()} × ${sets.size}세트"
             else -> "${each.joinToString(" · ")} (${sets.size}세트)"
         }
+    }
+
+    /** `05:00–12:00`: the interval's start and end as stage active time (minutes:seconds). */
+    fun cardioRange(startSeconds: Int, endSeconds: Int): String = "${mmss(startSeconds)}–${mmss(endSeconds)}"
+
+    private fun mmss(seconds: Int): String {
+        val s = seconds.coerceAtLeast(0)
+        return "%02d:%02d".format(Locale.KOREA, s / 60, s % 60)
+    }
+
+    /** `레벨 6` or `레벨 6 · 경사 3`, exactly the typed numbers, level first. */
+    fun cardioValues(values: Map<com.move60.workout.domain.CardioMetric, String>): String =
+        com.move60.workout.domain.CardioMetric.entries.filter { it in values }.joinToString(" · ") { "${it.label} ${values.getValue(it)}" }
+
+    /** Machine name of an `Equipment` key, for rows of a stage that used more than one machine. */
+    fun cardioEquipmentLabel(equipmentKey: String?): String? = when (equipmentKey) {
+        "INDOOR_CYCLE" -> "실내 사이클"
+        "ELLIPTICAL" -> "일립티컬"
+        else -> null
     }
 
     /** `5분`, `5분 20초`, `20초`: the compact form used for stage times. */

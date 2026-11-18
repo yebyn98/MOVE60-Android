@@ -465,7 +465,7 @@ private fun StageCards(detail: SessionDetail, name: (String) -> String) {
         if (stage.kind == SegmentKind.STRENGTH) {
             strengthShown = true
             StrengthStageCard(detail.exercises, name, stage.actualSeconds, stage.plannedSeconds)
-        } else PlanStageCard(stage)
+        } else PlanStageCard(stage, if (stage.kind == SegmentKind.CARDIO_STEADY) detail.cardio else null)
     }
     // Sets exist but no strength time was stored: still show them rather than hide recorded sets.
     if (!strengthShown && detail.exercises.isNotEmpty()) StrengthStageCard(detail.exercises, name)
@@ -477,10 +477,11 @@ private fun StageCards(detail: SessionDetail, name: (String) -> String) {
  * stage says "수치 미기록" instead of showing numbers.
  */
 @Composable
-private fun PlanStageCard(stage: StageRecord) {
-    var open by rememberSaveable(stage.index) { mutableStateOf(true) }
-    val shape = RoundedCornerShape(14.dp)
+private fun PlanStageCard(stage: StageRecord, cardioRecord: CardioStageRecord? = null) {
     val cardio = stage.kind == SegmentKind.CARDIO_STEADY
+    // Cardio starts collapsed (Figma FINAL 27); the other stages keep their current default until that is decided for the app.
+    var open by rememberSaveable(stage.index) { mutableStateOf(!cardio) }
+    val shape = RoundedCornerShape(14.dp)
     Column(
         Modifier.fillMaxWidth().testTag("record_stage_${stage.kind.name}")
             .background(MaterialTheme.colorScheme.surfaceVariant, shape)
@@ -523,8 +524,39 @@ private fun PlanStageCard(stage: StageRecord) {
                             color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall)
                     }
                 }
-                if (cardio) Text("수치 미기록", color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall,
+                if (cardio && cardioRecord == null) Text("수치 미기록", color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.testTag("record_cardio_no_values"))
+                if (cardio && cardioRecord != null) CardioIntervalList(cardioRecord)
+            }
+        }
+    }
+}
+
+/** Read-only real intensity intervals of the cardio stage: time range, the typed values, duration. Not-recorded time says so. */
+@Composable
+private fun CardioIntervalList(record: CardioStageRecord) {
+    val shape = RoundedCornerShape(8.dp)
+    Column(
+        Modifier.fillMaxWidth().testTag("record_cardio_intervals")
+            .background(MaterialTheme.colorScheme.surface, shape)
+            .border(1.dp, MaterialTheme.colorScheme.outline, shape).padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text("실제 강도 구간", fontWeight = FontWeight.Medium)
+        record.rows.forEach { row ->
+            val machine = if (record.multipleEquipment) RecordFormat.cardioEquipmentLabel(row.equipmentKey)?.let { "$it · " } else null
+            Row(
+                Modifier.fillMaxWidth().testTag("record_cardio_interval"),
+                horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(RecordFormat.cardioRange(row.startSeconds, row.endSeconds),
+                        color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall)
+                    Text((machine ?: "") + (row.values?.let(RecordFormat::cardioValues) ?: "미기록"),
+                        color = if (row.recorded) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.secondary)
+                }
+                Text(RecordFormat.compact(row.seconds.toLong()), color = MaterialTheme.colorScheme.secondary,
+                    style = MaterialTheme.typography.bodySmall)
             }
         }
     }
