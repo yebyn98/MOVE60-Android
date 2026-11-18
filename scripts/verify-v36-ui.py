@@ -17,6 +17,9 @@ assert not (root/"app/src/main/java/com/move60/workout/ExercisePhotos.kt").exist
 assert 'detail_back' in main and 'detail_title' in main and 'leaveToOverview' in main, "Detail screen needs back button + title"
 assert 'label("MOVE60", 24' not in main, "Detail screen must not keep the old app bar"
 assert 'ExerciseGuide.create' in main and (root/"app/src/main/assets/exercise/legPress_0.jpg").exists(), "Guide must use the two-frame loop"
+assert 'info != null && ExerciseContentApproval.isApproved(task.id)) {' in main, "Do not show unreviewed external guide search in the empty state"
+approval=read("app/src/main/java/com/move60/workout/domain/ExerciseContentApproval.kt")
+assert 'val APPROVED: Set<String> = emptySet()' in approval, "Only evidenced exercise guides may be enabled"
 assert 'backgroundDimEnabled' in read("app/src/main/res/values/styles.xml") and 'DialogDim()' in compose, "Popups must dim the background"
 assert 'phone_calendar' not in main and 'showWorkoutCalendar' not in main, "Calendar lives in Compose only"
 for marker in ("MonthGrid(", "calendar-dot-", "calendar_prev", "calendar_next", "운동 기록 있음"):
@@ -42,9 +45,12 @@ assert '"새 운동"' in (root/"wear/src/main/java/com/move60/watch/WatchActivit
 assert "jumpToPhase" in (root/"app/src/main/java/com/move60/workout/MainActivity.kt").read_text(), "Item rows of the running stage are tappable"
 assert "phone_current_guide" in main and "phone_rest" in main, "Figma: detail = rest card + current-exercise card with set entry"
 assert "fun buildSetTable" in main and "phone_current_exercise" in main and "buildSetTable(task)" in main.split("fun showDetails")[1], "Set entry: current-exercise card + exercise popup"
-for feature in ("운동 알림 진단", "notificationDiagnostics(", "updateManager.check(true)", "peekAvailability", "settings_ratio", "오늘 컨디션 루틴", "칼로리 계산 체중"):
+for feature in ("운동 알림 진단", "notificationDiagnostics(", "updateManager.check(true)", "peekAvailability", "settings_ratio", "오늘 컨디션 루틴"):
     assert feature in compose, f"Compose settings lost: {feature}"
-assert 'Icon(Icons.Outlined.Today' in compose and 'Icon(Icons.Outlined.Settings' in compose
+assert "칼로리 계산 체중" not in compose and "settings_weight_field" not in compose, "calorie weight setting must stay hidden (docs/v66 PO decision 5-2)"
+# 4-tab bar replaced the top-bar icons (no duplicated controls): every tab keeps an icon and a visible label.
+assert 'Icons.Outlined.Home' in compose and 'Icons.Outlined.Today' in compose and 'Icons.Outlined.Flag' in compose and 'Icons.Outlined.Person' in compose
+assert 'fun Move60TabBar' in compose and 'label = { Text(tab.label) }' in compose and 'compose_calendar_icon' not in compose
 assert "동작 영상" not in compose
 assert "PermissionController.createRequestPermissionResultContract()" in consent
 assert "granted.containsAll(HealthConnectGateway.readPermissions)" in consent
@@ -73,7 +79,7 @@ assert "건강 대시보드" in old
 assert 'horologist-compose-layout:0.6.23' in read("wear/build.gradle")
 targets=read("scripts/release-targets.json")
 assert '"phone": true' in targets and '"watch":' in targets  # watch is released only when its code changes
-assert "versionCode 58" in read("app/build.gradle") and "versionCode 52" in read("wear/build.gradle")
+assert "versionCode 59" in read("app/build.gradle") and "versionCode 53" in read("wear/build.gradle")  # ROUTIVE v2 release codes (PO 2026-11-17)
 for manifest_path, activity in (
     ("app/src/main/AndroidManifest.xml", ".health.HealthConsentActivity"),
     ("wear/src/main/AndroidManifest.xml", ".health.WearHealthActivity"),

@@ -9,8 +9,9 @@ import java.time.ZoneId
 class SetRecordStore(context: Context) {
     private val prefs = context.getSharedPreferences("move60_set_records_v1", Context.MODE_PRIVATE)
     data class Record(val kg: String = "", val reps: String = "", val rpe: String = "5", val completed: Boolean = false) {
-        val valid: Boolean get() = kg.toDoubleOrNull()?.let { it in 0.0..500.0 } == true &&
-            reps.toIntOrNull()?.let { it in 1..100 } == true && rpe.toIntOrNull()?.let { it in 1..10 } == true
+        val valid: Boolean get() = kg.toDoubleOrNull()?.let { it in 0.0..com.move60.workout.domain.SetLimits.MAX_KG } == true &&
+            reps.toIntOrNull()?.let { it in com.move60.workout.domain.SetLimits.MIN_REPS..com.move60.workout.domain.SetLimits.MAX_REPS } == true &&
+            rpe.toIntOrNull()?.let { it in 1..10 } == true
         val volume: Double get() = if (completed && valid) kg.toDouble() * reps.toInt() else 0.0
     }
     fun today() = LocalDate.now(ZoneId.of("Asia/Seoul"))
@@ -45,6 +46,44 @@ class SetRecordStore(context: Context) {
             parts.size == 6 && parts[0] == "set" && parts[3] == token.toString()
         }.values.map { decode(it as? String) }.filter { it.completed && it.valid }
     }
+
+    data class CompletedSet(val exerciseId: String, val setNumber: Int, val kg: String, val reps: String)
+    /**
+     * Completed, valid sets of ONE workout (identified by its session token), with the exercise id and set number
+     * parsed from the storage key. Never mixes other workouts of the same date. Ordered for stable comparison.
+     */
+    fun completedSetsForSession(token: Long): List<CompletedSet> {
+        if (token <= 0L) return emptyList()
+        return prefs.all.mapNotNull { (key, value) ->
+            val parts = key.split(':')
+            if (parts.size != 6 || parts[0] != "set" || parts[3] != token.toString()) return@mapNotNull null
+            val number = parts[5].toIntOrNull() ?: return@mapNotNull null
+            val record = decode(value as? String)
+            if (!record.completed || !record.valid) null else CompletedSet(parts[4], number, record.kg, record.reps)
+        }.sortedWith(compareBy({ it.exerciseId }, { it.setNumber }))
+    }
+    /** A completed set parsed from its storage key, with the exact stored kg/reps strings. */
+    data class StoredSet(
+        val date: LocalDate, val day: Int, val token: Long,
+        val exerciseId: String, val setNumber: Int, val kg: String, val reps: String
+    )
+
+    /**
+     * READ-ONLY policy-5 view of every completed, valid set that belongs to a workout (token > 0). Drafts (token 0),
+     * uncompleted or invalid values and keys that do not parse exactly are left out; nothing is changed or deleted.
+     * Keys are unique, so one stored set can never appear twice.
+     */
+    fun completedStoredSets(): List<StoredSet> = prefs.all.mapNotNull { (key, value) ->
+        val parts = key.split(':')
+        if (parts.size != 6 || parts[0] != "set") return@mapNotNull null
+        val date = runCatching { LocalDate.parse(parts[1]) }.getOrNull() ?: return@mapNotNull null
+        val day = parts[2].toIntOrNull() ?: return@mapNotNull null
+        val token = parts[3].toLongOrNull()?.takeIf { it > 0L } ?: return@mapNotNull null
+        val exerciseId = parts[4].takeIf { it.isNotBlank() } ?: return@mapNotNull null
+        val number = parts[5].toIntOrNull()?.takeIf { it >= 1 } ?: return@mapNotNull null
+        val record = decode(value as? String)
+        if (!record.completed || !record.valid) null else StoredSet(date, day, token, exerciseId, number, record.kg, record.reps)
+    }.sortedWith(compareBy({ it.date }, { it.token }, { it.exerciseId }, { it.setNumber }))
 
     fun beginSession(day: Int, token: Long) {
         if (token <= 0L) return

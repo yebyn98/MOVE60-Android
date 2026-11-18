@@ -57,6 +57,12 @@ class WorkoutHistory(context: Context) {
         (1..month.lengthOfMonth()).map { record(month.atDay(it)) }
 
     /** A day counts as trained only with at least one full minute of measured active time. */
+    /** Every v58 date with at least one recorded minute (MY tab lifetime count). Read-only; unparsable keys are ignored. */
+    fun trainedDates(): Set<LocalDate> = prefs.all.mapNotNull { (key, value) ->
+        val date = runCatching { LocalDate.parse(key) }.getOrNull()
+        if (date != null && value is Long && value / 60 >= 1L) date else null
+    }.toSet()
+
     fun isTrained(date: LocalDate): Boolean = record(date).activeMinutes >= 1L
 
     fun trainedDays(month: YearMonth): Int = month(month).count { it.activeMinutes >= 1L }

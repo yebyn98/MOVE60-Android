@@ -33,8 +33,14 @@ assert "fun Move60Card(" in components and "fun Move60Button(" in components
 assert "com.google.android.material:material" in gradle
 screens=read("app/src/main/java/com/move60/workout/architecture/ComposeScreens.kt")
 for marker in ("@Composable","WorkoutDashboard(","WorkoutCalendar(","WorkoutSettings(",
-               "collectAsStateWithLifecycle()","오늘 누적","state.itemName","hiltViewModel()"):
+               "collectAsStateWithLifecycle()","state.itemName","hiltViewModel()"):
     assert marker in screens,marker
+# v66 PO decision 1: no kcal text anywhere in the Compose screens (the stored energy data is untouched).
+import re as _re
+_code=_re.sub(r'//[^\n]*', '', screens)  # comments may mention kcal
+_shown=[m for m in _re.findall(r'"[^"\n]*"', _code)
+        if ("kcal" in m.lower() or "오늘 누적" in m) and not _re.fullmatch(r'"[a-z0-9_]+"', m)]  # test tags are not shown text
+assert not _shown, "kcal must not be shown (PO decision 1): "+repr(_shown)
 # v58 (Figma 01/02): the home shows no "n/5 단계" counter and the dock names the current item.
 assert "단계\"" not in screens and "stageNames.size.coerceAtLeast(1)}" not in screens, "home must not show an n/N stage counter"
 vm=read("app/src/main/java/com/move60/workout/architecture/WorkoutViewModel.kt")
@@ -55,7 +61,7 @@ assert "WorkManagerInitializer" in read("app/src/main/AndroidManifest.xml")
 targets=read("scripts/release-targets.json")
 assert '"phone": true' in targets and '"watch":' in targets  # watch is released only when its code changes
 
-# Launcher icon + first-screen intro (approved logo: 60-tick plate + dumbbell).
+# Launcher icon (approved ROUTIVE R symbol) + first-screen intro (in-app 60-tick mark, wordmark reveal).
 import subprocess,sys
 manifest_text=read("app/src/main/AndroidManifest.xml")
 assert 'android:icon="@mipmap/ic_launcher"' in manifest_text and 'android:roundIcon="@mipmap/ic_launcher_round"' in manifest_text
@@ -114,7 +120,16 @@ assert "widget_pace" in read("app/src/main/res/layout/widget_workout_large.xml")
 _data = read("app/src/main/java/com/move60/workout/WorkoutData.kt")
 assert "STAGE_COUNT = 5" in _data and 'WorkoutStage("스트레칭"' in _data and "fun setCardioSplit" in _data
 _session = read("app/src/main/java/com/move60/workout/SessionStore.kt")
-assert "0..LAST_STAGE" in _session and "stage >= LAST_STAGE" in _session and "phases4" in _session
+# P0-2: stage bounds and the strength stage come from the session structure, not from 5-stage literals.
+assert "0..lastStageIndex" in _session and "stage >= lastStageIndex" in _session and "phases4" in _session
+assert "val isStrengthStage" in _session and "val engineSupported" in _session
+import pathlib as _pl
+for _f in _pl.Path("app/src/main/java").rglob("*.kt"):
+    _t = _f.read_text(encoding="utf-8")
+    if _f.name == "HistoryViewModel.kt":
+        continue  # stored history rows carry only a legacy stage index; tracked in the handoff log
+    for _bad in ("stage == 2", "stage != 2", "stage == LAST_STAGE", "stage >= LAST_STAGE"):
+        assert _bad not in _t, f"hard-coded 5-stage assumption '{_bad}' in {_f}"
 assert "RangeSlider" in read("app/src/main/java/com/move60/workout/architecture/ComposeScreens.kt")
 assert "STAGE_COUNT = 5" in read("wear/src/main/java/com/move60/watch/WatchWorkoutState.kt")
 assert "0..LAST_STAGE" in read("app/src/main/java/com/move60/workout/StageLog.kt")

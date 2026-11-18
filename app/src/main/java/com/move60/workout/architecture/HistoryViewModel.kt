@@ -17,6 +17,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 
+/** One buffered session that conflicts with an already saved record (same id, different content). */
+data class ConflictUi(val id: String, val date: LocalDate, val startedAtEpochMs: Long, val activeSeconds: Long, val setCount: Int, val endedEarly: Boolean)
+
 /** Month summary shown under the calendar grid. */
 data class MonthSummary(val trainedDays: Int, val activeMinutes: Long, val kcal: Int)
 
@@ -45,8 +48,66 @@ class HistoryViewModel @Inject constructor(
     private val ledger: EnergyLedger,
     private val stageLog: StageLog,
     private val sets: SetRecordStore,
-    data: WorkoutData
+    private val data: WorkoutData,
+    private val db: WorkoutDatabase,
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context
 ) : ViewModel() {
+    /**
+     * Policy 5: v58 completed sets for [date], read-only. A read failure shows nothing instead of an error and never
+     * touches the stored originals.
+     */
+    suspend fun legacySets(date: LocalDate): LegacySetDay = try {
+        LegacySetReader(db) { sets.completedStoredSets() }.forDate(date)
+    } catch (_: Exception) { LegacySetDay(date, emptyList()) }
+
+    private val kcalNotice = KcalNoticeStore(context)
+
+    /**
+     * v66 decision 1: show the "kcal is no longer shown" banner once to a user who already has records. A read failure shows
+     * nothing (a new user must not get a notice about something they never had).
+     */
+    suspend fun kcalNoticeVisible(): Boolean {
+        if (kcalNotice.seen) return false
+        val existing = try { history.trainedDates().isNotEmpty() || db.routiveDao().sessionCount() > 0 } catch (_: Exception) { false }
+        return KcalNoticePolicy.show(kcalNotice.seen, existing)
+    }
+    fun kcalNoticeShown() = kcalNotice.markSeen()
+
+    /** Stored ids are shown as saved when the curated name is unknown. */
+    fun exerciseName(id: String): String = data.exerciseName(id) ?: id
+
+    /** Figma 11: dates of [month] with stored session time (extra calendar dots). A read failure adds none. */
+    suspend fun sessionDates(month: YearMonth): Set<LocalDate> = try {
+        RecordReader(db) { sets.completedStoredSets() }.sessionDates(month)
+    } catch (_: Exception) { emptySet() }
+
+    /**
+     * Month line of the calendar: v58 history plus stored sessions, never added on the same date (see [MonthSummaryCombiner]).
+     * A read failure falls back to the v58 numbers only.
+     */
+    suspend fun monthSummaryCombined(month: YearMonth): MonthSummaryUi {
+        val legacy = history.month(month).filter { it.activeMinutes >= 1L }.associate { it.date to it.activeSeconds }
+        val stored = try { RecordReader(db) { sets.completedStoredSets() }.monthSeconds(month) } catch (_: Exception) { emptyMap() }
+        return MonthSummaryCombiner.combine(legacy, stored)
+    }
+
+    /** Figma 11: stored sessions of [date] for the selected-day card; null when they cannot be read. */
+    suspend fun dayRecord(date: LocalDate): DayRecord? = try {
+        RecordReader(db) { sets.completedStoredSets() }.day(date)
+    } catch (_: Exception) { null }
+
+    /** Number of buffered sessions that conflict with an already saved record and need the user's attention. */
+    /** Main facts of each conflicting buffered copy, for the "확인이 필요한 기록" dialog. Nothing here is shown as a saved record. */
+    fun conflicts(): List<ConflictUi> = try {
+        val box = PendingSessionOutbox(context)
+        box.conflicts().map { ConflictUi(box.sessionId(it), it.recordDate, it.startedAtEpochMs, it.accumulatedSeconds.toLong(), it.completedSets.size, it.endedEarly) }
+    } catch (_: Exception) { emptyList() }
+
+    /** Removes only the buffered conflicting copy after the user confirmed; the saved record is never changed. */
+    fun discardConflict(id: String): Boolean = try { PendingSessionOutbox(context).discardConflict(id) } catch (_: Exception) { false }
+
+    fun conflictCount(): Int = try { PendingSessionOutbox(context).conflicts().size } catch (_: Exception) { 0 }
+
     val days = repository.recentDays().stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList()
     )

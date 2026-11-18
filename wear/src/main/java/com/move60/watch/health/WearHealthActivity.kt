@@ -36,7 +36,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
-import androidx.wear.compose.material.ScalingLazyColumn
+import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material.Text
 import com.google.android.gms.wearable.DataClient
 import com.google.android.gms.wearable.DataEvent
@@ -197,9 +197,9 @@ class WearHealthActivity : ComponentActivity(), DataClient.OnDataChangedListener
     }
 }
 
-private val brand = Color(0xFF00E676)
-private val secondary = Color(0xFFB0B0B0)
-private val surface = Color(0xFF121212)
+private val brand = Color(com.move60.watch.Move60Theme.Colors.primary)
+private val secondary = Color(com.move60.watch.Move60Theme.Colors.textMedium)
+private val surface = Color(com.move60.watch.Move60Theme.Colors.surface)
 private val foreground = Color.White
 
 @Composable
@@ -220,7 +220,7 @@ fun HealthScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 item {
-                    Text("MOVE60 · 건강", color = brand, fontWeight = FontWeight.Bold,
+                    Text("ROUTIVE · 건강", color = brand, fontWeight = FontWeight.Bold,
                         fontSize = 16.sp, maxLines = 1)
                 }
                 item {
@@ -260,24 +260,24 @@ fun HealthScreen(
                 item {
                     Text(
                         if (state.healthConsent) "휴대폰에서 동의된 기록만 표시"
-                        else "휴대폰 MOVE60 설정 > 건강 데이터 연동에서 동의",
+                        else "휴대폰 ROUTIVE 설정 > 건강 데이터 연동에서 동의",
                         fontSize = 10.sp, color = secondary, textAlign = TextAlign.Center,
                         maxLines = 3
                     )
                 }
-                item {
+                // Calories are not shown anywhere until the calculation policy is decided (docs/v66), so the measurement is not offered
+                // either. Only a user who had already turned it on keeps a control, and only to turn it off (consent stays revocable).
+                if (state.kcalOptIn) item {
                     HealthCard {
                         Text("워치 칼로리 측정", color = secondary, fontSize = 12.sp)
-                        Text("운동 중 워치가 계산한 총 칼로리(기초대사 포함)를 폰에 보내요. 꺼두면 보내지 않아요.",
+                        Text("지금은 칼로리를 표시하지 않아요. 이미 켜 둔 측정을 끄면 폰으로 보내지 않아요.",
                             color = secondary, fontSize = 10.sp, textAlign = TextAlign.Center, maxLines = 4)
                         androidx.wear.compose.material.Chip(
                             onClick = onToggleKcal,
-                            label = { Text(if (state.kcalOptIn) "측정 끄기" else "측정 켜기", fontSize = 12.sp) },
+                            label = { Text("측정 끄기", fontSize = 12.sp) },
                             secondaryLabel = { Text(state.kcalStatus, fontSize = 10.sp, maxLines = 2) },
                             modifier = Modifier.fillMaxWidth().testTag("wear_kcal_chip"),
-                            colors = if (state.kcalOptIn) androidx.wear.compose.material.ChipDefaults.secondaryChipColors()
-                                else androidx.wear.compose.material.ChipDefaults.primaryChipColors(
-                                    backgroundColor = brand, contentColor = Color.Black)
+                            colors = androidx.wear.compose.material.ChipDefaults.secondaryChipColors()
                         )
                     }
                 }
@@ -309,7 +309,7 @@ private fun HealthCard(content: @Composable () -> Unit) {
 private fun RingMeter(value: Float) {
     Canvas(Modifier.size(52.dp)) {
         val width = 5.dp.toPx()
-        drawArc(Color(0xFF303030), -90f, 360f, false,
+        drawArc(Color(com.move60.watch.Move60Theme.Colors.outline), -90f, 360f, false,
             style = Stroke(width = width, cap = StrokeCap.Round))
         if (value > 0f) drawArc(brand, -90f, 360f * value.coerceIn(0f, 1f), false,
             style = Stroke(width = width, cap = StrokeCap.Round))

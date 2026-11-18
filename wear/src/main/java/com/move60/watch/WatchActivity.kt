@@ -125,7 +125,7 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
         detail = text(10, Theme.Colors.textMedium, "watch_detail")
         timer = text(26, Theme.Colors.textHigh, "watch_timer").apply {
             setTypeface(null, Typeface.BOLD)
-            setOnClickListener { if (workout.restSeconds() > 0 && workout.stageIndex == 2) showRestAdjustments() }
+            setOnClickListener { if (workout.restSeconds() > 0 && workout.isStrength) showRestAdjustments() }
         }
         heartRate = text(10, Theme.Colors.heart, "watch_heart").apply {
             setOnLongClickListener { showHeartZoneSettings(); true }
@@ -148,10 +148,12 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
             if (workout.finished) sendCommand("start") else sendCommand(if (workout.running) "pause" else "start")
         }
         nextButton = button("다음 단계", "watch_next") {
-            sendCommand(if (workout.stageIndex == 2 && workout.restSeconds() > 0) "rest_skip"
-                else if (workout.stageIndex == 2 && workout.canComplete) "complete" else "next")
+            sendCommand(if (workout.isStrength && workout.restSeconds() > 0) "rest_skip"
+                else if (workout.isStrength && workout.canComplete) "complete" else "next")
         }
         nextButton.setOnLongClickListener {
+            // ROUTIVE_4 has no +15 s rest adjustment: only moving on is offered, so the watch never sends an unsupported command.
+            if (workout.isRoutive4) { sendCommand("next"); return@setOnLongClickListener true }
             AlertDialog.Builder(this).setTitle("운동 조작")
                 .setItems(arrayOf("휴식 +15초", "다음 단계로 이동")) { _, which ->
                     sendCommand(if (which == 0) "rest_add" else "next")
@@ -300,15 +302,17 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
         }
         stage.setTextColor(if (idle) Theme.Colors.textHigh else lime)
         stage.contentDescription = "현재 단계 ${stage.text} · 길게 눌러 설정"
-        val resting = workout.stageIndex == 2 && workout.restSeconds() > 0 && !workout.finished
+        val resting = workout.isStrength && workout.restSeconds() > 0 && !workout.finished
         detail.text = when {
             pending.isNotBlank() -> requestStatus
+            workout.finished && workout.isRoutive4 -> workout.detail.ifBlank { "운동 종료" }
             workout.finished -> "오늘 기록 저장됨"
+            resting && workout.isRoutive4 -> "휴식 · 타이머 탭해 건너뛰기"
             resting -> "휴식 · 타이머 탭해 ±15초"
-            workout.stageIndex == 2 && workout.hasSession ->
+            workout.isStrength && workout.hasSession ->
                 workout.exerciseName.ifBlank { workout.setLabel } +
                     (if (workout.setTotal > 0) " · ${workout.setNumber}/${workout.setTotal}세트" else "")
-            isTimedStage(workout.stageIndex) && workout.intervalTotal > 0 ->
+            !workout.isRoutive4 && isTimedStage(workout.stageIndex) && workout.intervalTotal > 0 ->
                 "${workout.intervalIndex}/${workout.intervalTotal}구간 · ${workout.detail}"
             workout.running -> workout.detail.ifBlank { "운동 중" }
             workout.hasSession -> "일시정지"
@@ -322,9 +326,10 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
             workout.finished -> workout.activeSeconds
             resting -> workout.restSeconds()
             idle -> 60 * 60 // the routine is a fixed 60 minutes
+            workout.isRoutive4 && !workout.plannedKnown -> workout.elapsedSeconds() // no plan: elapsed time, never a made-up countdown
             else -> workout.secondsRemaining()
         }.coerceAtLeast(0)
-        val strengthTarget = !resting && workout.stageIndex == 2 && !workout.finished && workout.targetReps > 0
+        val strengthTarget = !resting && workout.isStrength && !workout.finished && workout.targetReps > 0
         val overtimeNow = workout.overtimeSeconds()
         timer.text = if (strengthTarget) {
             // Tight round displays must show the complete weight and rep target, not an ellipsis.
@@ -334,15 +339,17 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
         else "%02d:%02d".format(remaining / 60, remaining % 60)
         timer.textSize = if (strengthTarget) Theme.Type.wearTitle else Theme.Type.wearHeadline
         timer.contentDescription = when {
+            resting && workout.isRoutive4 -> "남은 휴식 ${timer.text} · 눌러서 휴식 건너뛰기"
             resting -> "남은 휴식 ${timer.text} · 눌러서 15초 늘리기 또는 줄이기"
+            workout.isRoutive4 && !workout.plannedKnown -> "이 단계 경과 ${timer.text}"
             strengthTarget -> "현재 세트 ${timer.text}, 전체 운동 시간 ${workout.activeSeconds / 60}분"
             overtimeNow > 0 -> "목표 시간 초과 ${timer.text}"
             else -> "운동 시간 ${timer.text}"
         }
         progressBar.progress = when {
             workout.finished -> 1000
-            workout.stageIndex == 2 && workout.totalSets > 0 -> workout.completedSets.coerceIn(0,workout.totalSets)*1000/workout.totalSets
-            workout.running && workout.stageIndex >= 0 -> (workout.stageIndex * 1000 / STAGE_COUNT).coerceAtMost(1000)
+            workout.isStrength && workout.totalSets > 0 -> workout.completedSets.coerceIn(0,workout.totalSets)*1000/workout.totalSets
+            workout.running && workout.stageIndex >= 0 -> (workout.stageIndex * 1000 / workout.stageCount).coerceAtMost(1000)
             else -> 0
         }
         progressRing.progress = progressBar.progress
@@ -359,22 +366,22 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
             workout.finished -> if (sampleCount > 0) "평균 ${sampleAverage}bpm" else "워치 착용 시 심박이 기록돼요"
             !connected -> "폰 연결 끊김"
             bpm in 30..240 && age in 0L..10_000L -> if (zone > 0) "♥ $bpm bpm · 추정 Z$zone" else "♥ $bpm bpm"
-            else -> "♥ 연결대기"
+            else -> "♥ 수신 대기"
         }
         heartRate.setTextColor(if (workout.finished) Theme.Colors.textMedium else Theme.Colors.heart)
         heartRate.contentDescription = if (bpm in 30..240 && age in 0L..10_000L)
-            "심박수 $bpm, ${age / 1000}초 전 측정" else "심박수 연결대기"
+            "심박수 $bpm, ${age / 1000}초 전 측정" else "심박수 수신 대기"
         playButton.text = if (workout.finished) "새 운동" else if (workout.running) "일시정지" else "시작"
         if (styledIdle != idle) {
             styledIdle = idle
             styleButton(playButton, idle)
             styleButton(nextButton, false)
         }
-        detail.contentDescription = detail.text.toString() + (if (isTimedStage(workout.stageIndex) && workout.upcomingInterval.isNotBlank()) " · 다음 구간 ${workout.upcomingInterval}" else "")
+        detail.contentDescription = detail.text.toString() + (if (!workout.isRoutive4 && isTimedStage(workout.stageIndex) && workout.upcomingInterval.isNotBlank()) " · 다음 구간 ${workout.upcomingInterval}" else "")
         nextButton.text = when {
-            workout.stageIndex == LAST_STAGE -> "운동 완료"
-            workout.stageIndex == 2 && workout.restSeconds() > 0 -> "건너뛰기"
-            workout.stageIndex == 2 && workout.canComplete -> "세트 완료"
+            workout.stageIndex == workout.lastStageIndex -> "운동 완료"
+            workout.isStrength && workout.restSeconds() > 0 -> "건너뛰기"
+            workout.isStrength && workout.canComplete -> "세트 완료"
             else -> "다음 단계"
         }
         val enabled = connected && ready && pending.isBlank() && workout.protocol >= 26
@@ -423,14 +430,15 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
             workout.finished -> "총 ${(workout.activeSeconds + 30) / 60}분 수행"
             workout.running && rest > 0 -> "남은 약 ${minutes}분"
             // Strength has no allotted time: show the overall time instead of a stage countdown.
-            workout.running && workout.stageIndex == 2 -> "전체 약 ${(workout.activeSeconds + 30) / 60}분"
+            workout.running && (workout.isStrength || (workout.isRoutive4 && !workout.plannedKnown)) -> "전체 약 ${(workout.activeSeconds + 30) / 60}분"
             workout.running -> "남은 약 ${minutes}분"
             workout.hasSession -> workout.stageLabel
             else -> "휴대폰에서 시작"
         }
     }
     private fun showRestAdjustments() {
-        if (workout.stageIndex != 2 || workout.restSeconds() <= 0 || workout.finished) return
+        if (!workout.isStrength || workout.restSeconds() <= 0 || workout.finished) return
+        if (workout.isRoutive4) { sendCommand("rest_skip"); return }
         AlertDialog.Builder(this).setTitle("세트 휴식 조절")
             .setItems(arrayOf("15초 줄이기", "15초 늘리기", "휴식 건너뛰기")) { _, which ->
                 sendCommand(when (which) { 0 -> "rest_sub"; 1 -> "rest_add"; else -> "rest_skip" })
@@ -457,7 +465,7 @@ class WatchActivity : ComponentActivity(), DataClient.OnDataChangedListener, Mes
     }
 
     private fun showWatchSettings() {
-        AlertDialog.Builder(this).setTitle("MOVE60 설정")
+        AlertDialog.Builder(this).setTitle("ROUTIVE 설정")
             .setItems(arrayOf("건강 대시보드", "센서 권한 설정", "심박수 측정 중지")) { _, which ->
                 when (which) {
                     0 -> startActivity(Intent(this, com.move60.watch.health.WearHealthActivity::class.java))

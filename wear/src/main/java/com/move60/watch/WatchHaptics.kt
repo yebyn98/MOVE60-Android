@@ -17,13 +17,15 @@ object WatchHaptics {
     private val STAGE = longArrayOf(0, 350, 150, 350, 150, 500)
     /** Two long pulses: the strength card moved on to the next exercise, or the rest timer ended. */
     private val EXERCISE = longArrayOf(0, 400, 150, 400)
+    /** One pulse: the rest timer ended. */
+    private val REST_END = longArrayOf(0, 400)
 
     /** Which kind of change (if any) the new phone state brings while a session keeps running. */
     fun transition(old: WatchWorkoutState, new: WatchWorkoutState): Transition {
         if (!old.ongoing || !new.ongoing || !new.running || old.session != new.session) return Transition.NONE
         if (new.stageIndex != old.stageIndex) return Transition.STAGE
-        if (isTimedStage(new.stageIndex) && new.intervalIndex != old.intervalIndex) return Transition.STAGE
-        if (new.stageIndex == 2 && old.exerciseId.isNotEmpty() && new.exerciseId.isNotEmpty() &&
+        if (!new.isRoutive4 && isTimedStage(new.stageIndex) && new.intervalIndex != old.intervalIndex) return Transition.STAGE
+        if (new.isStrength && old.exerciseId.isNotEmpty() && new.exerciseId.isNotEmpty() &&
             new.exerciseId != old.exerciseId) return Transition.EXERCISE
         return Transition.NONE
     }
@@ -36,7 +38,8 @@ object WatchHaptics {
         }
     }
 
-    fun restEnded(context: Context) = pulse(context, EXERCISE)
+    /** End of a rest: one short vibration, no sound (confirmed policy). */
+    fun restEnded(context: Context) = pulse(context, REST_END)
 
     private fun pulse(context: Context, timings: LongArray) {
         try {

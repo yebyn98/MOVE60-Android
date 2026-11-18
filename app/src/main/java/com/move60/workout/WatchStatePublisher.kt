@@ -3,6 +3,7 @@ package com.move60.workout
 import android.content.Context
 import com.google.android.gms.wearable.PutDataMapRequest
 import com.google.android.gms.wearable.Wearable
+import com.move60.workout.architecture.RoutiveWatchSync
 import org.json.JSONObject
 import kotlin.math.ceil
 
@@ -12,6 +13,8 @@ object WatchStatePublisher {
         Wearable.getDataClient(context).putDataItem(createRequest(context,snapshot).asPutDataRequest().setUrgent())
     }
     fun createRequest(context: Context, snapshot: String): PutDataMapRequest {
+        // A ROUTIVE_4 session that is not older than the legacy one is what the watch shows; the legacy flow is untouched.
+        RoutiveWatchSync.current(context)?.let { return RoutiveWatchSync.createRequest(context, it) }
         val state = JSONObject(snapshot)
         val current = SessionStore(context, WorkoutData(context))
         // Enrich only the matching session. Older service callbacks must never publish an old stage.
@@ -55,8 +58,8 @@ object WatchStatePublisher {
         if (index == 2) detail = state.optString("setLabel", names[index])
         val nextSet = TrainingProgress.next(current)
         val setRecord = nextSet?.let { SetRecordStore(context).read(current.day, it.task.id, it.set, date = current.recordDate, token = current.sessionStartedAt) }
-        val totalSets = current.routine.stages[2].tasks.sumOf { TrainingProgress.count(it) }
-        val completedSets = current.routine.stages[2].tasks.sumOf { task ->
+        val totalSets = current.routine.stages[LEGACY_STRENGTH_DATA_INDEX].tasks.sumOf { TrainingProgress.count(it) }
+        val completedSets = current.routine.stages[LEGACY_STRENGTH_DATA_INDEX].tasks.sumOf { task ->
             (1..TrainingProgress.count(task)).count { number -> "strength-"+current.day+"-"+task.id+"-"+number in current.checked }
         }
         val estimatedKcal = EnergyLedger(context).estimateSession(state)

@@ -6,6 +6,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.onNodeWithTag
@@ -41,21 +42,42 @@ class ComposeArchitectureTest {
 
     @Test fun composeNavigationShowsDashboardCalendarAndSettings() {
         // Figma header: the logo mark (52dp) replaces the text wordmark.
-        rule.onNodeWithContentDescription("MOVE60").assertIsDisplayed()
+        rule.onNodeWithContentDescription("ROUTIVE").assertIsDisplayed()
         capture("compose-dashboard.png")
-        rule.onNodeWithContentDescription("운동 달력").performClick()
+        rule.onNodeWithTag("tab_calendar").performClick()
         rule.onNodeWithText("운동 달력").assertIsDisplayed()
-        rule.onNodeWithContentDescription("뒤로 가기").performClick()
-        rule.onNodeWithContentDescription("앱 설정").performClick()
+        rule.onNodeWithTag("tab_settings").performClick()
+        rule.onNodeWithTag("my_settings_open").performClick()
         capture("compose-settings.png")
         // Settings is a long LazyColumn: scroll to each section before asserting it is visible.
         rule.onNodeWithTag("settings_list").performScrollToNode(hasTestTag("settings_version_row"))
         rule.onNodeWithText("앱 버전").assertIsDisplayed()
     }
 
+    /** docs/v66 item 2: the open-source list opens from settings, lists libraries with their stated licenses, and is captured for evidence. */
+    @Test fun openSourceLicensesOpenFromSettingsAndListLibraries() {
+        rule.onNodeWithTag("tab_settings").performClick()
+        rule.onNodeWithTag("my_settings_open").performClick()
+        val list = rule.onNodeWithTag("settings_list")
+        list.performScrollToNode(hasTestTag("settings_oss_row"))
+        rule.onNodeWithTag("settings_oss_row").assertIsDisplayed()
+        rule.onNodeWithTag("settings_oss_row").performClick()
+        rule.waitUntil(10_000) { rule.onAllNodesWithTag("oss_list").fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithTag("oss_unavailable").assertDoesNotExist()
+        rule.onNodeWithTag("oss_list").assertIsDisplayed()
+        rule.onNodeWithText("전이 의존성은 아직 포함되지 않았어요.", substring = true).assertIsDisplayed()
+        // The dialog is its own window, so the whole screen is captured instead of the Compose root only.
+        Thread.sleep(800)
+        val image = requireNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot())
+        File(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null), "compose-oss-licenses.png").outputStream().use {
+            image.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+        }
+    }
+
     @Test fun composeSettingsHasEverySettingInThreeGroups() {
-        rule.onNodeWithContentDescription("앱 설정").performClick()
-        rule.onNodeWithTag("settings_back").assertIsDisplayed()
+        rule.onNodeWithTag("tab_settings").performClick()
+        rule.onNodeWithTag("my_settings_open").performClick()
+        rule.onNodeWithTag("tab_bar").assertIsDisplayed()
         val list = rule.onNodeWithTag("settings_list")
         list.performScrollToNode(hasText("오늘 컨디션 루틴"))
         rule.onNodeWithText("피곤").assertIsDisplayed()
@@ -64,9 +86,9 @@ class ComposeArchitectureTest {
         list.performScrollToNode(hasTestTag("settings_ratio"))
         rule.onNodeWithTag("settings_ratio_slider").assertIsDisplayed()
         rule.onNodeWithTag("settings_ratio_summary", useUnmergedTree = true).assertIsDisplayed()
-        list.performScrollToNode(hasText("칼로리 계산 체중"))
-        rule.onNodeWithText("칼로리 계산 체중").assertIsDisplayed()
-        rule.onNodeWithTag("settings_weight_field").assertIsDisplayed()
+        // docs/v66: the calorie weight setting is hidden while kcal is not shown.
+        rule.onNodeWithText("칼로리 계산 체중").assertDoesNotExist()
+        rule.onNodeWithTag("settings_weight_field").assertDoesNotExist()
         list.performScrollToNode(hasTestTag("settings_sound_toggle"))
         rule.onNodeWithTag("settings_sound_toggle").assertIsDisplayed()
         list.performScrollToNode(hasTestTag("settings_version_row"))
@@ -78,7 +100,8 @@ class ComposeArchitectureTest {
     }
 
     @Test fun ratioSliderShowsThreeIndividualSegmentsThatAlwaysSumToFifty() {
-        rule.onNodeWithContentDescription("앱 설정").performClick()
+        rule.onNodeWithTag("tab_settings").performClick()
+        rule.onNodeWithTag("my_settings_open").performClick()
         val list = rule.onNodeWithTag("settings_list")
         list.performScrollToNode(hasTestTag("settings_ratio"))
         rule.onNodeWithText("유산소 ①").assertIsDisplayed()
@@ -94,7 +117,8 @@ class ComposeArchitectureTest {
     }
 
     @Test fun turningNotificationsOnOpensTheDiagnostics() {
-        rule.onNodeWithContentDescription("앱 설정").performClick()
+        rule.onNodeWithTag("tab_settings").performClick()
+        rule.onNodeWithTag("my_settings_open").performClick()
         rule.onNodeWithTag("settings_list").performScrollToNode(hasTestTag("settings_sound_toggle"))
         // Off then On: only the Off -> On change leads to the diagnostics dialog.
         if (rule.onAllNodesWithText("운동 알림 진단").fetchSemanticsNodes().isEmpty()) {

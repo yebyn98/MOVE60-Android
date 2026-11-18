@@ -34,6 +34,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.RadioButton
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.semantics.Role
@@ -57,18 +59,17 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.Snackbar
-import androidx.compose.material3.SnackbarDuration
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.foundation.shape.RoundedCornerShape
 import kotlinx.coroutines.launch
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Today
 import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.ChevronRight
@@ -82,6 +83,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -115,22 +117,37 @@ private val muted: Color get() = Color(Move60Theme.Colors.textMuted)
 
 @Composable
 fun WorkoutDashboard(
-    onCalendar: () -> Unit,
-    onSettings: () -> Unit,
-    viewModel: WorkoutViewModel = hiltViewModel()
+    onRunningChanged: (Boolean) -> Unit = {},
+    onOpenChallenge: () -> Unit = {},
+    onComposeRoutine: () -> Unit = {},
+    onOpenRoutines: () -> Unit = {},
+    onWorkoutFinished: (sessionId: String) -> Unit = {},
+    onOpenWorkout: () -> Unit = {},
+    viewModel: WorkoutViewModel = hiltViewModel(),
+    challenges: ChallengeViewModel = hiltViewModel()
 ) {
+    val challengeState by challenges.state.collectAsStateWithLifecycle()
+    // The ViewModel outlives tab switches: reload whenever the home enters composition so a new/ended challenge shows up.
+    LaunchedEffect(Unit) { challenges.refresh() }
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val snackbar = remember { SnackbarHostState() }
+    // Confirmed policy: while a workout is in progress or paused only the workout dock is shown; the tab bar returns after it ends.
+    val inProgress = state.running || (state.activeSeconds > 0 && !state.finished && !state.endedEarly)
+    LaunchedEffect(inProgress) { onRunningChanged(inProgress) }
+    // Same id TimerSessionSync commits under, so the result screen can find the stored session.
+    LaunchedEffect(state.finished, state.endedEarly, state.sessionId) {
+        if ((state.finished || state.endedEarly) && state.sessionId > 0 && state.recordDate.isNotEmpty())
+            onWorkoutFinished("timer-${state.recordDate}-d${state.day}-${state.sessionId}")
+    }
+    val toast = com.move60.workout.ui.LocalMove60Toast.current
     val context = LocalContext.current
-    val openDetail = { context.startActivity(Intent(context, MainActivity::class.java)) }
+    val openDetail = onOpenWorkout
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
-            if (event is WorkoutUiEvent.Message) snackbar.showSnackbar(event.message)
+            if (event is WorkoutUiEvent.Message) toast.show(event.message)
         }
     }
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
-        snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             // Figma TopBar: 52dp logo mark on the left, 48dp calendar / settings buttons (24dp icons) on the right.
             Row(
@@ -139,26 +156,39 @@ fun WorkoutDashboard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Move60LogoMark(Modifier.size(52.dp).testTag("home_logo")
-                    .semantics { contentDescription = "MOVE60" })
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    IconButton(onClick = onCalendar, modifier = Modifier.testTag("compose_calendar_icon")) {
-                        Icon(Icons.Outlined.Today, contentDescription = "운동 달력",
-                            tint = MaterialTheme.colorScheme.primary)
-                    }
-                    IconButton(onClick = onSettings, modifier = Modifier.testTag("compose_settings_icon")) {
-                        Icon(Icons.Outlined.Settings, contentDescription = "앱 설정",
-                            tint = MaterialTheme.colorScheme.primary)
-                    }
-                }
+                    .semantics { contentDescription = "ROUTIVE" })
             }
         },
-        bottomBar = { WorkoutDock(state, viewModel, openDetail) }
+        bottomBar = { WorkoutDock(state, viewModel, openDetail, insetBottom = inProgress) }
     ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding).testTag("dashboard_list"),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Figma 03: active challenge summary (real data from ChallengeService; hidden when none is active).
+            challengeState.active?.let { active ->
+                item {
+                    Move60Card(Modifier.clickable(onClick = onOpenChallenge).testTag("dashboard_challenge_card")) {
+                        Text("진행 중 도전", color = secondary, style = MaterialTheme.typography.bodySmall)
+                        Text(active.name, style = cardTitle)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("${active.creditedDays} / ${active.targetDays}일", fontWeight = FontWeight.Bold)
+                            Text("${(active.rate * 100).toInt()}% 달성", color = secondary)
+                        }
+                        LinearProgressIndicator(progress = { active.rate }, modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.primary, trackColor = MaterialTheme.colorScheme.outline)
+                    }
+                }
+            }
+            // Figma 03 → 41: entry to the custom routine composer (saved plans only; no recommendation is shown).
+            item {
+                Move60Card(Modifier.clickable(onClick = onComposeRoutine).testTag("dashboard_compose_routine")) {
+                    Text("루틴 직접 구성", style = cardTitle)
+                    Text("운동과 계획시간을 직접 골라 루틴을 만들어요.", color = secondary, style = MaterialTheme.typography.bodySmall)
+                    TextButton(onClick = onOpenRoutines, modifier = Modifier.heightIn(min = 48.dp).testTag("dashboard_saved_routines")) { Text("저장한 루틴 보기") }
+                }
+            }
             // Figma order: the weekly plan first, then today's routine.
             item {
                 Move60Card(Modifier.testTag("dashboard_plan_card")) {
@@ -228,13 +258,13 @@ fun WorkoutDashboard(
 
 /** Fixed bottom dock (Figma "FixedBottomDock"): stage/time/heart summary plus step controls. */
 @Composable
-private fun WorkoutDock(state: WorkoutUiState, viewModel: WorkoutViewModel, onOpenDetail: () -> Unit) {
+private fun WorkoutDock(state: WorkoutUiState, viewModel: WorkoutViewModel, onOpenDetail: () -> Unit, insetBottom: Boolean) {
     val context = LocalContext.current
     // Heart rate is only shown when the watch reported a fresh sample (never an old value).
     val prefs = context.getSharedPreferences("preferences", android.content.Context.MODE_PRIVATE)
     val heart = prefs.getInt("watch_heart_rate", 0)
     val heartAge = System.currentTimeMillis() - prefs.getLong("watch_heart_rate_at", 0L)
-    val heartText = if (heart in 30..240 && heartAge in 0L..10_000L) "$heart bpm" else "연결대기"
+    val heartText = com.move60.workout.domain.HeartRateFreshness.display(heart, heartAge)
     val lastStage = (state.stageNames.size - 1).coerceAtLeast(0)
     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).testTag("workout_dock")) {
     // Today's progress lives on the dock's top edge (replaces the former "운동 현황" card).
@@ -245,7 +275,8 @@ private fun WorkoutDock(state: WorkoutUiState, viewModel: WorkoutViewModel, onOp
         Box(Modifier.fillMaxWidth(progress).height(4.dp).background(MaterialTheme.colorScheme.primary))
     }
     Column(
-        Modifier.navigationBarsPadding()
+        // The tab bar owns the bottom system inset while visible; the dock only adds it when the tab bar is hidden.
+        (if (insetBottom) Modifier.navigationBarsPadding() else Modifier)
             .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -275,16 +306,14 @@ private fun WorkoutDock(state: WorkoutUiState, viewModel: WorkoutViewModel, onOp
                         fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
                 }
             }
-            Text("오늘 누적 " + String.format(Locale.KOREA, "%.1f", state.todayKcal) + " kcal · 추정",
-                color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.bodySmall)
+            // v66 PO decision 1: kcal is not shown (no estimate line, no placeholder).
         }
         // Figma 01/02: before the workout starts the start button is the only action (no previous/next).
         val started = state.running || state.activeSeconds > 0 || state.finished
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (started) Move60Button(
                 modifier = Modifier.weight(1f), primary = false, minHeight = 48,
-                enabled = state.stage > 0 && !state.finished,
+                enabled = state.stage > 0 && !state.finished && !state.endedEarly,
                 contentPadding = PaddingValues(horizontal = 8.dp),
                 onClick = viewModel::previous
             ) {
@@ -306,14 +335,14 @@ private fun WorkoutDock(state: WorkoutUiState, viewModel: WorkoutViewModel, onOp
                     contentDescription = null, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.size(6.dp))
                 Text(when {
-                    state.finished -> "새 운동 시작"
+                    state.finished || state.endedEarly -> "새 운동 시작"
                     state.running -> "일시정지"
                     else -> "운동 시작"
                 }, maxLines = 1)
             }
             if (started) Move60Button(
                 modifier = Modifier.weight(1f), primary = false, minHeight = 48,
-                enabled = !state.finished,
+                enabled = !state.finished && !state.endedEarly,
                 contentPadding = PaddingValues(horizontal = 8.dp),
                 onClick = viewModel::next
             ) {
@@ -328,19 +357,22 @@ private fun WorkoutDock(state: WorkoutUiState, viewModel: WorkoutViewModel, onOp
     }
 }
 
-private fun formatSeconds(value: Int): String = "%02d:%02d".format(
+internal fun formatSeconds(value: Int): String = "%02d:%02d".format(
     Locale.KOREA, value.coerceAtLeast(0) / 60, value.coerceAtLeast(0) % 60
 )
 
 /** Figma TopBar: 24dp back arrow (48dp touch target), 24sp bold screen title. */
 @Composable
-private fun ScreenTopBar(title: String, onBack: () -> Unit, backTag: String? = null) {
-    Row(Modifier.fillMaxWidth().statusBarsPadding().padding(start = 4.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
+internal fun ScreenTopBar(title: String, onBack: (() -> Unit)?, backTag: String? = null) {
+    // Top-level tab screens pass onBack = null: the tab bar is the navigation, so no back arrow is shown.
+    Row(Modifier.fillMaxWidth().statusBarsPadding().padding(start = if (onBack == null) 16.dp else 4.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onBack, modifier = if (backTag != null) Modifier.testTag(backTag) else Modifier) {
-            Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "뒤로 가기")
+        if (onBack != null) {
+            IconButton(onClick = onBack, modifier = if (backTag != null) Modifier.testTag(backTag) else Modifier) {
+                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "뒤로 가기")
+            }
+            Spacer(Modifier.size(4.dp))
         }
-        Spacer(Modifier.size(4.dp))
         Text(title, style = screenTitle, maxLines = 1)
     }
 }
@@ -348,34 +380,92 @@ private fun ScreenTopBar(title: String, onBack: () -> Unit, backTag: String? = n
 @Composable
 fun WorkoutCalendar(
     onBack: () -> Unit,
+    onOpenDay: (java.time.LocalDate) -> Unit = {},
     viewModel: HistoryViewModel = hiltViewModel()
 ) {
     val month by viewModel.month.collectAsStateWithLifecycle()
     val selected by viewModel.selected.collectAsStateWithLifecycle()
-    val snackbar = remember { SnackbarHostState() }
+    // Stored (ROUTIVE v2) sessions: extra dots and the selected-day card. Legacy history keeps driving everything else.
+    val sessionDates by androidx.compose.runtime.produceState<Set<java.time.LocalDate>>(emptySet(), month) {
+        value = viewModel.sessionDates(month)
+    }
+    val dayRecord by androidx.compose.runtime.produceState<DayRecord?>(null, selected) {
+        value = viewModel.dayRecord(selected)
+    }
+    val hasSessions = dayRecord?.sessions?.isNotEmpty() == true
+    var kcalNotice by remember { mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        if (viewModel.kcalNoticeVisible()) { kcalNotice = true; viewModel.kcalNoticeShown() }
+    }
+    val toast = com.move60.workout.ui.LocalMove60Toast.current
     val scope = rememberCoroutineScope()
+    var conflictItems by remember { mutableStateOf(viewModel.conflicts()) }
+    val conflicts = conflictItems.size
+    var showConflicts by rememberSaveable { mutableStateOf(false) }
+    var discardId by rememberSaveable { mutableStateOf<String?>(null) }
+    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) { conflictItems = viewModel.conflicts(); onPauseOrDispose { } }
     // Tapping a day selects it; a day without a record also shows a short toast (every tap, not only the first).
     val onDayClick: (java.time.LocalDate) -> Unit = { date ->
         viewModel.select(date)
-        if (!viewModel.trained(date)) scope.launch {
-            snackbar.currentSnackbarData?.dismiss()
-            snackbar.showSnackbar("운동한 기록이 없습니다.", duration = SnackbarDuration.Short)
+        // A day counts as recorded when it has v58 history OR a stored session; the toast must not contradict the day card.
+        scope.launch {
+            val hasStoredSession = viewModel.dayRecord(date)?.sessions?.isNotEmpty() == true
+            if (!viewModel.trained(date) && !hasStoredSession) {
+                toast.show("운동한 기록이 없습니다.")
+            }
         }
     }
-    Scaffold(containerColor = MaterialTheme.colorScheme.background,
-        snackbarHost = {
-            SnackbarHost(snackbar) { data ->
-                Snackbar(data, modifier = Modifier.testTag("calendar_toast"),
-                    shape = RoundedCornerShape(24.dp),
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    contentColor = MaterialTheme.colorScheme.secondary)
+    if (showConflicts) AlertDialog(
+        onDismissRequest = { showConflicts = false },
+        modifier = Modifier.testTag("calendar_conflict_dialog"),
+        title = { Text("확인이 필요한 기록") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("저장된 기록과 내용이 달라서 저장하지 않은 기록이에요. 운동 기록이나 도전 실적에는 포함되지 않아요.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                conflictItems.forEach { c ->
+                    Column(Modifier.fillMaxWidth().testTag("calendar_conflict_item_${c.id}")) {
+                        Text("${c.date} · ${c.activeSeconds / 60}분 ${c.activeSeconds % 60}초 · 완료 세트 ${c.setCount}개" +
+                            if (c.endedEarly) " · 일부 수행" else "", style = MaterialTheme.typography.bodyMedium)
+                        TextButton(onClick = { discardId = c.id }, modifier = Modifier.heightIn(min = 48.dp).testTag("calendar_conflict_discard_${c.id}")) { Text("충돌본 폐기") }
+                    }
+                }
             }
         },
-        topBar = { ScreenTopBar("운동 달력", onBack) }
+        confirmButton = { TextButton(onClick = { showConflicts = false }, modifier = Modifier.heightIn(min = 48.dp).testTag("calendar_conflict_keep")) { Text("보관 유지") } }
+    )
+    discardId?.let { id ->
+        AlertDialog(
+            onDismissRequest = { discardId = null },
+            modifier = Modifier.testTag("calendar_conflict_discard_dialog"),
+            title = { Text("충돌본을 폐기할까요?") },
+            text = { Text("이 기록은 저장되지 않은 채 사라지고 되돌릴 수 없어요. 이미 저장된 운동 기록은 바뀌지 않아요.") },
+            confirmButton = { TextButton(onClick = {
+                viewModel.discardConflict(id); conflictItems = viewModel.conflicts(); discardId = null
+                if (conflictItems.isEmpty()) showConflicts = false
+            }, modifier = Modifier.heightIn(min = 48.dp).testTag("calendar_conflict_discard_confirm")) { Text("폐기") } },
+            dismissButton = { TextButton(onClick = { discardId = null }, modifier = Modifier.heightIn(min = 48.dp)) { Text("취소") } }
+        )
+    }
+    Scaffold(containerColor = MaterialTheme.colorScheme.background,
+        topBar = { ScreenTopBar("운동 달력", null) }
     ) { inner ->
         LazyColumn(Modifier.fillMaxSize().padding(inner).testTag("calendar_list"),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            if (kcalNotice) item {
+                Move60Card(Modifier.testTag("kcal_notice")) {
+                    Text(KcalNoticePolicy.TEXT, style = MaterialTheme.typography.bodyMedium)
+                    TextButton(onClick = { kcalNotice = false }, modifier = Modifier.heightIn(min = 48.dp).testTag("kcal_notice_dismiss")) { Text("확인") }
+                }
+            }
+            if (conflicts > 0) item {
+                Move60Card(Modifier.clickable { showConflicts = true }.testTag("calendar_conflict_notice")) {
+                    Text("확인이 필요한 기록 ${conflicts}건", style = cardTitle)
+                    Text("같은 운동의 저장된 기록과 내용이 달라 자동으로 합치지 않았어요. 저장된 기록은 그대로예요. 눌러서 확인해 보세요.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                }
+            }
             item {
                 val summary = viewModel.monthSummary(month)
                 val week = viewModel.weekTrainedDays()
@@ -385,9 +475,13 @@ fun WorkoutCalendar(
                     HabitProgress("이번 달 목표", summary.trainedDays, WorkoutHistory.MONTHLY_GOAL_DAYS, "calendar_month_progress")
                 }
             }
-            item { MonthGrid(viewModel, month, selected, onDayClick) }
+            item { MonthGrid(viewModel, month, selected, sessionDates, onDayClick) }
             item {
-                val summary = viewModel.monthSummary(month)
+                val legacyMonth = viewModel.monthSummary(month)
+                // Stored sessions are counted too (v58 and stored time are never added on one date); no calories (policy 7).
+                val summary by androidx.compose.runtime.produceState(MonthSummaryUi(legacyMonth.trainedDays, legacyMonth.activeMinutes), month) {
+                    value = viewModel.monthSummaryCombined(month)
+                }
                 Column(Modifier.fillMaxWidth().testTag("calendar_summary"),
                     verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
@@ -398,10 +492,14 @@ fun WorkoutCalendar(
                             LegendDot(lowerDot, "하체")
                             LegendDot(null, "부위 미기록")
                         }
-                        Text("이번 달 ${summary.trainedDays}일 · ${summary.activeMinutes}분 · 약 ${summary.kcal} kcal",
+                        Text("이번 달 ${summary.trainedDays}일 · ${summary.activeMinutes}분",
                             color = secondary, style = MaterialTheme.typography.bodySmall)
                     }
-                    if (!viewModel.trained(selected)) {
+                    if (summary.trainedDays == 0) {
+                        Text("이 달의 운동 기록이 없어요.", color = secondary, style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.testTag("calendar_month_empty"))
+                    }
+                    if (!viewModel.trained(selected) && !hasSessions) {
                         Row(Modifier.fillMaxWidth().testTag("calendar_day_empty"),
                             horizontalArrangement = Arrangement.SpaceBetween) {
                             Text(selected.toString(), style = MaterialTheme.typography.bodySmall)
@@ -411,7 +509,13 @@ fun WorkoutCalendar(
                 }
             }
             if (viewModel.trained(selected)) item(key = "day_detail_$selected") {
-                DayDetailCard(viewModel.dayDetail(selected))
+                val legacySets by androidx.compose.runtime.produceState<LegacySetDay?>(null, selected) {
+                    value = viewModel.legacySets(selected)
+                }
+                DayDetailCard(viewModel.dayDetail(selected), legacySets, viewModel::exerciseName)
+            }
+            dayRecord?.takeIf { it.sessions.isNotEmpty() }?.let { record ->
+                item(key = "record_day_summary_$selected") { RecordDaySummaryCard(record) { onOpenDay(selected) } }
             }
         }
     }
@@ -426,7 +530,7 @@ private fun formatStageTime(seconds: Long): String =
 
 /** Selected-day record (Figma "summary_card"): date, body-part chip, totals, then one row per workout stage. */
 @Composable
-private fun DayDetailCard(detail: DayDetail) {
+private fun DayDetailCard(detail: DayDetail, legacySets: LegacySetDay?, exerciseName: (String) -> String) {
     val weekday = listOf("월", "화", "수", "목", "금", "토", "일")[detail.date.dayOfWeek.value - 1]
     val focusLabel = when (detail.focus) { "upper" -> "상체"; "lower" -> "하체"; else -> "부위 미기록" }
     Move60Card(Modifier.testTag("calendar_day_detail"), spacing = 8.dp) {
@@ -449,7 +553,6 @@ private fun DayDetailCard(detail: DayDetail) {
             Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text("${detail.activeMinutes}분", color = MaterialTheme.colorScheme.primary,
                     style = cardTitle)
-                Text("약 ${detail.kcal} kcal", color = secondary, style = MaterialTheme.typography.bodySmall)
             }
         }
         if (detail.stages.isEmpty()) {
@@ -473,9 +576,46 @@ private fun DayDetailCard(detail: DayDetail) {
                         Text(formatStageTime(stage.seconds), color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
                     }
-                    Text("약 ${stage.kcal} kcal", color = secondary, style = MaterialTheme.typography.bodySmall)
                 }
             }
+        }
+        if (legacySets != null && !legacySets.isEmpty) SetRecordsSection(legacySets, exerciseName)
+    }
+}
+
+/**
+ * Policy 5: completed sets exactly as saved. Sets of a stored session sit under that session; sets that cannot be
+ * tied to one are listed separately with no time, and nothing here is counted as workout time or challenge credit.
+ */
+@Composable
+internal fun SetRecordsSection(day: LegacySetDay, exerciseName: (String) -> String) {
+    Column(Modifier.fillMaxWidth().testTag("calendar_set_records"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("근력운동 세트 기록", style = MaterialTheme.typography.titleMedium)
+        day.linked.forEach { group ->
+            SetGroupCard("저장된 운동 기록", "linked", group, exerciseName)
+        }
+        day.unlinked.forEach { group ->
+            SetGroupCard("이전 버전 운동 기록", "legacy", group, exerciseName,
+                note = "저장된 운동과 연결할 수 없어 시간 없이 보여줘요.")
+        }
+    }
+}
+
+@Composable
+private fun SetGroupCard(title: String, kind: String, group: LegacySetGroup, exerciseName: (String) -> String, note: String? = null) {
+    Column(Modifier.fillMaxWidth().testTag("calendar_set_group_$kind")
+        .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.small)
+        .padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(title, fontWeight = FontWeight.Bold)
+        if (note != null) Text(note, color = muted, style = MaterialTheme.typography.bodySmall)
+        group.sets.forEach { set ->
+            val suffix = when {
+                set.differsFromStored -> " · 이전 버전 값, 저장된 값과 달라요"
+                set.origin == SetOrigin.LEGACY && group.linked -> " · 이전 버전 기록"
+                else -> ""
+            }
+            Text("${exerciseName(set.exerciseId)} · ${set.setNumber}세트 · ${set.kg}kg × ${set.reps}회$suffix",
+                modifier = Modifier.testTag("calendar_set_row"), style = MaterialTheme.typography.bodyMedium)
         }
     }
 }
@@ -484,6 +624,7 @@ private fun DayDetailCard(detail: DayDetail) {
 @Composable
 private fun MonthGrid(
     viewModel: HistoryViewModel, month: java.time.YearMonth, selected: java.time.LocalDate,
+    sessionDates: Set<java.time.LocalDate>,
     onDayClick: (java.time.LocalDate) -> Unit
 ) {
     Move60Card(Modifier.testTag("calendar_month_grid")) {
@@ -509,7 +650,7 @@ private fun MonthGrid(
         dates.chunked(7).forEach { week ->
             Row(Modifier.fillMaxWidth()) {
                 week.forEach { date ->
-                    DayCell(viewModel, date, selected, date.month != month.month,
+                    DayCell(viewModel, date, selected, date.month != month.month, date in sessionDates,
                         onDayClick, Modifier.weight(1f))
                 }
             }
@@ -523,10 +664,11 @@ private fun DayCell(
     date: java.time.LocalDate,
     selected: java.time.LocalDate,
     outsideMonth: Boolean,
+    hasStoredSession: Boolean,
     onDayClick: (java.time.LocalDate) -> Unit,
     modifier: Modifier
 ) {
-    val trained = viewModel.trained(date)
+    val trained = viewModel.trained(date) || hasStoredSession
     val focus = if (trained) viewModel.focus(date) else null
     val focusLabel = when (focus) { "upper" -> " · 상체"; "lower" -> " · 하체"; else -> "" }
     val isSelected = date == selected
@@ -592,10 +734,10 @@ fun WorkoutSettings(
 ) {
     val settings by viewModel.state.collectAsStateWithLifecycle()
     val split by viewModel.split.collectAsStateWithLifecycle()
-    val message = remember { SnackbarHostState() }
+    val toast = com.move60.workout.ui.LocalMove60Toast.current
     val context = LocalContext.current
     val activity = context as ComponentActivity
-    val updateManager = remember(activity) { UpdateManager(activity) }
+    val updateManager = remember(activity) { UpdateManager(activity) { toast.show(it) } }
     LifecycleResumeEffect(updateManager) {
         updateManager.resumePendingInstall()
         onPauseOrDispose { }
@@ -604,21 +746,21 @@ fun WorkoutSettings(
     // null = unknown (offline / not checked), true = newer build published, false = latest.
     var updateAvailable by remember { mutableStateOf<Boolean?>(null) }
     LaunchedEffect(updateManager) { updateManager.peekAvailability { updateAvailable = it } }
-    var weight by remember(settings.weightKg) {
-        mutableStateOf(settings.weightKg.toInt().toString())
-    }
     var diagnostics by remember { mutableStateOf<String?>(null) }
+    var showOss by remember { mutableStateOf(false) }
+    val privacyUrl = remember {
+        com.move60.workout.domain.PrivacyPolicyLink.validOrNull(context.getString(com.move60.workout.R.string.privacy_policy_url))
+    }
     val widgetScope = rememberCoroutineScope()
     val notificationPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { diagnostics = notificationDiagnostics(context, viewModel.sessionRunning()) }
-    LaunchedEffect(viewModel) { viewModel.messages.collect { message.showSnackbar(it) } }
+    LaunchedEffect(viewModel) { viewModel.messages.collect { toast.show(it) } }
     val version = remember {
         context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "—"
     }
     Scaffold(containerColor = MaterialTheme.colorScheme.background,
-        snackbarHost = { SnackbarHost(message) },
-        topBar = { ScreenTopBar("앱 설정", onBack, backTag = "settings_back") }
+        topBar = { ScreenTopBar("앱 설정", null) }
     ) { inner ->
         LazyColumn(Modifier.fillMaxSize().padding(inner).testTag("settings_list"),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp),
@@ -652,44 +794,8 @@ fun WorkoutSettings(
                     }
                 }
             }
-            item {
-                Move60Group("내 정보", Modifier.testTag("settings_group_profile")) {
-                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text("칼로리 계산 체중", style = MaterialTheme.typography.titleMedium)
-                        // Figma weight_field: black 48dp field, "63 kg" value, small elevated save button.
-                        Row(Modifier.fillMaxWidth().height(48.dp)
-                            .background(MaterialTheme.colorScheme.background, MaterialTheme.shapes.small)
-                            .border(1.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.small)
-                            .padding(start = 16.dp, end = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                                BasicTextField(value = weight, onValueChange = { weight = it },
-                                    modifier = Modifier.widthIn(min = 24.dp, max = 120.dp).width(IntrinsicSize.Min)
-                                        .testTag("settings_weight_field"),
-                                    singleLine = true,
-                                    textStyle = MaterialTheme.typography.bodyMedium.copy(
-                                        color = MaterialTheme.colorScheme.onSurface),
-                                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
-                                Text(" kg")
-                            }
-                            // 60x36 visual button inside a 48dp-high touch area.
-                            Box(Modifier.height(48.dp).clickable(role = Role.Button, onClickLabel = "체중 저장") {
-                                viewModel.setWeight(weight)
-                            }.testTag("settings_weight_save"), contentAlignment = Alignment.Center) {
-                                Box(Modifier.size(width = 60.dp, height = 36.dp)
-                                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
-                                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp)),
-                                    contentAlignment = Alignment.Center) {
-                                    Text("저장", fontWeight = FontWeight.Bold,
-                                        style = MaterialTheme.typography.labelMedium)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            // The calorie-weight setting is hidden: it only fed the kcal estimate, which is not shown (docs/v66). The saved value
+            // (`calorie_weight_kg`) and its stored data are untouched.
             item {
                 Move60Group("앱", Modifier.testTag("settings_group_app")) {
                     Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 16.dp),
@@ -729,15 +835,30 @@ fun WorkoutSettings(
                             if (Build.VERSION.SDK_INT >= 26 && manager.isRequestPinAppWidgetSupported) {
                                 val provider = ComponentName(context, WorkoutWidget::class.java)
                                 val requested = manager.requestPinAppWidget(provider, null, null)
-                                widgetScope.launch { message.showSnackbar(
+                                toast.show(
                                     if (requested) "런처의 위젯 추가 요청을 확인해 주세요."
-                                    else "홈 화면을 길게 눌러 위젯에서 MOVE60을 추가해 주세요."
-                                ) }
-                            } else widgetScope.launch {
-                                message.showSnackbar("홈 화면을 길게 눌러 위젯에서 MOVE60을 추가해 주세요.")
-                            }
+                                    else "홈 화면을 길게 눌러 위젯에서 ROUTIVE을 추가해 주세요."
+                                )
+                            } else toast.show("홈 화면을 길게 눌러 위젯에서 ROUTIVE을 추가해 주세요.")
                         }, primary = false, modifier = Modifier.testTag("settings_widget_pin")) {
                             Text("위젯 추가", maxLines = 1)
+                        }
+                    }
+                    Move60Divider()
+                    // Legal: the OSS list is always offered; the privacy policy only when the operator configured a real HTTPS address.
+                    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(role = Role.Button, onClickLabel = "오픈소스 라이선스 보기") { showOss = true }
+                        .padding(horizontal = 16.dp).testTag("settings_oss_row"), verticalAlignment = Alignment.CenterVertically) {
+                        Text("오픈소스 라이선스", modifier = Modifier.weight(1f))
+                        Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = secondary)
+                    }
+                    if (privacyUrl != null) {
+                        Move60Divider()
+                        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(role = Role.Button, onClickLabel = "개인정보처리방침 열기") {
+                            try { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(privacyUrl))) }
+                            catch (_: Exception) { toast.show("링크를 열 수 있는 앱이 없어요.") }
+                        }.padding(horizontal = 16.dp).testTag("settings_privacy_row"), verticalAlignment = Alignment.CenterVertically) {
+                            Text("개인정보처리방침", modifier = Modifier.weight(1f))
+                            Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = secondary)
                         }
                     }
                     Move60Divider()
@@ -768,6 +889,29 @@ fun WorkoutSettings(
                 }
             }
         }
+    }
+    if (showOss) {
+        val notice = remember { OssNoticeReader.load(context) }
+        AlertDialog(
+            onDismissRequest = { showOss = false },
+            title = { Text("오픈소스 라이선스") },
+            text = {
+                DialogDim()
+                if (notice == null) Text("라이선스 목록을 불러오지 못했어요.", modifier = Modifier.testTag("oss_unavailable"))
+                else LazyColumn(Modifier.heightIn(max = 420.dp).testTag("oss_list")) {
+                    item { Text(notice.scope + ". 전이 의존성은 아직 포함되지 않았어요.", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp)) }
+                    items(notice.libraries) { lib ->
+                        Column(Modifier.padding(vertical = 6.dp)) {
+                            Text(lib.name + " " + lib.version, style = MaterialTheme.typography.bodyMedium)
+                            Text(lib.licenses.joinToString(", "), style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showOss = false }) { Text("닫기") } }
+        )
     }
     diagnostics?.let { text ->
         AlertDialog(
@@ -861,5 +1005,44 @@ private fun RatioLegend(name: String, minutes: Int, color: Color) {
             Text(name, color = secondary, style = MaterialTheme.typography.bodySmall)
         }
         Text("${minutes}분", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+    }
+}
+
+
+/** Top-level destinations of the 4-tab bar (Figma GNB). */
+enum class Move60Tab(val route: String, val label: String, val tag: String) {
+    TODAY("dashboard", "오늘", "tab_today"),
+    RECORD("calendar", "기록", "tab_calendar"),
+    CHALLENGE("challenge", "도전", "tab_challenge"),
+    MY("my", "마이", "tab_settings")
+}
+
+/** Material 3 bottom navigation: 48dp+ targets, labels always shown, safe-area aware. */
+@Composable
+fun Move60TabBar(currentRoute: String?, onSelect: (Move60Tab) -> Unit) {
+    androidx.compose.material3.NavigationBar(
+        modifier = Modifier.testTag("tab_bar"),
+        containerColor = MaterialTheme.colorScheme.surface
+    ) {
+        Move60Tab.values().forEach { tab ->
+            NavigationBarItem(
+                // The record detail screens (day, session) belong to the 기록 tab.
+                selected = currentRoute == tab.route || (tab == Move60Tab.RECORD && currentRoute?.startsWith("record_") == true) ||
+                    (tab == Move60Tab.MY && (currentRoute == "settings" || currentRoute?.startsWith("my_") == true)),
+                onClick = { onSelect(tab) },
+                modifier = Modifier.testTag(tab.tag),
+                icon = {
+                    Icon(
+                        when (tab) {
+                            Move60Tab.TODAY -> Icons.Outlined.Home
+                            Move60Tab.CHALLENGE -> Icons.Outlined.Flag
+                            Move60Tab.RECORD -> Icons.Outlined.Today
+                            Move60Tab.MY -> Icons.Outlined.Person
+                        }, contentDescription = null
+                    )
+                },
+                label = { Text(tab.label) }
+            )
+        }
     }
 }

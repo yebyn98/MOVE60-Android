@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="move60_bg">#000000</color>
-    <color name="move60_surface">#121212</color>
-    <color name="move60_surface_elevated">#1E1E1E</color>
-    <color name="move60_outline">#303030</color>
-    <color name="move60_accent">#00E676</color>
-    <color name="move60_on_accent">#000000</color>
-    <color name="move60_text">#FFFFFF</color>
-    <color name="move60_text_medium">#B0B0B0</color>
-    <color name="move60_text_muted">#797979</color>
+    <color name="move60_bg">#111813</color>
+    <color name="move60_surface">#1B2720</color>
+    <color name="move60_surface_elevated">#26342B</color>
+    <color name="move60_outline">#3D4D42</color>
+    <color name="move60_accent">#ABC5B1</color>
+    <color name="move60_on_accent">#16271D</color>
+    <color name="move60_text">#F2F0E8</color>
+    <color name="move60_text_medium">#B8C2B7</color>
+    <color name="move60_text_muted">#8C9F90</color>
     <color name="move60_heart">#FF6B81</color>
 </resources>

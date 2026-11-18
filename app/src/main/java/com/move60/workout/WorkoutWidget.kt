@@ -61,8 +61,16 @@ class WorkoutWidget : AppWidgetProvider() {
             val state = JSONObject(context.getSharedPreferences("timer", Context.MODE_PRIVATE)
                 .getString("snapshot", "{}") ?: "{}")
             val now = System.currentTimeMillis()
-            val model = WorkoutWidgetModel.build(state, loadHeart(context), now)
-            val open = PendingIntent.getActivity(context, 601, Intent(context, MainActivity::class.java),
+            // A ROUTIVE_4 session that is not older than the legacy one is what the widget shows; the legacy flow is untouched.
+            val routive = try { com.move60.workout.architecture.RoutiveWatchSync.current(context) } catch (_: Exception) { null }
+            val model = if (routive != null) WorkoutWidgetModel.fromRoutive(routive, loadHeart(context), now)
+                else WorkoutWidgetModel.build(state, loadHeart(context), now)
+            val open = if (routive != null)
+                PendingIntent.getActivity(context, 602, Intent(context, com.move60.workout.architecture.ComposeActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                    .putExtra(com.move60.workout.architecture.RoutiveSessionService.EXTRA_OPEN_SESSION, true),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            else PendingIntent.getActivity(context, 601, Intent(context, MainActivity::class.java),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
             for ((provider, layout) in listOf(
                 WorkoutWidget::class.java to R.layout.widget_workout,

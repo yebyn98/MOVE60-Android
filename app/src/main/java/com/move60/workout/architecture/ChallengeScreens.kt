@@ -1,0 +1,438 @@
+package com.move60.workout.architecture
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.Icon
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.SelectableDates
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.move60.workout.ui.Move60Button
+import com.move60.workout.ui.Move60Card
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+
+/**
+ * Challenge / project tab (Figma 도전·프로젝트 group). Selected start day is today or later, end date is
+ * inclusive, and target is cumulative credited days. Abandon is available only through the confirm dialog.
+ */
+@Composable
+fun ChallengeScreen(onBack: () -> Unit, viewModel: ChallengeViewModel = hiltViewModel()) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val toast = com.move60.workout.ui.LocalMove60Toast.current
+    LaunchedEffect(state.message) {
+        state.message?.let { toast.show(it); viewModel.messageShown() }
+    }
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = { ScreenTopBar(if (!state.loadError && state.active == null && !state.loading) "나만의 도전 만들기" else "도전", null) }
+    ) { inner ->
+        LazyColumn(
+            Modifier.fillMaxSize().padding(inner).testTag("challenge_list"),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            val active = state.active
+            if (state.loadError) {
+                item {
+                    Move60Card(Modifier.testTag("challenge_load_error")) {
+                        Text("도전 정보를 불러오지 못했어요.", style = MaterialTheme.typography.titleMedium)
+                        Text("저장된 운동 기록은 유지됩니다. 다시 확인해 주세요.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Move60Button(onClick = { viewModel.refresh() },
+                            modifier = Modifier.testTag("challenge_load_retry")) { Text("다시 확인") }
+                    }
+                }
+            } else {
+                if (active != null) item { ActiveChallenge(active, viewModel) }
+                else if (!state.loading) item { CreateChallenge(viewModel) }
+            }
+            if (!state.loadError && state.ended.isNotEmpty()) {
+                item {
+                    Text("지난 도전", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                items(state.ended, key = { it.id }) { EndedChallenge(it) }
+            }
+            item { Column(Modifier.navigationBarsPadding()) {} }
+        }
+    }
+}
+
+@Composable
+private fun ActiveChallenge(card: ChallengeCard, viewModel: ChallengeViewModel) {
+    var confirmAbandon by rememberSaveable { mutableStateOf(false) }
+    var editing by rememberSaveable { mutableStateOf(false) }
+    var draftName by rememberSaveable(card.id) { mutableStateOf(card.name) }
+    var savingName by rememberSaveable(card.id) { mutableStateOf(false) }
+    Move60Card(Modifier.testTag("challenge_active")) {
+        if (editing) {
+            OutlinedTextField(draftName, { draftName = it.take(ChallengeService.MAX_NAME) },
+                label = { Text("도전 이름") }, singleLine = true, enabled = !savingName,
+                modifier = Modifier.fillMaxWidth().testTag("challenge_name_field"))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Move60Button(
+                    onClick = {
+                        if (!savingName) {
+                            savingName = true
+                            viewModel.rename(card.id, draftName) { saved ->
+                                savingName = false
+                                if (saved) editing = false
+                            }
+                        }
+                    },
+                    enabled = !savingName,
+                    modifier = Modifier.testTag("challenge_name_save")
+                ) { Text(if (savingName) "저장 중" else "저장") }
+                Move60Button(onClick = { draftName = card.name; editing = false },
+                    enabled = !savingName, primary = false) { Text("취소") }
+            }
+        } else {
+            Text(card.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        }
+        Text("${card.startDate} ~ ${card.endDate} · ${card.daysLeft}일 남음",
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        LinearProgressIndicator(progress = { card.rate }, modifier = Modifier.fillMaxWidth().testTag("challenge_progress"),
+            color = MaterialTheme.colorScheme.primary, trackColor = MaterialTheme.colorScheme.outline)
+        Text("${card.creditedDays} / ${card.targetDays}일 달성 (누적)", style = MaterialTheme.typography.titleMedium)
+        Text("하루 실제 운동시간 10분 이상이면 운동일 1일로 인정돼요.", style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (!editing) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Move60Button(onClick = { editing = true }, primary = false,
+                modifier = Modifier.testTag("challenge_rename")) { Text("이름 수정") }
+            Move60Button(onClick = { confirmAbandon = true }, primary = false,
+                modifier = Modifier.testTag("challenge_abandon")) { Text("도전 포기") }
+        }
+    }
+    if (confirmAbandon) AlertDialog(
+        onDismissRequest = { confirmAbandon = false },
+        modifier = Modifier.testTag("challenge_abandon_dialog"),
+        title = { Text("도전을 포기할까요?") },
+        text = { Text("포기한 도전은 지난 도전에 남고, 운동 기록은 유지돼요. 포기는 되돌릴 수 없어요.") },
+        confirmButton = {
+            TextButton(onClick = { confirmAbandon = false; viewModel.abandon(card.id) },
+                modifier = Modifier.testTag("challenge_abandon_confirm")) { Text("도전 포기") }
+        },
+        dismissButton = { TextButton(onClick = { confirmAbandon = false }) { Text("취소") } }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CreateChallenge(viewModel: ChallengeViewModel) {
+    var name by rememberSaveable { mutableStateOf("") }
+    // Figma FINAL/30 displays 12 credited days over four weeks; keep displayed defaults and saved values identical.
+    var target by rememberSaveable { mutableStateOf("12") }
+    var days by rememberSaveable { mutableStateOf("28") }
+    var customTarget by rememberSaveable { mutableStateOf(false) }
+    var customPeriod by rememberSaveable { mutableStateOf(false) }
+    var showGoalPicker by rememberSaveable { mutableStateOf(false) }
+    var showPeriodPicker by rememberSaveable { mutableStateOf(false) }
+    var showStartPicker by rememberSaveable { mutableStateOf(false) }
+
+    // Figma FINAL/30: presets are quick choices, not additional domain restrictions.
+    val zone = remember { java.time.ZoneId.systemDefault() }
+    val today = LocalDate.now(zone)
+    var selectedStartIso by rememberSaveable { mutableStateOf(today.toString()) }
+    val start = LocalDate.parse(selectedStartIso)
+    val targetN = target.toIntOrNull()
+    val daysN = days.toIntOrNull()
+    val valid = name.trim().length in 1..ChallengeService.MAX_NAME &&
+        targetN != null && daysN != null && targetN >= 1 && daysN >= 1 && targetN <= daysN && !start.isBefore(today)
+
+    Column(Modifier.fillMaxWidth().testTag("challenge_create"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        OutlinedTextField(
+            name, { name = it.take(ChallengeService.MAX_NAME) },
+            label = { Text("도전 이름") }, singleLine = true,
+            modifier = Modifier.fillMaxWidth().testTag("challenge_new_name")
+        )
+        ChallengeSelectionField(
+            label = "목표 운동일수",
+            value = targetN?.let { "운동할 날 ${it}일" } ?: "목표 운동일수를 선택해 주세요.",
+            tag = "challenge_goal_select",
+            trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
+            onClick = {
+                showGoalPicker = !showGoalPicker
+                showPeriodPicker = false
+            }
+        )
+        // Inline expansion participates in layout and pushes the following fields down.
+        // It is not a Dialog, popup, or floating DropdownMenu.
+        if (showGoalPicker) {
+            ChallengeInlineOptions("challenge_goal_dropdown") {
+                listOf(10, 12, 16).forEach { option ->
+                    ChallengeInlineOption(
+                        text = "운동할 날 ${option}일",
+                        selected = targetN == option,
+                        tag = "challenge_goal_${option}",
+                        onClick = {
+                            target = option.toString()
+                            customTarget = false
+                            showGoalPicker = false
+                        }
+                    )
+                }
+                ChallengeInlineOption(
+                    text = "일수 직접 입력",
+                    selected = customTarget,
+                    tag = "challenge_goal_custom",
+                    onClick = {
+                        customTarget = true
+                        target = ""
+                        showGoalPicker = false
+                    }
+                )
+            }
+        }
+        if (customTarget) {
+            OutlinedTextField(
+                target, { target = it.filter(Char::isDigit).take(3) },
+                label = { Text("목표 운동일수 직접 입력") }, singleLine = true,
+                isError = targetN != null && daysN != null && targetN > daysN,
+                supportingText = {
+                    if (targetN != null && daysN != null && targetN > daysN)
+                        Text("목표 운동일수는 기간보다 클 수 없어요.")
+                },
+                modifier = Modifier.fillMaxWidth().testTag("challenge_new_target")
+            )
+        }
+        ChallengeSelectionField(
+            label = "도전 기간",
+            value = when (daysN) {
+                28 -> "4주"
+                42 -> "6주"
+                56 -> "8주"
+                null -> "도전 기간을 선택해 주세요."
+                else -> "${daysN}일"
+            },
+            tag = "challenge_period_select",
+            trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
+            onClick = {
+                showPeriodPicker = !showPeriodPicker
+                showGoalPicker = false
+            }
+        )
+        if (showPeriodPicker) {
+            ChallengeInlineOptions("challenge_period_dropdown") {
+                listOf(4, 6, 8).forEach { weeks ->
+                    ChallengeInlineOption(
+                        text = "${weeks}주",
+                        selected = daysN == weeks * 7,
+                        tag = "challenge_period_${weeks}w",
+                        onClick = {
+                            days = (weeks * 7).toString()
+                            customPeriod = false
+                            showPeriodPicker = false
+                        }
+                    )
+                }
+                ChallengeInlineOption(
+                    text = "기간 직접 입력",
+                    selected = customPeriod,
+                    tag = "challenge_period_custom",
+                    onClick = {
+                        customPeriod = true
+                        days = ""
+                        showPeriodPicker = false
+                    }
+                )
+            }
+        }
+        if (customPeriod) {
+            OutlinedTextField(
+                days, { days = it.filter(Char::isDigit).take(3) },
+                label = { Text("도전 기간 직접 입력 (일)") },
+                singleLine = true, modifier = Modifier.fillMaxWidth().testTag("challenge_new_days")
+            )
+        }
+        // 2026-11-18 user correction: start date is selectable, independent from the removed INFO block.
+        ChallengeSelectionField(
+            label = "시작일",
+            value = start.format(DateTimeFormatter.ofPattern("yyyy.MM.dd")),
+            tag = "challenge_start_date_select",
+            trailingIcon = { Icon(Icons.Default.CalendarMonth, contentDescription = null) },
+            onClick = {
+                showGoalPicker = false
+                showPeriodPicker = false
+                showStartPicker = true
+            }
+        )
+        Text("선택한 날짜부터 도전이 시작돼요.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.testTag("challenge_start_info"))
+
+        // Calculate inline. Do not restore the deleted Figma "INFO / 설정 확인" block.
+        Text(
+            if (daysN != null && daysN >= 1)
+                "종료 예정일 ${ChallengeService.inclusiveEndDate(start, daysN)}"
+            else "종료 예정일 · 기간을 선택하면 계산돼요",
+            modifier = Modifier.testTag("challenge_end_info"),
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        if (targetN != null && daysN != null && targetN > daysN) {
+            Text("목표 운동일수는 도전 기간보다 클 수 없어요.",
+                color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("challenge_target_error"))
+        }
+        Text("하루 유효 운동시간 합산 10분 이상이면 최대 1일 인정돼요.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Move60Button(
+            onClick = { if (valid) viewModel.create(name, targetN!!, daysN!!, start, zone) },
+            enabled = valid, modifier = Modifier.fillMaxWidth().testTag("challenge_start")
+        ) { Text("도전 만들고 시작하기") }
+    }
+
+    if (showStartPicker) {
+        val earliestUtcMillis = today.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = start.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+            selectableDates = object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean = utcTimeMillis >= earliestUtcMillis
+                override fun isSelectableYear(year: Int): Boolean = year >= today.year
+            }
+        )
+        DatePickerDialog(
+            onDismissRequest = { showStartPicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let {
+                            val selected = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()
+                            if (!selected.isBefore(LocalDate.now(zone))) selectedStartIso = selected.toString()
+                        }
+                        showStartPicker = false
+                    },
+                    modifier = Modifier.testTag("challenge_start_date_confirm")
+                ) { Text("선택") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showStartPicker = false },
+                    modifier = Modifier.testTag("challenge_start_date_cancel")) { Text("취소") }
+            },
+            modifier = Modifier.testTag("challenge_date_picker_dialog")
+        ) {
+            DatePicker(
+                state = datePickerState,
+                modifier = Modifier.testTag("challenge_date_picker")
+            )
+        }
+    }
+
+
+}
+
+/** In-flow options: expanded rows increase the parent Column's height instead of covering other fields. */
+@Composable
+private fun ChallengeInlineOptions(
+    tag: String,
+    content: @Composable () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().testTag(tag),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = MaterialTheme.shapes.medium
+    ) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) {
+            content()
+        }
+    }
+}
+
+@Composable
+private fun ChallengeInlineOption(
+    text: String,
+    selected: Boolean,
+    tag: String,
+    onClick: () -> Unit
+) {
+    TextButton(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth().testTag(tag)
+    ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(text, color = MaterialTheme.colorScheme.onSurface)
+            if (selected) Icon(Icons.Default.Check, contentDescription = "선택됨")
+        }
+    }
+}
+
+@Composable
+private fun ChallengeSelectionField(
+    label: String,
+    value: String,
+    tag: String,
+    trailingIcon: @Composable (() -> Unit)? = null,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth().testTag(tag),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = MaterialTheme.shapes.medium
+    ) {
+        Column(Modifier.fillMaxWidth().padding(16.dp)) {
+            Text(label, style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(value, style = MaterialTheme.typography.bodyLarge)
+                trailingIcon?.invoke()
+            }
+        }
+    }
+}
+
+@Composable
+private fun EndedChallenge(card: ChallengeCard) {
+    val label = when (card.status) {
+        ChallengeStatus.COMPLETE -> "달성"
+        ChallengeStatus.EXPIRED -> "기간 종료"
+        ChallengeStatus.ABANDONED -> "포기"
+        ChallengeStatus.ACTIVE -> "진행 중"
+    }
+    Move60Card(Modifier.testTag("challenge_ended_${card.status.name}")) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(card.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(label, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+        }
+        Text("${card.startDate} ~ ${card.endDate}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("${card.creditedDays} / ${card.targetDays}일 · 달성률 ${(card.rate * 100).toInt()}%")
+        card.targetReachedDate?.let { Text("목표 달성일 $it", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+    }
+}

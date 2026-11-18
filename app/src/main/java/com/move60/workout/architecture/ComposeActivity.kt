@@ -7,14 +7,23 @@ import android.provider.Settings
 import android.content.pm.PackageManager
 import androidx.activity.ComponentActivity
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.move60.workout.health.HealthConnectGateway
 import javax.inject.Inject
 import kotlinx.coroutines.launch
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.compose.ui.Modifier
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -31,6 +40,9 @@ import dagger.hilt.android.AndroidEntryPoint
  */
 @AndroidEntryPoint
 class ComposeActivity : ComponentActivity() {
+    /** Counts notification taps (including taps while the app is already open) so each one navigates to the existing session. */
+    private var sessionOpenRequest by androidx.compose.runtime.mutableIntStateOf(0)
+
     @Inject lateinit var healthGateway: HealthConnectGateway
 
     override fun onResume() {
@@ -57,6 +69,7 @@ class ComposeActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (savedInstanceState == null && intent.getBooleanExtra(RoutiveSessionService.EXTRA_OPEN_SESSION, false)) sessionOpenRequest = 1
         WindowCompat.setDecorFitsSystemWindows(window, false)
         if (Build.VERSION.SDK_INT >= 33 &&
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
@@ -64,8 +77,17 @@ class ComposeActivity : ComponentActivity() {
         }
         setContent { Move60ComposeApp(
             showIntro = savedInstanceState == null && !animationsDisabled() && !intent.getBooleanExtra("move60_open_calendar", false),
-            openCalendar = intent.getBooleanExtra("move60_open_calendar", false)
+            openCalendar = intent.getBooleanExtra("move60_open_calendar", false),
+            forceFirstRun = intent.getBooleanExtra("move60_force_first_run", false),
+            openResultId = intent.getStringExtra("move60_open_result"),
+            openSessionRequest = sessionOpenRequest
         ) }
+    }
+
+    public override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.getBooleanExtra(RoutiveSessionService.EXTRA_OPEN_SESSION, false)) sessionOpenRequest++
     }
 
     /** Respect the system "remove animations" setting; the intro is skipped when it is 0. */
@@ -74,26 +96,106 @@ class ComposeActivity : ComponentActivity() {
 }
 
 @Composable
-fun Move60ComposeApp(showIntro: Boolean = false, openCalendar: Boolean = false) {
+fun Move60ComposeApp(showIntro: Boolean = false, openCalendar: Boolean = false, forceFirstRun: Boolean = false, openResultId: String? = null, openSessionRequest: Int = 0) {
     val nav = rememberNavController()
     var introVisible by rememberSaveable { mutableStateOf(showIntro) }
+    var workoutRunning by rememberSaveable { mutableStateOf(false) }
+    val prefs = androidx.compose.ui.platform.LocalContext.current.getSharedPreferences("move60_result_seen_v1", android.content.Context.MODE_PRIVATE)
+    val openResult: (String) -> Unit = { id ->
+        // Show the result once per finished/ended session (never again after it was viewed).
+        if (prefs.getString("last_result_seen", null) != id) {
+            prefs.edit().putString("last_result_seen", id).apply()
+            nav.navigate("result/$id") { popUpTo("dashboard"); launchSingleTop = true }
+        }
+    }
+    val route = nav.currentBackStackEntryAsState().value?.destination?.route
+    // 최초 운동 설정: only for a user with no history and no space (see FirstRunPolicy); the check never blocks the normal start.
+    val firstRun: FirstRunViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+    val needsSetup by firstRun.needsSetup.collectAsStateWithLifecycle()
+    androidx.compose.runtime.LaunchedEffect(Unit) { firstRun.decide(forceFirstRun) }
+    // The setup screens share this ViewModel; finishing sets the decision to false, so returning to "dashboard" never restarts it.
+    androidx.compose.runtime.LaunchedEffect(needsSetup, route) {
+        if (needsSetup == true && route == "dashboard") nav.navigate("setup_purpose") { popUpTo("dashboard") { inclusive = true } }
+    }
+    androidx.compose.runtime.LaunchedEffect(openResultId) {
+        // Deep link used by tests and by re-opening the last result; never required for the normal flow.
+        if (openResultId != null) nav.navigate("result/$openResultId") { launchSingleTop = true }
+    }
+    androidx.compose.runtime.LaunchedEffect(openSessionRequest) {
+        // Tapping the ongoing workout notification returns to the existing session screen (every tap, also when the app is open).
+        if (openSessionRequest > 0) nav.navigate("routive_session") { launchSingleTop = true }
+    }
+    val toast = remember { com.move60.workout.ui.Move60ToastState() }
     Move60ComposeTheme {
+      androidx.compose.runtime.CompositionLocalProvider(com.move60.workout.ui.LocalMove60Toast provides toast) {
         Box {
-            NavHost(navController = nav, startDestination = if (openCalendar) "calendar" else "dashboard") {
-                composable("dashboard") {
-                    WorkoutDashboard(
-                        onCalendar = { nav.navigate("calendar") },
-                        onSettings = { nav.navigate("settings") }
-                    )
+            Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                NavHost(
+                    navController = nav,
+                    startDestination = if (openCalendar) "calendar" else "dashboard",
+                    modifier = Modifier.weight(1f)
+                ) {
+                    composable("dashboard") { WorkoutDashboard(
+                        onRunningChanged = { workoutRunning = it },
+                        onWorkoutFinished = openResult,
+                        onOpenWorkout = { nav.navigate("workout") { launchSingleTop = true } },
+                        onOpenChallenge = { nav.navigate("challenge") { popUpTo("dashboard") { saveState = true }; launchSingleTop = true; restoreState = true } },
+                        onComposeRoutine = { nav.navigate("routine_compose") },
+                        onOpenRoutines = { nav.navigate("routine_list") }
+                    ) }
+                    composable("workout") {
+                        WorkoutProgressScreen(onBack = { nav.popBackStack() }, onResult = openResult)
+                    }
+                    composable("result/{sessionId}") {
+                        WorkoutResultScreen(onViewRecord = {
+                            nav.navigate("calendar") { popUpTo("dashboard") { saveState = true }; launchSingleTop = true; restoreState = true }
+                        })
+                    }
+                    composable("challenge") { ChallengeScreen(onBack = { nav.popBackStack() }) }
+                    composable("routine_compose") { RoutineComposeScreen(onBack = { nav.popBackStack() }) }
+                    composable("routine_list") { RoutineListScreen(
+                        onBack = { nav.popBackStack() }, onCompose = { nav.navigate("routine_compose") },
+                        onOpenSession = { nav.navigate("routive_session") { launchSingleTop = true } }
+                    ) }
+                    composable("routive_session") { RoutiveSessionScreen(onBack = { nav.popBackStack() }, onResult = openResult) }
+                    composable("calendar") { WorkoutCalendar(onBack = { nav.popBackStack() }, onOpenDay = { nav.navigate("record_day/$it") }) }
+                    composable("record_day/{date}") {
+                        RecordDayScreen(onBack = { nav.popBackStack() }, onOpenSession = { nav.navigate("record_session/$it") })
+                    }
+                    composable("record_session/{sessionId}") { RecordSessionScreen(onBack = { nav.popBackStack() }) }
+                    composable("my") { MyHomeScreen(
+                        onOpenSpaces = { nav.navigate("my_spaces") },
+                        onOpenSettings = { nav.navigate("settings") },
+                        onOpenReport = { nav.navigate("my_report") },
+                        onOpenPurpose = { nav.navigate("my_purpose") }
+                    ) }
+                    composable("my_report") { MyReportScreen(onBack = { nav.popBackStack() }, onOpenSession = { nav.navigate("record_session/$it") }) }
+                    composable("setup_purpose") { FirstRunPurposeScreen(onContinue = { nav.navigate("setup_space") }, viewModel = firstRun) }
+                    composable("setup_space") { FirstRunSpaceScreen(viewModel = firstRun, onDone = { id ->
+                        // The setup screens leave the back stack; the new space's equipment list opens on top of the normal start.
+                        nav.navigate("dashboard") { popUpTo("setup_purpose") { inclusive = true } }
+                        nav.navigate("my_space/$id")
+                    }) }
+                    composable("my_purpose") { MyPurposeScreen(onBack = { nav.popBackStack() }, viewModel = firstRun) }
+                    composable("my_spaces") { MySpacesScreen(onBack = { nav.popBackStack() }, onOpenSpace = { nav.navigate("my_space/$it") }) }
+                    composable("my_space/{spaceId}") { SpaceEquipmentScreen(onBack = { nav.popBackStack() }) }
+    composable("settings") { WorkoutSettings(onBack = { nav.popBackStack() }) }
                 }
-                composable("calendar") {
-                    WorkoutCalendar(onBack = { nav.popBackStack() })
-                }
-                composable("settings") {
-                    WorkoutSettings(onBack = { nav.popBackStack() })
+                // Provisional rule (pending policy confirmation): hide the tab bar while a workout is running
+                // so it never competes with the workout dock.
+                if (route != "workout" && route != "routive_session" && route?.startsWith("setup_") != true && !(workoutRunning && route == "dashboard")) {
+                    Move60TabBar(route) { tab ->
+                        nav.navigate(tab.route) {
+                            popUpTo("dashboard") { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
                 }
             }
+            com.move60.workout.ui.Move60ToastHost(toast, Modifier.align(Alignment.TopCenter))
             if (introVisible) Move60Splash(onFinished = { introVisible = false })
         }
+      }
     }
 }

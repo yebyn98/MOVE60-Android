@@ -1,5 +1,6 @@
 package com.move60.workout
 
+import com.move60.workout.architecture.listTitle
 import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -42,9 +43,11 @@ object WorkoutWidgetModel {
         val finished = state.optBoolean("finished", false)
         val running = state.optBoolean("running", false) && !finished
         val hasSession = state.optLong("sessionStartedAt", 0L) > 0L
-        val stage = state.optInt("stage", 0).coerceIn(0, LAST_STAGE)
+        val structure = com.move60.workout.domain.StructureVersion.fromStored(state.optString("structure").takeIf { it.isNotEmpty() })
+        val stage = state.optInt("stage", 0).coerceIn(0, com.move60.workout.domain.WorkoutStructures.lastIndex(structure))
+        val kind = com.move60.workout.domain.WorkoutStructures.kindAt(structure, stage)
         val stageRemaining = WorkoutWidget.remainingSecondsForWidget(state, nowMillis)
-        val cardio = stage == 1 || stage == 3
+        val cardio = kind == com.move60.workout.domain.StageKind.CARDIO
         val phases = phasesKeyForStage(stage)?.let { state.optJSONArray(it) }
         val machine = phases?.optJSONObject(0)?.optString("kind").orEmpty()
             .ifBlank { state.optString("cardioMachine", "") }
@@ -66,7 +69,7 @@ object WorkoutWidgetModel {
             else -> paceLine(state, stage, phases, stageRemaining)
         }
         // Timed stages count down the current item (same number as the phone dock); strength counts the overall time up.
-        val countUp = stage == 2 && hasSession && !finished
+        val countUp = kind == com.move60.workout.domain.StageKind.STRENGTH && hasSession && !finished
         val timerSeconds = when {
             countUp -> elapsedTotal(state, nowMillis, running)
             finished || !hasSession -> 0L
@@ -82,6 +85,53 @@ object WorkoutWidgetModel {
             heartBpm = heart?.bpm?.takeIf { it in 30..240 },
             heartTime = heart?.takeIf { it.bpm in 30..240 && it.measuredAt > 0L }
                 ?.let { formatMeasuredAt(it.measuredAt, nowMillis, zone) }
+        )
+    }
+
+    /**
+     * Widget text for a ROUTIVE_4 session, from the same stored session the screen, notification and watch use.
+     * Rest counts down on its own ("휴식") and is not part of the stage or total time; an unplanned stage counts elapsed
+     * time up and never shows a made-up countdown.
+     */
+    fun fromRoutive(
+        s: com.move60.workout.architecture.RoutiveSession, heart: WidgetHeart?, nowMillis: Long, zone: TimeZone = TimeZone.getDefault()
+    ): WidgetModel {
+        val p = s.progress
+        val kind = p.kind
+        val running = s.running && !s.over
+        val status = when { s.over -> WidgetStatus.DONE; running -> WidgetStatus.RUNNING; else -> WidgetStatus.PAUSED }
+        val rest = s.rest?.takeIf { !it.done && !s.over && kind == com.move60.workout.domain.StageKind.STRENGTH }
+        val planned = p.plannedSeconds()
+        val elapsed = p.elapsedSeconds[p.stageIndex]
+        val strength = kind == com.move60.workout.domain.StageKind.STRENGTH
+        val title = when {
+            s.over -> if (p.endedEarly) "운동 종료" else "오늘 운동 완료"
+            else -> kind.listTitle()
+        }
+        val pace = when {
+            s.over -> "수고하셨어요"
+            rest != null -> "세트 사이 휴식"
+            else -> when (kind) {
+                com.move60.workout.domain.StageKind.WARM_UP -> "관절을 천천히 풀어주세요"
+                com.move60.workout.domain.StageKind.STRENGTH -> "자세와 세트·횟수를 확인하세요"
+                com.move60.workout.domain.StageKind.CARDIO -> "유산소 진행 중"
+                else -> "천천히 마무리하세요"
+            }
+        }
+        val over = if (planned != null && !strength) (elapsed - planned).coerceAtLeast(0L) else 0L
+        val (seconds, countDown, label) = when {
+            s.over -> Triple(0L, true, "남은 시간")
+            rest != null -> Triple(rest.remainingSeconds, true, "휴식")
+            strength -> Triple(p.totalElapsedSeconds, false, "전체시간")
+            planned == null -> Triple(elapsed, false, "경과 시간")
+            over > 0L -> Triple(over, false, "초과 시간")
+            else -> Triple(planned - elapsed, true, "남은 시간")
+        }
+        return WidgetModel(
+            title = title, status = status, pace = pace, remainingSeconds = seconds, running = running,
+            countDown = countDown, timerLabel = label, overtime = !s.over && rest == null && over > 0L,
+            heartBpm = heart?.bpm?.takeIf { it in 30..240 },
+            heartTime = heart?.takeIf { it.bpm in 30..240 && it.measuredAt > 0L }?.let { formatMeasuredAt(it.measuredAt, nowMillis, zone) }
         )
     }
 

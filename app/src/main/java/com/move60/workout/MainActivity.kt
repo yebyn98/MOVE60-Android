@@ -10,6 +10,7 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import com.move60.workout.Move60Theme as Theme
 import com.move60.workout.DashboardUi
+import com.move60.workout.domain.ExerciseContentApproval
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -168,7 +169,7 @@ class MainActivity : Activity() {
             handler.postDelayed({
                 if (!isFinishing && !isDestroyed) {
                     MaterialAlertDialogBuilder(this)
-                        .setTitle("MOVE60 안전 복구 모드")
+                        .setTitle("ROUTIVE 안전 복구 모드")
                         .setMessage("이전 실행의 종료 오류가 기록되어 자동 알림 재시작을 중지했어요. 운동 기록은 그대로 남아 있어요. 오류 기록을 확인한 뒤 알림을 다시 켤 수 있어요.")
                         .setNegativeButton("오류 기록 확인") { _, _ -> CrashReporter.showDiagnostics(this) }
                         .setPositiveButton("알림 재시도") { _, _ ->
@@ -266,20 +267,20 @@ class MainActivity : Activity() {
         dockStage.setSingleLine(true)
         dockStage.ellipsize = android.text.TextUtils.TruncateAt.END
         dockTime = label("", 12, false, textSecondary)
-        dockCalories = label("오늘 누적 0.0 kcal · 추정", 12, true, mint).apply {
-            contentDescription = "오늘 날짜에 실제 운동한 시간의 누적 소모 칼로리 추정치"
+        // v66 PO decision 1: kcal is hidden everywhere (the stored energy data is untouched). The views stay, always GONE, and
+        // never receive text, so no "0 kcal" placeholder can appear.
+        dockCalories = label("", 12, true, mint).apply {
             tag = "phone_session_calories"
+            visibility = View.GONE
         }
-        // Opt-in watch measurement: its own line, only while a fresh sample exists for this workout.
         dockWatchKcal = label("", 12, false, textSecondary).apply {
             tag = "phone_watch_kcal"
             visibility = View.GONE
-            contentDescription = "워치가 측정한 이번 운동 총 칼로리, 기초대사 포함"
         }
         info.addView(dockStage)
         info.addView(dockTime)
         state.addView(info, LinearLayout.LayoutParams(0, -2, 1f))
-        dockHeartRate = label("♥ 연결대기", 12, true, Theme.Colors.heart).apply {
+        dockHeartRate = label("♥ " + com.move60.workout.domain.HeartRateFreshness.WAITING_LABEL, 12, true, Theme.Colors.heart).apply {
             contentDescription = "하단 실시간 심박수"
             gravity = Gravity.CENTER
             includeFontPadding = false
@@ -312,7 +313,7 @@ class MainActivity : Activity() {
         val buttons = row().apply { isBaselineAligned = false; gravity = Gravity.CENTER_VERTICAL }
         previous = actionButton("이전", false) { session.jumpTo(session.stage - 1); afterAction() }.apply { tag = "phone_prev" }
         next = actionButton("다음", false) {
-            if (session.stage == LAST_STAGE && !session.finished) {
+            if (session.stage == session.lastStageIndex && !session.finished) {
                 MaterialAlertDialogBuilder(this)
                     .setTitle("운동을 종료할까요?")
                     .setMessage("현재까지 수행한 시간을 기록하고 운동 결과를 보여드려요.")
@@ -349,7 +350,7 @@ class MainActivity : Activity() {
         timerCueTitle = label("", 18, true)
         timerCueDetail = label("", 12, false, textSecondary)
         timerValue = label("", 26, true)
-        heartRateValue = label("연결대기", 12, true)
+        heartRateValue = label(com.move60.workout.domain.HeartRateFreshness.WAITING_LABEL, 12, true)
         timeMeta = label("", 12, false, textSecondary)
         progress = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             progressTintList = android.content.res.ColorStateList.valueOf(mint)
@@ -527,7 +528,7 @@ class MainActivity : Activity() {
         phaseList.removeAllViews()
         currentPhaseTime = null
         val tasks = session.routine.stages[session.stage].tasks
-        val strength = session.stage == 2
+        val strength = session.isStrengthStage
         val timed = phasesKeyForStage(session.stage) != null && tasks.all { it.seconds > 0 }
         val started = session.running || session.elapsed() > 0
         if ((!timed && !strength) || tasks.isEmpty() || session.finished || !started) { phaseList.visibility = View.GONE; return }
@@ -599,7 +600,7 @@ class MainActivity : Activity() {
 
     /** First strength exercise with unfinished sets; the last one once everything is done. */
     private fun currentStrengthTask(): WorkoutTask? {
-        val tasks = session.routine.stages[2].tasks
+        val tasks = session.routine.stages[LEGACY_STRENGTH_DATA_INDEX].tasks
         // A manual pick (tap on an exercise row) wins until that exercise has all its sets done.
         selectedStrengthId?.let { id ->
             val picked = tasks.firstOrNull { it.id == id }
@@ -613,7 +614,7 @@ class MainActivity : Activity() {
     private fun renderCurrentExercise() {
         if (!::currentSetPanel.isInitialized) return
         currentSetPanel.removeAllViews()
-        val task = if (session.stage == 2 && !session.finished) currentStrengthTask() else null
+        val task = if (session.isStrengthStage && !session.finished) currentStrengthTask() else null
         if (task == null) { currentSetPanel.visibility = View.GONE; return }
         currentSetPanel.visibility = View.VISIBLE
         addGap(currentSetPanel, Theme.Space.two)
@@ -750,7 +751,7 @@ class MainActivity : Activity() {
                 val record = SetRecordStore.Record(kg.text.toString(), reps.text.toString(), retainedEffort, checked)
                 if (checked && !record.valid) {
                     check.isChecked = false
-                    Toast.makeText(this, "중량(맨몸 0kg)과 횟수를 확인해 주세요.", Toast.LENGTH_SHORT).show()
+                    Move60NativeToast.show(this, "중량(맨몸 0kg)과 횟수를 확인해 주세요.")
                 } else {
                     session.toggleChecked(key, checked)
                     setRecords.write(session.day, task.id, set, record, token = session.sessionStartedAt)
@@ -765,8 +766,7 @@ class MainActivity : Activity() {
                     if (checked && done == count) {
                         val next = TrainingProgress.next(session)
                         if (next != null && next.task.id != task.id) {
-                            Toast.makeText(this, "${task.name} 완료 · ${next.task.name}${movedSuffix(next.task.name)} 이동했어요",
-                                Toast.LENGTH_SHORT).show()
+                            Move60NativeToast.show(this, "${task.name} 완료 · ${next.task.name}${movedSuffix(next.task.name)} 이동했어요")
                             Haptics.exerciseChanged(this)
                         }
                         handler.post { renderCurrent() }
@@ -804,7 +804,7 @@ class MainActivity : Activity() {
             .trim(' ', '·', ',')
 
     private fun showDetails(stage: Int, task: WorkoutTask) {
-        if (stage != 2) return // Guidance is only meaningful for strength exercises.
+        if (session.kindOf(stage) != com.move60.workout.domain.StageKind.STRENGTH) return // Guidance is only meaningful for strength exercises.
         val info = data.detail(task.id)
         val steps = info?.steps ?: listOf("운동 범위를 천천히 확인하고 무리 없는 자세를 유지하세요.")
         val panel = column().apply {
@@ -826,18 +826,18 @@ class MainActivity : Activity() {
         }
         val detailContent = column()
         scroll.addView(detailContent)
-        val strengthTasks = session.routine.stages[2].tasks
+        val strengthTasks = session.routine.stages[LEGACY_STRENGTH_DATA_INDEX].tasks
         val order = strengthTasks.indexOfFirst { it.id == task.id } + 1
         detailContent.addView(label("근력운동 · ${order}/${strengthTasks.size}종목 · 세트 완료 ${doneSets(task)} / ${strengthSetCount(task)}",
             12, false, textSecondary))
         addGap(detailContent, 12)
         if (task.id.isNotEmpty() && info != null) {
-            // Two public-domain frames loop like a short clip; stick figure only when no image exists.
+            // Two public-domain frames loop like a short clip; without a licensed pair an empty state is shown (no drawn diagram).
             detailContent.addView(ExerciseGuide.create(this, task.id),
                 LinearLayout.LayoutParams(-1, -2))
             addGap(detailContent, 4)
             detailContent.addView(label(
-                "${info.area} · ${info.equipment} · 시작·끝 자세 반복 이미지",
+                "${info.area} · ${info.equipment}" + if (ExerciseGuide.hasGuide(this, task.id)) " · 시작·끝 자세 반복 이미지" else "",
                 11, false, textSecondary))
             addGap(detailContent, 16)
         }
@@ -850,15 +850,19 @@ class MainActivity : Activity() {
                 .apply { tag = "popup_swap" })
             addGap(detailContent, 16)
         }
-        detailContent.addView(label("동작 순서", 15, true))
-        addGap(detailContent, 8)
-        steps.forEachIndexed { index, step ->
-            val stepBox = card()
-            stepBox.addView(label("${index + 1}. " + step, 13, false))
-            detailContent.addView(stepBox)
+        // The step text is guidance too: shown only for exercises with a verified record (ExerciseContentApproval, docs/v67).
+        if (ExerciseContentApproval.isApproved(task.id)) {
+            detailContent.addView(label("동작 순서", 15, true))
             addGap(detailContent, 8)
+            steps.forEachIndexed { index, step ->
+                val stepBox = card()
+                stepBox.addView(label("${index + 1}. " + step, 13, false))
+                detailContent.addView(stepBox)
+                addGap(detailContent, 8)
+            }
         }
-        if (task.id.isNotEmpty() && info != null) {
+        // Do not offer unreviewed external exercise-video search from an unapproved guide's empty state.
+        if (task.id.isNotEmpty() && info != null && ExerciseContentApproval.isApproved(task.id)) {
             detailContent.addView(actionButton("운동 가이드 영상 검색 ↗", false) {
                 val query = Uri.encode(task.name + " 운동 자세 가이드")
                 val videoSearch = Intent(Intent.ACTION_VIEW,
@@ -866,8 +870,7 @@ class MainActivity : Activity() {
                 try {
                     startActivity(videoSearch)
                 } catch (_: android.content.ActivityNotFoundException) {
-                    Toast.makeText(this, "영상을 열 수 있는 브라우저가 필요해요.",
-                        Toast.LENGTH_LONG).show()
+                    Move60NativeToast.show(this, "영상을 열 수 있는 브라우저가 필요해요.")
                 }
             }.apply { contentDescription = task.name + " 운동 가이드 영상 검색" })
             addGap(detailContent, 12)
@@ -967,7 +970,7 @@ class MainActivity : Activity() {
         val heart = getSharedPreferences("preferences", MODE_PRIVATE).getInt("watch_heart_rate", 0)
         val heartAt = getSharedPreferences("preferences", MODE_PRIVATE).getLong("watch_heart_rate_at", 0L)
         val heartAge = System.currentTimeMillis() - heartAt
-        heartRateValue.text = if (heart in 30..240 && heartAge in 0L..10_000L) "${heart} bpm" else "연결대기"
+        heartRateValue.text = com.move60.workout.domain.HeartRateFreshness.display(heart, heartAge)
         dockHeartRate.text = "♥ ${heartRateValue.text}"
         val phase = session.phase()
         if (phase == null) {
@@ -996,7 +999,7 @@ class MainActivity : Activity() {
                 timerCueDetail.text = (if (upcoming != null) "다음 · ${upcoming.name}\n" else "") + displayDetail(task.description)
             }
             else -> {
-                val strengthTask = if (session.stage == 2) currentStrengthTask() else null
+                val strengthTask = if (session.isStrengthStage) currentStrengthTask() else null
                 timerCueTitle.text = when (session.stage) {
                     0 -> "워밍업으로 몸 깨우기"
                     2 -> strengthTask?.name ?: "근력 세트 완료"
@@ -1011,7 +1014,7 @@ class MainActivity : Activity() {
         }
         if (::restPanel.isInitialized) {
             val rest = session.restSeconds()
-            restPanel.visibility = if (rest > 0 && session.stage == 2 && !session.finished) View.VISIBLE else View.GONE
+            restPanel.visibility = if (rest > 0 && session.isStrengthStage && !session.finished) View.VISIBLE else View.GONE
             restValue.text = formatTime(rest) + if (!session.running) " · 일시정지" else " 남음"
         }
         // Dock: "대분류 · 현재 항목". Remaining time is the current item's (same number as the big timer);
@@ -1019,7 +1022,7 @@ class MainActivity : Activity() {
         val dockItem = when {
             session.finished -> null
             phase != null -> phase.second.name
-            session.stage == 2 -> currentStrengthTask()?.name
+            session.isStrengthStage -> currentStrengthTask()?.name
             else -> null
         }
         dockStage.text = if (session.finished) finishLabel else listOfNotNull(stageName.substringBefore(" · "), dockItem).joinToString(" · ")
@@ -1028,7 +1031,7 @@ class MainActivity : Activity() {
             session.finished -> "운동 완료 · $dockTotal"
             session.overtimeSeconds() > 0 -> "초과시간 +${formatTime(session.overtimeSeconds())} · $dockTotal"
             phase != null -> "남은시간 ${formatTime(session.phaseSecondsRemaining())} · $dockTotal"
-            session.stage == 2 -> dockTotal
+            session.isStrengthStage -> dockTotal
             else -> "남은시간 ${formatTime(session.remaining)} · $dockTotal"
         }
         // Figma dock: pause/play 20dp and arrows 18dp icons instead of text glyphs.
@@ -1036,7 +1039,7 @@ class MainActivity : Activity() {
             if (session.finished) R.drawable.ic_replay else if (session.running) R.drawable.ic_pause else R.drawable.ic_play, 20, true)
         dockButton(previous, "이전", R.drawable.ic_arrow_back, 18, true)
         previous.alpha = if (session.stage == 0) .4f else 1f
-        if (session.stage == LAST_STAGE) dockButton(next, "운동 종료", 0, 18, false)
+        if (session.stage == session.lastStageIndex) dockButton(next, "운동 종료", 0, 18, false)
         else dockButton(next, "다음", R.drawable.ic_arrow_forward, 18, false)
         next.isEnabled = !session.finished
         next.alpha = if (session.finished) .4f else 1f
@@ -1044,42 +1047,33 @@ class MainActivity : Activity() {
         val starting = !session.finished && !session.running && session.elapsed() == 0
         previous.visibility = if (starting || session.finished) View.GONE else View.VISIBLE
         next.visibility = if (starting || session.finished) View.GONE else View.VISIBLE
-        val strengthTasks = session.routine.stages[2].tasks
+        val strengthTasks = session.routine.stages[LEGACY_STRENGTH_DATA_INDEX].tasks
         val totalSets = strengthTasks.sumOf { task -> Regex("(\\d+)\\s*세트").find(task.detail)?.groupValues?.get(1)?.toIntOrNull() ?: 3 }
         val doneSets = strengthTasks.sumOf { task ->
             val count = Regex("(\\d+)\\s*세트").find(task.detail)?.groupValues?.get(1)?.toIntOrNull() ?: 3
             (1..count).count { n -> "strength-${session.day}-${task.id}-$n" in session.checked }
         }
         val volume = SetRecordStore(this).completed(data.localToday()).sumOf { it.volume }.toInt()
-        // Daily, not per-session: includes multiple workouts on the same Korean calendar day.
-        // Previous dates are never combined with today's displayed total.
-        dockCalories.text = "오늘 누적 ${"%.1f".format(EnergyLedger(this).estimate(data.localToday(), org.json.JSONObject(session.snapshot())))} kcal · 추정"
-        val watchKcal = WatchKcal.fresh(this, session.sessionStartedAt)
-        dockWatchKcal.visibility = if (watchKcal != null) View.VISIBLE else View.GONE
-        if (watchKcal != null) dockWatchKcal.text = "워치 측정 ${"%.0f".format(watchKcal.totalKcal)} kcal · 기초대사 포함"
+        // v66 PO decision 1: no kcal line (dockCalories / dockWatchKcal stay GONE).
     }
 
     private fun showWorkoutResult() {
         val date = data.localToday()
         val entries = StageLog(this).entries(date)
-        val totalKcal = EnergyLedger(this)
-            .estimate(date, org.json.JSONObject(session.snapshot())).coerceAtLeast(0.0)
-        val sumMet = entries.sumOf { it.metSeconds }
         val names = listOf("준비운동", "유산소 ① · 사이클", "근력운동", "유산소 ② · 일립티컬", "스트레칭")
         val result = column().apply {
             setPadding(dp(Theme.Space.two), dp(Theme.Space.one),
                 dp(Theme.Space.two), dp(Theme.Space.one))
         }
-        result.addView(label("실제 운동 ${formatTime(session.elapsed())} · 약 ${totalKcal.toInt()} kcal",
+        result.addView(label("실제 운동 ${formatTime(session.elapsed())}",
             17, true, mint))
         if (entries.isEmpty()) {
             result.addView(label("단계별 기록이 없는 이전 운동은 합계만 표시돼요.", 12, false, textSecondary))
         } else {
             entries.forEach { entry ->
-                val kcal = if (sumMet > 0) (totalKcal * entry.metSeconds / sumMet).toInt() else 0
                 val line = row().apply { gravity = Gravity.CENTER_VERTICAL }
                 line.addView(label(names[entry.stage], 13, false), LinearLayout.LayoutParams(0, -2, 1f))
-                line.addView(label("${formatTime(entry.seconds.toInt())} · 약 ${kcal} kcal",
+                line.addView(label(formatTime(entry.seconds.toInt()),
                     12, true, mint))
                 result.addView(line)
                 addGap(result, 8)
@@ -1110,7 +1104,7 @@ class MainActivity : Activity() {
                 if (Build.VERSION.SDK_INT >= 26) startForegroundService(intent) else startService(intent)
             } catch (e: Exception) {
                 CrashReporter.log(this, "서비스 시작 오류: " + e.javaClass.simpleName + ": " + e.message)
-                Toast.makeText(this, "알림 서비스를 시작하지 못했어요. 알림 진단을 확인하세요.", Toast.LENGTH_LONG).show()
+                Move60NativeToast.show(this, "알림 서비스를 시작하지 못했어요. 알림 진단을 확인하세요.")
             }
         } else {
             // Pausing or finishing stops the service; persist the new UI snapshot and
@@ -1174,7 +1168,7 @@ class MainActivity : Activity() {
             setBackgroundColor(this@MainActivity.background)
         }
         val title = TextView(this).apply {
-            text = "MOVE60 · 안전 복구"
+            text = "ROUTIVE · 안전 복구"
             textSize = Theme.Type.title
             setTextColor(mint)
         }
