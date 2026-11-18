@@ -169,14 +169,7 @@ private fun ActiveContent(state: RoutiveSessionUiState, vm: RoutiveSessionViewMo
 
     if (state.stageKind == StageKind.STRENGTH) state.rest?.let { RestCard(it, state.running, vm) }
     if (state.stageKind == StageKind.STRENGTH) state.exercises.forEach { StrengthExercise(it, vm, state.setError) }
-    else state.exercises.forEach { e ->
-        Move60Card(Modifier.testTag("routive_exercise_${e.id}")) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(e.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text(e.plannedLabel, color = secondary)
-            }
-        }
-    }
+    else state.exercises.forEach { e -> StageExercise(e, vm) }
     if (state.stageKind == StageKind.STRENGTH)
         Text("완료한 세트만 운동 기록에 반영돼요.", color = secondary, style = MaterialTheme.typography.bodySmall)
 
@@ -199,6 +192,68 @@ private fun readinessHint(r: StageReadiness, isLast: Boolean): String? {
         StageReadiness.MANUAL -> "시간이 정해지지 않은 단계예요. 준비되면 $go."
         else -> null
     }
+}
+
+/** A non-strength exercise card; a cardio machine also lets the user save the values on its console (docs/v71, phone only). */
+@Composable
+private fun StageExercise(e: RoutiveExerciseUi, vm: RoutiveSessionViewModel) {
+    val secondary = MaterialTheme.colorScheme.onSurfaceVariant
+    var sheet by rememberSaveable(e.id) { mutableStateOf(false) }
+    Move60Card(Modifier.testTag("routive_exercise_${e.id}")) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(e.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(e.plannedLabel, color = secondary)
+        }
+        e.cardio?.let { c ->
+            if (c.entries.isEmpty()) Text("기구 수치는 입력한 만큼만 기록돼요. 입력하지 않은 구간은 미기록으로 남아요.", color = secondary,
+                style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("routive_cardio_hint_${e.id}"))
+            c.entries.forEach {
+                Text("${formatMmSs(it.atStageSeconds.toLong())} 시점 · ${it.text}", style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.testTag("routive_cardio_entry_${e.id}_${it.inputIndex}"))
+            }
+            Move60Button(onClick = { sheet = true }, primary = false, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("routive_cardio_input_${e.id}")) { Text("기구 수치 입력") }
+            if (sheet) CardioInputDialog(e, c, vm, onClose = { sheet = false })
+        }
+    }
+}
+
+/** Asks only for the values this machine has. Saving needs at least one number; cancelling stores nothing. */
+@Composable
+private fun CardioInputDialog(e: RoutiveExerciseUi, c: RoutiveCardioUi, vm: RoutiveSessionViewModel, onClose: () -> Unit) {
+    var values by rememberSaveable(e.id) { mutableStateOf(c.metrics.associate { it.key to "" }) }
+    var error by rememberSaveable(e.id) { mutableStateOf<String?>(null) }
+    AlertDialog(
+        onDismissRequest = onClose,
+        modifier = Modifier.testTag("routive_cardio_dialog_${e.id}"),
+        title = { Text("${e.name} 수치 입력") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("지금 기구 화면에 보이는 값을 그대로 입력해 주세요. 입력하지 않은 항목은 기록하지 않아요.", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                c.metrics.forEach { m ->
+                    OutlinedTextField(values[m.key].orEmpty(), { v -> values = values + (m.key to v.filter { ch -> ch.isDigit() || ch == '.' }.take(6)); error = null },
+                        singleLine = true, label = { Text(m.label) }, isError = error != null,
+                        modifier = Modifier.fillMaxWidth().testTag("routive_cardio_field_${e.id}_${m.key}"))
+                }
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("routive_cardio_error_${e.id}")) }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                val typed = c.metrics.associateWith { values[it.key].orEmpty() }
+                when (val r = vm.saveCardioInput(e.name, typed)) {
+                    is CardioSaveResult.Saved -> onClose()
+                    is CardioSaveResult.Rejected -> error = when (r.reason) {
+                        CardioSaveResult.Reason.NO_VALUE -> "저장하려면 값을 하나 이상 입력해 주세요."
+                        CardioSaveResult.Reason.INVALID_VALUE -> "0 이상의 숫자로 입력해 주세요."
+                        CardioSaveResult.Reason.NOT_CARDIO_STAGE -> "유산소 단계에서만 입력할 수 있어요."
+                        else -> "저장하지 못했어요. 다시 시도해 주세요."
+                    }
+                }
+            }, modifier = Modifier.heightIn(min = 48.dp).testTag("routive_cardio_save_${e.id}")) { Text("저장") }
+        },
+        dismissButton = { TextButton(onClick = onClose, modifier = Modifier.heightIn(min = 48.dp).testTag("routive_cardio_cancel_${e.id}")) { Text("취소") } }
+    )
 }
 
 @Composable
