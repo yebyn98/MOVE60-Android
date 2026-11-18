@@ -40,13 +40,16 @@ object Move60Theme {
     }
     object Space {
         const val one = 8
+        const val compact = 12
         const val two = 16
         const val three = 24
         const val four = 32
     }
     object Radius {
         const val card = 20
+        const val nested = 14
         const val control = 16
+        const val compact = 12
         const val chip = 16
     }
     fun dp(context: Context, value: Int) =
