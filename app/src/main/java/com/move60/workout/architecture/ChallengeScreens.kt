@@ -2,7 +2,6 @@ package com.move60.workout.architecture
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,14 +13,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.SelectableDates
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -51,8 +50,8 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
 /**
- * Challenge / project tab (Figma 도전·프로젝트 group). Start day is always today (confirmed policy), the end date is
- * inclusive, and the target is a cumulative count of credited days. Abandon is only possible through the confirm dialog.
+ * Challenge / project tab (Figma 도전·프로젝트 group). Selected start day is today or later, end date is
+ * inclusive, and target is cumulative credited days. Abandon is available only through the confirm dialog.
  */
 @Composable
 fun ChallengeScreen(onBack: () -> Unit, viewModel: ChallengeViewModel = hiltViewModel()) {
@@ -189,8 +188,39 @@ private fun CreateChallenge(viewModel: ChallengeViewModel) {
             value = targetN?.let { "운동할 날 ${it}일" } ?: "목표 운동일수를 선택해 주세요.",
             tag = "challenge_goal_select",
             trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
-            onClick = { showGoalPicker = true }
+            onClick = {
+                showGoalPicker = !showGoalPicker
+                showPeriodPicker = false
+            }
         )
+        // Inline expansion participates in layout and pushes the following fields down.
+        // It is not a Dialog, popup, or floating DropdownMenu.
+        if (showGoalPicker) {
+            ChallengeInlineOptions("challenge_goal_dropdown") {
+                listOf(10, 12, 16).forEach { option ->
+                    ChallengeInlineOption(
+                        text = "운동할 날 ${option}일",
+                        selected = targetN == option,
+                        tag = "challenge_goal_${option}",
+                        onClick = {
+                            target = option.toString()
+                            customTarget = false
+                            showGoalPicker = false
+                        }
+                    )
+                }
+                ChallengeInlineOption(
+                    text = "일수 직접 입력",
+                    selected = customTarget,
+                    tag = "challenge_goal_custom",
+                    onClick = {
+                        customTarget = true
+                        target = ""
+                        showGoalPicker = false
+                    }
+                )
+            }
+        }
         if (customTarget) {
             OutlinedTextField(
                 target, { target = it.filter(Char::isDigit).take(3) },
@@ -203,44 +233,45 @@ private fun CreateChallenge(viewModel: ChallengeViewModel) {
                 modifier = Modifier.fillMaxWidth().testTag("challenge_new_target")
             )
         }
-        Box(Modifier.fillMaxWidth()) {
-            ChallengeSelectionField(
-                label = "도전 기간",
-                value = when (daysN) {
-                    28 -> "4주"
-                    42 -> "6주"
-                    56 -> "8주"
-                    null -> "도전 기간을 선택해 주세요."
-                    else -> "${daysN}일"
-                },
-                tag = "challenge_period_select",
-                trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
-                onClick = { showPeriodPicker = true }
-            )
-            DropdownMenu(
-                expanded = showPeriodPicker,
-                onDismissRequest = { showPeriodPicker = false },
-                modifier = Modifier.fillMaxWidth(0.90f).testTag("challenge_period_dropdown")
-            ) {
+        ChallengeSelectionField(
+            label = "도전 기간",
+            value = when (daysN) {
+                28 -> "4주"
+                42 -> "6주"
+                56 -> "8주"
+                null -> "도전 기간을 선택해 주세요."
+                else -> "${daysN}일"
+            },
+            tag = "challenge_period_select",
+            trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
+            onClick = {
+                showPeriodPicker = !showPeriodPicker
+                showGoalPicker = false
+            }
+        )
+        if (showPeriodPicker) {
+            ChallengeInlineOptions("challenge_period_dropdown") {
                 listOf(4, 6, 8).forEach { weeks ->
-                    DropdownMenuItem(
-                        text = { Text("${weeks}주") },
+                    ChallengeInlineOption(
+                        text = "${weeks}주",
+                        selected = daysN == weeks * 7,
+                        tag = "challenge_period_${weeks}w",
                         onClick = {
                             days = (weeks * 7).toString()
                             customPeriod = false
                             showPeriodPicker = false
-                        },
-                        modifier = Modifier.testTag("challenge_period_${weeks}w")
+                        }
                     )
                 }
-                DropdownMenuItem(
-                    text = { Text("기간 직접 입력") },
+                ChallengeInlineOption(
+                    text = "기간 직접 입력",
+                    selected = customPeriod,
+                    tag = "challenge_period_custom",
                     onClick = {
                         customPeriod = true
                         days = ""
                         showPeriodPicker = false
-                    },
-                    modifier = Modifier.testTag("challenge_period_custom")
+                    }
                 )
             }
         }
@@ -257,7 +288,11 @@ private fun CreateChallenge(viewModel: ChallengeViewModel) {
             value = start.format(DateTimeFormatter.ofPattern("yyyy.MM.dd")),
             tag = "challenge_start_date_select",
             trailingIcon = { Icon(Icons.Default.CalendarMonth, contentDescription = null) },
-            onClick = { showStartPicker = true }
+            onClick = {
+                showGoalPicker = false
+                showPeriodPicker = false
+                showStartPicker = true
+            }
         )
         Text("선택한 날짜부터 도전이 시작돼요.",
             style = MaterialTheme.typography.bodySmall,
@@ -320,25 +355,42 @@ private fun CreateChallenge(viewModel: ChallengeViewModel) {
         }
     }
 
-    if (showGoalPicker) AlertDialog(
-        onDismissRequest = { showGoalPicker = false },
-        title = { Text("목표 운동일수") },
-        text = {
-            Column {
-                listOf(10, 12, 16).forEach { option ->
-                    TextButton(
-                        onClick = { target = option.toString(); customTarget = false; showGoalPicker = false },
-                        modifier = Modifier.fillMaxWidth().testTag("challenge_goal_${option}")
-                    ) { Text("운동할 날 ${option}일") }
-                }
-                TextButton(
-                    onClick = { customTarget = true; target = ""; showGoalPicker = false },
-                    modifier = Modifier.fillMaxWidth().testTag("challenge_goal_custom")
-                ) { Text("일수 직접 입력") }
-            }
-        },
-        confirmButton = { TextButton(onClick = { showGoalPicker = false }) { Text("취소") } }
-    )
+
+}
+
+/** In-flow options: expanded rows increase the parent Column's height instead of covering other fields. */
+@Composable
+private fun ChallengeInlineOptions(
+    tag: String,
+    content: @Composable () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().testTag(tag),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = MaterialTheme.shapes.medium
+    ) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) {
+            content()
+        }
+    }
+}
+
+@Composable
+private fun ChallengeInlineOption(
+    text: String,
+    selected: Boolean,
+    tag: String,
+    onClick: () -> Unit
+) {
+    TextButton(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth().testTag(tag)
+    ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(text, color = MaterialTheme.colorScheme.onSurface)
+            if (selected) Icon(Icons.Default.Check, contentDescription = "선택됨")
+        }
+    }
 }
 
 @Composable
