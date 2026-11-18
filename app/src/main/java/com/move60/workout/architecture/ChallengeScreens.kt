@@ -11,6 +11,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.SelectableDates
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -33,6 +38,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.move60.workout.ui.Move60Button
 import com.move60.workout.ui.Move60Card
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 
 /**
  * Challenge / project tab (Figma 도전·프로젝트 group). Start day is always today (confirmed policy), the end date is
@@ -139,6 +148,7 @@ private fun ActiveChallenge(card: ChallengeCard, viewModel: ChallengeViewModel) 
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CreateChallenge(viewModel: ChallengeViewModel) {
     var name by rememberSaveable { mutableStateOf("") }
@@ -148,14 +158,17 @@ private fun CreateChallenge(viewModel: ChallengeViewModel) {
     var customPeriod by rememberSaveable { mutableStateOf(false) }
     var showGoalPicker by rememberSaveable { mutableStateOf(false) }
     var showPeriodPicker by rememberSaveable { mutableStateOf(false) }
+    var showStartPicker by rememberSaveable { mutableStateOf(false) }
 
     // Figma FINAL/30: presets are quick choices, not additional domain restrictions.
     val zone = remember { java.time.ZoneId.systemDefault() }
-    val start = java.time.LocalDate.now(zone)
+    val today = LocalDate.now(zone)
+    var selectedStartIso by rememberSaveable { mutableStateOf(today.toString()) }
+    val start = LocalDate.parse(selectedStartIso)
     val targetN = target.toIntOrNull()
     val daysN = days.toIntOrNull()
     val valid = name.trim().length in 1..ChallengeService.MAX_NAME &&
-        targetN != null && daysN != null && targetN >= 1 && daysN >= 1 && targetN <= daysN
+        targetN != null && daysN != null && targetN >= 1 && daysN >= 1 && targetN <= daysN && !start.isBefore(today)
 
     Column(Modifier.fillMaxWidth().testTag("challenge_create"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         OutlinedTextField(
@@ -200,15 +213,18 @@ private fun CreateChallenge(viewModel: ChallengeViewModel) {
                 singleLine = true, modifier = Modifier.fillMaxWidth().testTag("challenge_new_days")
             )
         }
-        // v62: no date picker. Start date is generated at creation time in the challenge zone.
-        Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.medium) {
-            Column(Modifier.fillMaxWidth().padding(16.dp)) {
-                Text("시작일", style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("$start · 도전을 만드는 날부터 시작해요.",
-                    modifier = Modifier.testTag("challenge_start_info"))
-            }
-        }
+        // 2026-11-18 user correction: start date is selectable, independent from the removed INFO block.
+        ChallengeSelectionField(
+            label = "시작일",
+            value = start.format(DateTimeFormatter.ofPattern("yyyy.MM.dd")),
+            tag = "challenge_start_date_select",
+            onClick = { showStartPicker = true }
+        )
+        Text("선택한 날짜부터 도전이 시작돼요.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.testTag("challenge_start_info"))
+
         // Calculate inline. Do not restore the deleted Figma "INFO / 설정 확인" block.
         Text(
             if (daysN != null && daysN >= 1)
@@ -224,9 +240,45 @@ private fun CreateChallenge(viewModel: ChallengeViewModel) {
         Text("하루 유효 운동시간 합산 10분 이상이면 최대 1일 인정돼요.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Move60Button(
-            onClick = { if (valid) viewModel.create(name, targetN!!, daysN!!, zone) },
+            onClick = { if (valid) viewModel.create(name, targetN!!, daysN!!, start, zone) },
             enabled = valid, modifier = Modifier.fillMaxWidth().testTag("challenge_start")
         ) { Text("도전 만들고 시작하기") }
+    }
+
+    if (showStartPicker) {
+        val earliestUtcMillis = today.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = start.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+            selectableDates = object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean = utcTimeMillis >= earliestUtcMillis
+                override fun isSelectableYear(year: Int): Boolean = year >= today.year
+            }
+        )
+        DatePickerDialog(
+            onDismissRequest = { showStartPicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let {
+                            val selected = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()
+                            if (!selected.isBefore(LocalDate.now(zone))) selectedStartIso = selected.toString()
+                        }
+                        showStartPicker = false
+                    },
+                    modifier = Modifier.testTag("challenge_start_date_confirm")
+                ) { Text("선택") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showStartPicker = false },
+                    modifier = Modifier.testTag("challenge_start_date_cancel")) { Text("취소") }
+            },
+            modifier = Modifier.testTag("challenge_date_picker_dialog")
+        ) {
+            DatePicker(
+                state = datePickerState,
+                modifier = Modifier.testTag("challenge_date_picker")
+            )
+        }
     }
 
     if (showGoalPicker) AlertDialog(
