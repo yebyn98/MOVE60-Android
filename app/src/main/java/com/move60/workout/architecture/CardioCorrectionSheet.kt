@@ -45,6 +45,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.move60.workout.domain.CardioMetric
+import com.move60.workout.domain.CardioMetrics
 import com.move60.workout.ui.Move60Button
 import java.math.BigDecimal
 
@@ -72,7 +73,8 @@ internal fun CardioCorrectionSheet(
     fun num(t: String) = t.trim().replace(',', '.').toDoubleOrNull()
     fun same(a: String, b: String) = num(a).let { it != null && it == num(b) }
     val changed = metrics.filter { m -> !same(typed[m].orEmpty(), originals.getValue(m)) }
-    val valid = metrics.all { CorrectionRules.cardio(typed[it].orEmpty()) != null }
+    fun maxOf(m: CardioMetric) = CardioMetrics.maxFor(row?.equipmentKey.orEmpty(), m)
+    val valid = metrics.all { CorrectionRules.cardio(typed[it].orEmpty(), maxOf(it)) != null }
     val canSave = row != null && changed.isNotEmpty() && valid && !saving
 
     ModalBottomSheet(onDismissRequest = { if (!saving) onDismiss() }, modifier = Modifier.testTag("cardio_correction_sheet")) {
@@ -102,7 +104,7 @@ internal fun CardioCorrectionSheet(
             if (row != null) {
                 Text("정정할 값", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
                 metrics.forEach { m ->
-                    ValueStepper(m.label, typed[m].orEmpty(), { typed[m] = it }, "cardio_stepper_${m.key}", enabled = !saving)
+                    ValueStepper(m.label, typed[m].orEmpty(), { typed[m] = it }, "cardio_stepper_${m.key}", enabled = !saving, max = maxOf(m))
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -126,13 +128,13 @@ internal fun CardioCorrectionSheet(
 
 /** − / value / +. The value in the middle is tapped to type a number. 1 per step, never below 0. */
 @Composable
-private fun ValueStepper(label: String, value: String, onChange: (String) -> Unit, tag: String, enabled: Boolean) {
+private fun ValueStepper(label: String, value: String, onChange: (String) -> Unit, tag: String, enabled: Boolean, max: Double) {
     var editing by remember { mutableStateOf(false) }
     val focus = remember { FocusRequester() }
     val current = value.trim().replace(',', '.').toBigDecimalOrNull()
     fun step(delta: Long) {
         val base = current ?: return
-        val next = base.add(BigDecimal.valueOf(delta)).max(BigDecimal.ZERO)
+        val next = base.add(BigDecimal.valueOf(delta)).max(BigDecimal.ZERO).min(BigDecimal.valueOf(max))
         onChange(next.stripTrailingZeros().toPlainString())
     }
     val shape = RoundedCornerShape(12.dp)
@@ -149,14 +151,14 @@ private fun ValueStepper(label: String, value: String, onChange: (String) -> Uni
                 LaunchedEffect(Unit) { focus.requestFocus() }
                 OutlinedTextField(
                     value = value, onValueChange = { v -> if (v.length <= 6 && v.all { it.isDigit() || it == '.' }) onChange(v) },
-                    singleLine = true, isError = CorrectionRules.cardio(value) == null,
+                    singleLine = true, isError = CorrectionRules.cardio(value, max) == null,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(onDone = { editing = false }),
                     modifier = Modifier.fillMaxWidth().focusRequester(focus).onFocusChanged { if (!it.isFocused) editing = false }.testTag("${tag}_input")
                 )
             } else Text("$label $value", modifier = Modifier.testTag("${tag}_value"))
         }
-        IconButton(onClick = { step(1) }, enabled = enabled && current != null,
+        IconButton(onClick = { step(1) }, enabled = enabled && current != null && current < BigDecimal.valueOf(max),
             modifier = Modifier.size(48.dp).testTag("${tag}_plus")) { Icon(Icons.Outlined.Add, contentDescription = "$label 1 늘리기") }
     }
 }

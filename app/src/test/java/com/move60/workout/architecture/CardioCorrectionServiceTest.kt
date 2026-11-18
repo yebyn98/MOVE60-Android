@@ -69,6 +69,8 @@ class CardioCorrectionServiceTest {
             service.applyCardio("c1", listOf(CardioValueEdit(0, LEVEL, "9"), CardioValueEdit(0, INCLINE, "-1"))))
         assertEquals(CardioCorrectionResult.InvalidValue(0, "level"), service.applyCardio("c1", listOf(CardioValueEdit(0, LEVEL, ""))))
         assertEquals(CardioCorrectionResult.InvalidValue(0, "level"), service.applyCardio("c1", listOf(CardioValueEdit(0, LEVEL, "1000"))))
+        // ELLIPTICAL: 25 is the largest accepted value, 26 is not
+        assertEquals(CardioCorrectionResult.InvalidValue(0, "level"), service.applyCardio("c1", listOf(CardioValueEdit(0, LEVEL, "26"))))
         assertEquals(CardioCorrectionResult.InvalidValue(0, "level"),
             service.applyCardio("c1", listOf(CardioValueEdit(0, LEVEL, "3"), CardioValueEdit(0, LEVEL, "4"))))
         assertEquals(CardioCorrectionResult.InputNotFound(5, "level"), service.applyCardio("c1", listOf(CardioValueEdit(5, LEVEL, "3"))))

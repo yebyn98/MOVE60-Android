@@ -90,6 +90,9 @@ class RoutiveCardioStoreTest {
         refused(CardioSaveResult.Reason.NO_VALUE, st.saveCardioInput(elliptical, mapOf(LEVEL to " ", INCLINE to "")))
         for (bad in listOf("abc", "-1", "NaN", "5kg", "1/2")) refused(CardioSaveResult.Reason.INVALID_VALUE, st.saveCardioInput(elliptical, mapOf(LEVEL to bad)))
         refused(CardioSaveResult.Reason.INVALID_VALUE, st.saveCardioInput(elliptical, mapOf(LEVEL to "5", INCLINE to "x")))
+        // above what the machine can show (ellipticals 25, bikes 40): a typo is refused, not stored
+        refused(CardioSaveResult.Reason.INVALID_VALUE, st.saveCardioInput(elliptical, mapOf(LEVEL to "26")))
+        refused(CardioSaveResult.Reason.INVALID_VALUE, st.saveCardioInput(elliptical, mapOf(LEVEL to "5", INCLINE to "26")))
     }
 
     @Test fun onlyTheCardioStageOfASessionThatIsNotOverAcceptsAValue() {

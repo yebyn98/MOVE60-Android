@@ -96,12 +96,15 @@ internal object CorrectionRules {
     /** Upper bound for a console level/incline (proposal, PO to confirm): machines in the app use small whole numbers. */
     const val CARDIO_MAX = 100.0
 
-    /** A plain non-negative number up to [CARDIO_MAX]; blank is not accepted (a correction never removes a recorded value). */
-    fun cardio(raw: String): String? {
+    /**
+     * A plain non-negative number up to [max] (default [CARDIO_MAX]; the app passes the per-machine
+     * [com.move60.workout.domain.CardioMetrics.maxFor]); blank is not accepted (a correction never removes a recorded value).
+     */
+    fun cardio(raw: String, max: Double = CARDIO_MAX): String? {
         val t = raw.trim()
         if (!CARDIO.matches(t)) return null
         val v = t.toDoubleOrNull() ?: return null
-        return if (v in 0.0..CARDIO_MAX) t else null
+        return if (v in 0.0..max) t else null
     }
 
     private val WEIGHT = Regex("^\\d+(\\.\\d+)?$")
@@ -211,7 +214,8 @@ class SessionCorrectionService(private val db: WorkoutDatabase, private val cloc
                 val key = e.inputIndex to e.metric.key
                 val row = stored[key] ?: return@withTransaction CardioCorrectionResult.InputNotFound(e.inputIndex, e.metric.key)
                 if (!seen.add(key)) return@withTransaction CardioCorrectionResult.InvalidValue(e.inputIndex, e.metric.key)
-                val v = CorrectionRules.cardio(e.value) ?: return@withTransaction CardioCorrectionResult.InvalidValue(e.inputIndex, e.metric.key)
+                val v = CorrectionRules.cardio(e.value, com.move60.workout.domain.CardioMetrics.maxFor(row.equipmentKey, e.metric))
+                    ?: return@withTransaction CardioCorrectionResult.InvalidValue(e.inputIndex, e.metric.key)
                 val old = shown[key] ?: row.valueText
                 if (v.toDouble() != old.trim().replace(',', '.').toDoubleOrNull()) pending += SessionAdjustmentEntity(
                     sessionId = sessionId, createdAtEpochMs = now, field = CorrectionField.cardio(e.inputIndex, e.metric.key),

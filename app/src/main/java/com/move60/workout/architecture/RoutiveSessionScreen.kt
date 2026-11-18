@@ -245,7 +245,7 @@ private fun CardioInputDialog(e: RoutiveExerciseUi, c: RoutiveCardioUi, vm: Rout
                     is CardioSaveResult.Saved -> onClose()
                     is CardioSaveResult.Rejected -> error = when (r.reason) {
                         CardioSaveResult.Reason.NO_VALUE -> "저장하려면 값을 하나 이상 입력해 주세요."
-                        CardioSaveResult.Reason.INVALID_VALUE -> "0 이상의 숫자로 입력해 주세요."
+                        CardioSaveResult.Reason.INVALID_VALUE -> "기구에서 쓸 수 있는 범위의 숫자로 입력해 주세요."
                         CardioSaveResult.Reason.NOT_CARDIO_STAGE -> "유산소 단계에서만 입력할 수 있어요."
                         else -> "저장하지 못했어요. 다시 시도해 주세요."
                     }
