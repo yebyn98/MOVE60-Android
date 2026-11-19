@@ -1,0 +1,101 @@
+# Internal device QA artifacts only. Never publishes to MOVE60-Updates or Play.
+# This branch is isolated from main and the rollout PR. Uses the existing stable
+# signing key so existing signed phone/Watch4 data can be retained on upgrade.
+name: ROUTIVE internal device QA APK (no publish)
+
+on:
+  push:
+    branches:
+      - feature/routive-device-qa-apk
+  workflow_dispatch:
+
+concurrency:
+  group: routive-internal-device-qa
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  device-qa-apks:
+    if: github.repository == 'yebyn98/MOVE60-Android' && github.ref == 'refs/heads/feature/routive-device-qa-apk'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Setup Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Setup Android API 35
+        shell: bash
+        run: |
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | head -n 1)"
+          test -n "$SDKMANAGER" || { echo "::error::Android sdkmanager unavailable"; exit 1; }
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" --install 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Assert expected app identities and test build versions
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          for module, version in [('app', 59), ('wear', 53)]:
+              gradle = Path(module, 'build.gradle').read_text()
+              assert re.search(r"applicationId\s+'com\.move60\.workout'", gradle), module
+              match = re.search(r"versionCode\s+(\d+)", gradle)
+              assert match and int(match.group(1)) == version, (module, 'unexpected versionCode; update this gate after review')
+          print("QA build identity checked: phone 59 / watch 53")
+          PY
+      - name: Restore existing stable signing key (fail if unavailable)
+        env:
+          MOVE60_SIGNING_BUNDLE_BASE64: ${{ secrets.MOVE60_SIGNING_BUNDLE_BASE64 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/restore-signing.py
+          set -a
+          source "$RUNNER_TEMP/move60-signing/signing.env"
+          set +a
+          : "${MOVE60_STORE_PASSWORD:?missing store password}"
+          : "${MOVE60_KEY_PASSWORD:?missing key password}"
+          : "${MOVE60_KEY_ALIAS:?missing key alias}"
+          echo "::add-mask::$MOVE60_STORE_PASSWORD"
+          echo "::add-mask::$MOVE60_KEY_PASSWORD"
+          echo "MOVE60_KEYSTORE_PATH=$RUNNER_TEMP/move60-signing/move60.p12" >> "$GITHUB_ENV"
+          echo "MOVE60_STORE_PASSWORD=$MOVE60_STORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "MOVE60_KEY_PASSWORD=$MOVE60_KEY_PASSWORD" >> "$GITHUB_ENV"
+          echo "MOVE60_KEY_ALIAS=$MOVE60_KEY_ALIAS" >> "$GITHUB_ENV"
+      - name: Build stable-signed phone and watch test APKs
+        run: gradle --no-daemon --stacktrace :app:assembleRelease :wear:assembleRelease
+      - name: Verify that BOTH APKs are signed
+        shell: bash
+        run: |
+          set -euo pipefail
+          SIGNER="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -name apksigner -type f | sort -V | tail -n 1)"
+          test -n "$SIGNER" || { echo "::error::apksigner missing"; exit 1; }
+          for APK in app/build/outputs/apk/release/app-release.apk wear/build/outputs/apk/release/wear-release.apk; do
+            test -s "$APK" || { echo "::error::Missing $APK"; exit 1; }
+            "$SIGNER" verify "$APK"
+            echo "Verified signed: $APK"
+          done
+      - name: Upload phone QA APK (private Actions artifact only)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ROUTIVE-Phone-v59-internal-test-signed
+          path: app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload Galaxy Watch4 QA APK (private Actions artifact only)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ROUTIVE-Watch4-v53-internal-test-signed
+          path: wear/build/outputs/apk/release/wear-release.apk
+          if-no-files-found: error
+          retention-days: 14
