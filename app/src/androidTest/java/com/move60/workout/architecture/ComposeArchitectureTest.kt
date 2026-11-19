@@ -76,6 +76,15 @@ class ComposeArchitectureTest {
         File(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null), "compose-oss-licenses.png").outputStream().use {
             image.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
         }
+        // The release-blocked NOTICE list also offers offline SPDX reference texts
+        // without implying that artifact-specific copyright/NOTICE was verified.
+        rule.onNodeWithTag("oss_list").performScrollToNode(hasTestTag("oss_reference_open_Apache-2.0"))
+        rule.onNodeWithTag("oss_reference_open_Apache-2.0").assertIsDisplayed().performClick()
+        rule.waitUntil(10_000) { rule.onAllNodesWithTag("oss_reference_loaded").fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithTag("oss_reference_detail").assertIsDisplayed()
+        rule.onNodeWithTag("oss_reference_notice").assertIsDisplayed()
+        rule.onNodeWithText("목록으로").performClick()
+        rule.onNodeWithTag("oss_list").assertIsDisplayed()
     }
 
     @Test fun composeSettingsHasEverySettingInThreeGroups() {
