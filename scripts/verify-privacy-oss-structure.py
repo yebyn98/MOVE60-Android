@@ -52,4 +52,18 @@ if unresolved:
     assert not oss["audit"].get("operatorApproved"), "Unresolved OSS entries cannot be approved"
 if not oss["audit"].get("licenseTextsVerified") or not oss["audit"].get("noticesVerified"):
     assert "not release-approved" in oss["scope"].lower()
+# Standard license texts are bundled as offline REFERENCES, not legal completeness.
+refs = {
+    "Apache-2.0": ("Apache License", "TERMS AND CONDITIONS"),
+    "MIT": ("MIT License", "Permission is hereby granted"),
+    "BSD-3-Clause": ("Redistribution and use", "Redistributions in binary form"),
+}
+for spdx_id, fragments in refs.items():
+    asset = root / f"app/src/main/assets/oss/license-texts/{spdx_id}.txt"
+    assert asset.is_file(), f"Missing {spdx_id} offline reference copy"
+    text = asset.read_text(encoding="utf-8")
+    assert len(text) > 700, f"Truncated {spdx_id} reference"
+    assert all(fragment in text for fragment in fragments), f"Wrong {spdx_id} reference content"
+assert not oss["audit"].get("licenseTextsVerified"), "Reference templates alone cannot certify each dependency's license text"
+assert not oss["audit"].get("noticesVerified"), "Reference templates never replace artifact-specific NOTICE"
 print("PASS: selective privacy backup exclusions, preserved record backup intent, and auditable OSS metadata. Release gate remains separate.")
