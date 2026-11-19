@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Exclude phone health consent, heart caches, user weight/condition settings, and device-specific transport state from restore. Preserve workout record backups pending verified restore policy. Apply on Android 12+ for both cloud and device transfers. -->
+<data-extraction-rules>
+    <cloud-backup disableIfNoEncryptionCapabilities="true">
+        <exclude domain="sharedpref" path="move60_health_opt_in_v1.xml" />
+        <exclude domain="sharedpref" path="move60_widget_heart_v1.xml" />
+        <exclude domain="sharedpref" path="preferences.xml" />
+        <exclude domain="sharedpref" path="move60_health_refresh_v1.xml" />
+        <exclude domain="sharedpref" path="watch_publish_v26.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="move60_health_opt_in_v1.xml" />
+        <exclude domain="sharedpref" path="move60_widget_heart_v1.xml" />
+        <exclude domain="sharedpref" path="preferences.xml" />
+        <exclude domain="sharedpref" path="move60_health_refresh_v1.xml" />
+        <exclude domain="sharedpref" path="watch_publish_v26.xml" />
+    </device-transfer>
+</data-extraction-rules>
