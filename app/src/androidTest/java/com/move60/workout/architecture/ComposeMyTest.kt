@@ -190,19 +190,32 @@ class ComposeMyTest {
         } finally { cleanE2e(includeHome = false) }
     }
 
-    /** Figma 10 trend/stats/milestones and Figma 68 report from a REAL stored session (yesterday 20:35, 720 s, one completed set). */
+    /**
+     * Figma 10/68: a REAL stored session is chosen as the latest, even if other instrumentation
+     * tests left earlier sessions in this shared device DB. No existing rows are deleted/modified.
+     */
     @Test fun hubTrendAndReportShowTheStoredSession() {
         val zone = java.time.ZoneId.of("Asia/Seoul")
         val id = "record-my-a"
-        val date = java.time.LocalDate.now(zone).minusDays(1)
         val db = Room.databaseBuilder(context, WorkoutDatabase::class.java, dbFile).build()
         try {
             runBlocking {
-                val start = date.atTime(20, 35).atZone(zone).toEpochSecond()
+                val maxExistingMs = db.openHelper.readableDatabase.query(
+                    "SELECT MAX(COALESCE(startedAtEpochMs, committedAtEpochMs)) FROM sessions"
+                ).use { cursor ->
+                    if (cursor.moveToFirst() && !cursor.isNull(0)) cursor.getLong(0) else 0L
+                }
+                // Reports deliberately display the newest stored session. Make our fixture newer
+                // than other tests' sessions instead of assuming that "yesterday" is always latest.
+                val start = maxOf(System.currentTimeMillis(), maxExistingMs + 60_000L) / 1000
                 val session = SessionEntity(id, null, zone.id, start * 1000, (start + 720) * 1000,
                     SessionCompletion.COMPLETED.name, 720, 1, false, null, 0L)
-                SessionCommitter(db).commit(SessionBundle(session, listOf(SessionActiveIntervalEntity(id, 0, start, start + 720)),
-                    listOf(SessionSetEntity(id, "legPress", 1, SetState.COMPLETED.name, "40", "12", null))))
+                val result = SessionCommitter(db).commit(
+                    SessionBundle(session, listOf(SessionActiveIntervalEntity(id, 0, start, start + 720)),
+                        listOf(SessionSetEntity(id, "legPress", 1, SetState.COMPLETED.name, "40", "12", null)))
+                )
+                org.junit.Assert.assertTrue("seed session must be committed: $result", result is CommitResult.Committed)
+                assertEquals("report must select this seeded latest session", id, db.routiveDao().latestSessionId())
             }
             db.close()
             ActivityScenario.launch(ComposeActivity::class.java).use {
