@@ -224,10 +224,10 @@ class ComposeMyTest {
                 // does not guarantee that the chart above it is on screen.
                 rule.onNodeWithTag("my_report_chart").performScrollTo().assertIsDisplayed()
                 rule.onNodeWithTag("my_report_latest").performScrollTo().assertIsDisplayed()
-                rule.onNodeWithText("12분 00초 · 운동 기록 상세 보기").assertIsDisplayed()
+                rule.onNodeWithText("12분 00초 · 운동 기록 상세 보기").performScrollTo().assertIsDisplayed()
                 rule.onNodeWithTag("my_report_composition").performScrollTo().assertIsDisplayed()
                 rule.onNodeWithTag("my_report_ex_legPress").performScrollTo().assertIsDisplayed()
-                rule.onNodeWithText("40kg × 12회 (1세트)").assertIsDisplayed()
+                rule.onNodeWithText("40kg × 12회 (1세트)").performScrollTo().assertIsDisplayed()
                 capture("compose-my-report.png")
                 // The latest-session card opens the real session detail.
                 rule.onNodeWithTag("my_report_latest").performScrollTo().performClick()
