@@ -899,8 +899,24 @@ fun WorkoutSettings(
                 DialogDim()
                 if (notice == null) Text("라이선스 목록을 불러오지 못했어요.", modifier = Modifier.testTag("oss_unavailable"))
                 else LazyColumn(Modifier.heightIn(max = 420.dp).testTag("oss_list")) {
-                    item { Text(notice.scope + ". 전이 의존성은 아직 포함되지 않았어요.", style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp)) }
+                    item {
+                        val audited = notice.auditedCount.takeIf { it > 0 } ?: notice.libraries.size
+                        Text(
+                            "라이브러리 감사 목록: ${notice.libraries.size}/${audited}건 확인" +
+                                (if (notice.unresolvedCount > 0) " · 미확인 ${notice.unresolvedCount}건" else ""),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 4.dp).testTag("oss_audit_count")
+                        )
+                        if (!notice.legalNoticesVerified) {
+                            Text(
+                                "현재 표시되는 내용은 라이선스 메타데이터이며, 라이선스 전문·저작권·NOTICE 고지 검증은 완료되지 않았습니다.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(bottom = 8.dp).testTag("oss_legal_unverified")
+                            )
+                        }
+                    }
                     items(notice.libraries) { lib ->
                         Column(Modifier.padding(vertical = 6.dp)) {
                             Text(lib.name + " " + lib.version, style = MaterialTheme.typography.bodyMedium)
