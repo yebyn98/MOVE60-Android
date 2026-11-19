@@ -1,61 +1,88 @@
 #!/usr/bin/env python3
-"""Lists the DIRECT runtime dependencies of :app and :wear and reads each one's license from its published POM
-(Google Maven, then Maven Central; a parent POM is followed). Only licenses that a POM actually states are written to
-app/src/main/assets/oss_licenses.json (the in-app list). Anything not confirmed goes to the report as 'unconfirmed' and is NOT shown
-as if it were known. Transitive libraries are not enumerated here: run `gradle :app:dependencies :wear:dependencies` to cover them."""
-import json, pathlib, re, sys, urllib.request, xml.etree.ElementTree as ET
-root = pathlib.Path(__file__).resolve().parent.parent
-BASES = ["https://dl.google.com/dl/android/maven2/", "https://repo.maven.apache.org/maven2/"]
-NS = {"m": "http://maven.apache.org/POM/4.0.0"}
-def pom(g, a, v):
-    path = f"{g.replace('.', '/')}/{a}/{v}/{a}-{v}.pom"
-    for b in BASES:
-        try:
-            with urllib.request.urlopen(b + path, timeout=30) as r: return ET.fromstring(r.read()), b + path
-        except Exception: pass
-    return None, None
-def text(el, path): n = el.find(path, NS); return n.text.strip() if n is not None and n.text else None
-def licenses(g, a, v, depth=0):
-    root_el, url = pom(g, a, v)
-    if root_el is None: return None, None
-    found = [(text(l, "m:name"), text(l, "m:url")) for l in root_el.findall("m:licenses/m:license", NS)]
-    if found: return found, url
-    parent = root_el.find("m:parent", NS)
-    if parent is not None and depth < 3:
-        return licenses(text(parent, "m:groupId"), text(parent, "m:artifactId"), text(parent, "m:version"), depth + 1)
-    return None, url
-deps = {}
-bom = None
-for mod in ("app", "wear"):
-    src = (root / mod / "build.gradle").read_text()
-    bom = re.search(r"platform\('([^']+)'\)", src).group(1)
-    for line in src.splitlines():
-        m = re.match(r"\s*implementation\s+'([^':]+):([^':]+)(?::([^':]+))?'", line)
-        if m: deps.setdefault((m.group(1), m.group(2)), {"version": m.group(3), "modules": set()})["modules"].add(mod)
-bg, ba, bv = bom.split(":")
-bom_el, _ = pom(bg, ba, bv)
-managed = {}
-if bom_el is not None:
-    for d in bom_el.findall("m:dependencyManagement/m:dependencies/m:dependency", NS):
-        managed[(text(d, "m:groupId"), text(d, "m:artifactId"))] = text(d, "m:version")
-out, unconfirmed = [], []
-for (g, a), info in sorted(deps.items()):
-    v = info["version"] or managed.get((g, a))
-    lic, url = licenses(g, a, v) if v else (None, None)
-    entry = {"group": g, "artifact": a, "version": v, "modules": sorted(info["modules"])}
-    if lic:
-        entry["licenses"] = [{"name": n, "url": u} for n, u in lic]; entry["source"] = url; out.append(entry)
-    else: unconfirmed.append(entry)
-(root / "app/src/main/assets/oss_licenses.json").write_text(json.dumps({"scope": "direct runtime dependencies of :app and :wear (not transitive)", "libraries": out}, ensure_ascii=False, indent=1) + "\n")
-rep = ["# v67 · 오픈소스 라이선스 점검 결과 (직접 의존성)", "",
-       "`scripts/gen-oss-notice.py`가 각 라이브러리의 **게시된 POM**에서 라이선스를 읽은 결과이다. POM에 명시된 라이선스만 앱 목록(`assets/oss_licenses.json`)에 들어간다.", "",
-       "**범위 한계(출시 전 확인 필요):** 직접 의존성만 다뤘다. 전이 의존성(androidx·Kotlin·Guava 등이 가져오는 라이브러리)은 열거하지 않았다. "
-       "`gradle :app:dependencies :wear:dependencies`로 전체 목록을 만들어 같은 방식으로 확인해야 한다. 법적 고지 의무(저작권 표시, NOTICE 파일 전문)는 "
-       "법무/PO 검토 대상이며 이 문서가 그 충족을 보증하지 않는다.", "",
-       "| 라이브러리 | 버전 | 모듈 | 라이선스(POM 명시) | 근거 |", "|---|---|---|---|---|"]
-for e in out: rep.append(f"| {e['group']}:{e['artifact']} | {e['version']} | {', '.join(e['modules'])} | " + "; ".join(l['name'] or '?' for l in e['licenses']) + f" | {e['source']} |")
-rep += ["", "## 확인하지 못한 항목 (앱 목록에 넣지 않음)"] + ([f"- {e['group']}:{e['artifact']}:{e['version']} ({', '.join(e['modules'])})" for e in unconfirmed] or ["- 없음"])
-rep += ["", "## 라이브러리가 아닌 자산", "- 운동 가이드 이미지 29종: Free Exercise DB(Unlicense) — `docs/exercise-images-sources.md`. 원 저장소의 개별 이미지 권리는 이 점검에서 따로 확인하지 않았다."]
-(root / "docs/v67-oss-licenses-report.md").write_text("\n".join(rep) + "\n")
-print(len(out), "confirmed;", len(unconfirmed), "unconfirmed")
-for e in unconfirmed: print("  unconfirmed:", e["group"], e["artifact"], e["version"])
+"""Build a visible *metadata inventory* from the reviewed v70 transitive dependency audit.
+
+The v70 Markdown is a historical releaseRuntimeClasspath snapshot, NOT a fresh
+Gradle dependency resolution, source-license audit, or legal NOTICE clearance.
+This generator deliberately never sets any release-approval flags to true.
+After a dependency/version change, update the v70 report from Gradle and redo
+individual license/NOTICE/copyright inspections before release approval.
+"""
+from __future__ import annotations
+
+import json
+import re
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+AUDIT = ROOT / "docs/v70-oss-transitive-licenses.md"
+DEST = ROOT / "app/src/main/assets/oss_licenses.json"
+LICENSE_URLS = {
+    "apache": "https://www.apache.org/licenses/LICENSE-2.0",
+    "bsd": "https://opensource.org/license/bsd-3-clause",
+    "mit": "https://opensource.org/license/mit",
+    "sdk": "https://developer.android.com/studio/terms",
+}
+ROW = re.compile(
+    r"^\|\s*([A-Za-z0-9_.-]+):([A-Za-z0-9_.-]+)\s*"
+    r"\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|$"
+)
+audit_text = AUDIT.read_text(encoding="utf-8")
+assert "## 전체 목록" in audit_text, "Missing v70 transitive inventory"
+lines = audit_text.split("## 전체 목록", 1)[1].splitlines()
+
+previous = json.loads(DEST.read_text(encoding="utf-8")) if DEST.exists() else {}
+pom_sources = {
+    (x.get("group"), x.get("artifact"), x.get("version")): x.get("pomSource") or x.get("source")
+    for x in previous.get("libraries", [])
+}
+entries, unresolved, seen = [], [], set()
+for line in lines:
+    m = ROW.match(line)
+    if not m:
+        continue
+    group, artifact, version, modules, license_name = (v.strip() for v in m.groups())
+    identity = f"{group}:{artifact}:{version}"
+    assert identity not in seen, f"Duplicate dependency: {identity}"
+    seen.add(identity)
+    if license_name == "미확인":
+        unresolved.append(identity)
+        continue
+    kind = (
+        "apache" if "Apache" in license_name else
+        "bsd" if license_name == "BSD-3-Clause" else
+        "mit" if "MIT" in license_name else
+        "sdk" if license_name == "Android Software Development Kit License" else None
+    )
+    assert kind is not None, f"Unrecognized license: {identity} / {license_name}"
+    entry = {
+        "group": group,
+        "artifact": artifact,
+        "version": version,
+        "modules": [s.strip() for s in modules.split(",")],
+        "licenses": [{"name": license_name, "url": LICENSE_URLS[kind]}],
+        "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+    }
+    if pom_sources.get((group, artifact, version)):
+        entry["pomSource"] = pom_sources[(group, artifact, version)]
+    entry["classification"] = "SDK terms" if kind == "sdk" else "OSS metadata"
+    entries.append(entry)
+
+assert len(seen) == 188 and len(entries) == 187, "Historical v70 dependency count changed; re-audit first"
+assert unresolved == ["javax.inject:javax.inject:1"], "Unknown/modified unresolved dependency; re-audit first"
+result = {
+    "scope": "phone+Wear releaseRuntimeClasspath transitive POM audit snapshot (2026-11-17); incomplete third-party legal notices, NOT release-approved",
+    "audit": {
+        "expectedRuntimeModules": len(seen),
+        "resolvedModules": len(entries),
+        "unresolved": unresolved,
+        "releaseGraphReverified": False,
+        "licenseTextsVerified": False,
+        "copyrightVerified": False,
+        "noticesVerified": False,
+        "operatorApproved": False,
+        "report": "docs/v70-oss-transitive-licenses.md",
+    },
+    "libraries": entries,
+}
+DEST.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+print(f"Generated {len(entries)} license metadata entries; {len(unresolved)} unresolved. Release NOT authorized.")
