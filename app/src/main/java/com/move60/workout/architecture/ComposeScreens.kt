@@ -748,6 +748,7 @@ fun WorkoutSettings(
     LaunchedEffect(updateManager) { updateManager.peekAvailability { updateAvailable = it } }
     var diagnostics by remember { mutableStateOf<String?>(null) }
     var showOss by remember { mutableStateOf(false) }
+    var ossReferenceId by remember { mutableStateOf<String?>(null) }
     val privacyUrl = remember {
         com.move60.workout.domain.PrivacyPolicyLink.validOrNull(context.getString(com.move60.workout.R.string.privacy_policy_url))
     }
@@ -892,13 +893,37 @@ fun WorkoutSettings(
     }
     if (showOss) {
         val notice = remember { OssNoticeReader.load(context) }
+        val referenceText = remember(ossReferenceId) {
+            ossReferenceId?.let { OssLicenseReference.read(context, it) }
+        }
         AlertDialog(
-            onDismissRequest = { showOss = false },
-            title = { Text("오픈소스 라이선스") },
+            onDismissRequest = { showOss = false; ossReferenceId = null },
+            title = { Text(ossReferenceId?.let { "$it 표준 라이선스" } ?: "오픈소스 라이선스") },
             text = {
                 DialogDim()
-                if (notice == null) Text("라이선스 목록을 불러오지 못했어요.", modifier = Modifier.testTag("oss_unavailable"))
-                else LazyColumn(Modifier.heightIn(max = 420.dp).testTag("oss_list")) {
+                if (ossReferenceId != null) {
+                    LazyColumn(Modifier.heightIn(max = 420.dp).testTag("oss_reference_detail"),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        item {
+                            Text(
+                                "SPDX 표준 라이선스 참고용 원문입니다. 각 라이브러리의 정확한 저작권 표시·개별 NOTICE·약관 준수 여부는 아직 검증 중입니다.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.testTag("oss_reference_notice")
+                            )
+                        }
+                        if (referenceText == null) {
+                            item { Text("표준 라이선스 원문을 불러오지 못했어요.", modifier = Modifier.testTag("oss_reference_unavailable")) }
+                        } else {
+                            item { Text("원문 표시", style = MaterialTheme.typography.titleSmall, modifier = Modifier.testTag("oss_reference_loaded")) }
+                            items(referenceText.split("\n\n")) { paragraph ->
+                                Text(paragraph, style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
+                } else if (notice == null) {
+                    Text("라이선스 목록을 불러오지 못했어요.", modifier = Modifier.testTag("oss_unavailable"))
+                } else LazyColumn(Modifier.heightIn(max = 420.dp).testTag("oss_list")) {
                     item {
                         val audited = notice.auditedCount.takeIf { it > 0 } ?: notice.libraries.size
                         Text(
@@ -917,6 +942,20 @@ fun WorkoutSettings(
                             )
                         }
                     }
+                    item {
+                        Text("표준 라이선스 참고 원문", style = MaterialTheme.typography.titleSmall)
+                        OssLicenseReference.knownIds.forEach { licenseId ->
+                            TextButton(
+                                onClick = { ossReferenceId = licenseId },
+                                modifier = Modifier.heightIn(min = 48.dp).testTag("oss_reference_open_$licenseId")
+                            ) { Text("$licenseId 원문 보기") }
+                        }
+                        Text(
+                            "MIT·BSD 원문의 저작권자·연도는 표준 서식의 예시 값이며, 실제 배포 고지는 별도로 검증해야 합니다. Android SDK 항목은 별도의 SDK 이용약관이 적용됩니다.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
                     items(notice.libraries) { lib ->
                         Column(Modifier.padding(vertical = 6.dp)) {
                             Text(lib.name + " " + lib.version, style = MaterialTheme.typography.bodyMedium)
@@ -926,7 +965,11 @@ fun WorkoutSettings(
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { showOss = false }) { Text("닫기") } }
+            confirmButton = {
+                TextButton(onClick = {
+                    if (ossReferenceId != null) ossReferenceId = null else showOss = false
+                }) { Text(if (ossReferenceId != null) "목록으로" else "닫기") }
+            }
         )
     }
     diagnostics?.let { text ->
