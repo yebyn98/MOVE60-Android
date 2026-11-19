@@ -23,6 +23,16 @@ class OssNoticeTest {
         assertNull(OssNoticeReader.parse("""{"libraries":[]}"""))
         assertNull(OssNoticeReader.parse("""{"libraries":[{"group":"g","artifact":"a","version":"1","licenses":[]}]}"""))
     }
+    @Test fun theTransitiveAuditIsExplicitlyUnverifiedForRelease() {
+        val bundled = OssNoticeReader.load(ApplicationProvider.getApplicationContext<Context>())
+        assertNotNull(bundled)
+        val notice = bundled!!
+        assertEquals(188, notice.auditedCount)
+        assertEquals(187, notice.libraries.size)
+        assertEquals(1, notice.unresolvedCount)
+        assertFalse("POM license labels and legal license/NOTICE distribution are different", notice.legalNoticesVerified)
+    }
+
     @Test fun theBundledListIsReadableAndHasNoLibraryWithoutALicense() {
         val n = OssNoticeReader.load(ApplicationProvider.getApplicationContext<Context>())
         assertNotNull("assets/oss_licenses.json must be bundled (scripts/gen-oss-notice.py)", n)
