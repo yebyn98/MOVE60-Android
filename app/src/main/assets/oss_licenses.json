@@ -1,489 +1,3162 @@
 {
- "scope": "direct runtime dependencies of :app and :wear (not transitive)",
- "libraries": [
-  {
-   "group": "androidx.activity",
-   "artifact": "activity",
-   "version": "1.9.3",
-   "modules": [
-    "wear"
-   ],
-   "licenses": [
-    {
-     "name": "The Apache Software License, Version 2.0",
-     "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
-    }
-   ],
-   "source": "https://dl.google.com/dl/android/maven2/androidx/activity/activity/1.9.3/activity-1.9.3.pom"
+  "scope": "phone+Wear releaseRuntimeClasspath transitive POM audit snapshot (2026-11-17); incomplete third-party legal notices, NOT release-approved",
+  "audit": {
+    "expectedRuntimeModules": 188,
+    "resolvedModules": 188,
+    "unresolved": [],
+    "releaseGraphReverified": false,
+    "licenseTextsVerified": false,
+    "copyrightVerified": false,
+    "noticesVerified": false,
+    "operatorApproved": false,
+    "report": "docs/v70-oss-transitive-licenses.md"
   },
-  {
-   "group": "androidx.activity",
-   "artifact": "activity-compose",
-   "version": "1.9.3",
-   "modules": [
-    "app",
-    "wear"
-   ],
-   "licenses": [
+  "libraries": [
     {
-     "name": "The Apache Software License, Version 2.0",
-     "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
-    }
-   ],
-   "source": "https://dl.google.com/dl/android/maven2/androidx/activity/activity-compose/1.9.3/activity-compose-1.9.3.pom"
-  },
-  {
-   "group": "androidx.compose.foundation",
-   "artifact": "foundation",
-   "version": "1.7.6",
-   "modules": [
-    "app",
-    "wear"
-   ],
-   "licenses": [
+      "group": "androidx.activity",
+      "artifact": "activity",
+      "version": "1.9.3",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/activity/activity/1.9.3/activity-1.9.3.pom",
+      "classification": "OSS metadata"
+    },
     {
-     "name": "The Apache Software License, Version 2.0",
-     "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
-    }
-   ],
-   "source": "https://dl.google.com/dl/android/maven2/androidx/compose/foundation/foundation/1.7.6/foundation-1.7.6.pom"
-  },
-  {
-   "group": "androidx.compose.material",
-   "artifact": "material-icons-extended",
-   "version": "1.7.6",
-   "modules": [
-    "app"
-   ],
-   "licenses": [
+      "group": "androidx.activity",
+      "artifact": "activity-compose",
+      "version": "1.9.3",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/activity/activity-compose/1.9.3/activity-compose-1.9.3.pom",
+      "classification": "OSS metadata"
+    },
     {
-     "name": "The Apache Software License, Version 2.0",
-     "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
-    }
-   ],
-   "source": "https://dl.google.com/dl/android/maven2/androidx/compose/material/material-icons-extended/1.7.6/material-icons-extended-1.7.6.pom"
-  },
-  {
-   "group": "androidx.compose.material3",
-   "artifact": "material3",
-   "version": "1.3.1",
-   "modules": [
-    "app"
-   ],
-   "licenses": [
+      "group": "androidx.activity",
+      "artifact": "activity-ktx",
+      "version": "1.9.3",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
     {
-     "name": "The Apache Software License, Version 2.0",
-     "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
-    }
-   ],
-   "source": "https://dl.google.com/dl/android/maven2/androidx/compose/material3/material3/1.3.1/material3-1.3.1.pom"
-  },
-  {
-   "group": "androidx.compose.ui",
-   "artifact": "ui",
-   "version": "1.7.6",
-   "modules": [
-    "app",
-    "wear"
-   ],
-   "licenses": [
+      "group": "androidx.annotation",
+      "artifact": "annotation",
+      "version": "1.8.1",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
     {
-     "name": "The Apache Software License, Version 2.0",
-     "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
-    }
-   ],
-   "source": "https://dl.google.com/dl/android/maven2/androidx/compose/ui/ui/1.7.6/ui-1.7.6.pom"
-  },
-  {
-   "group": "androidx.compose.ui",
-   "artifact": "ui-tooling-preview",
-   "version": "1.7.6",
-   "modules": [
-    "app"
-   ],
-   "licenses": [
+      "group": "androidx.annotation",
+      "artifact": "annotation-experimental",
+      "version": "1.4.1",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
     {
-     "name": "The Apache Software License, Version 2.0",
-     "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
-    }
-   ],
-   "source": "https://dl.google.com/dl/android/maven2/androidx/compose/ui/ui-tooling-preview/1.7.6/ui-tooling-preview-1.7.6.pom"
-  },
-  {
-   "group": "androidx.core",
-   "artifact": "core",
-   "version": "1.13.1",
-   "modules": [
-    "wear"
-   ],
-   "licenses": [
+      "group": "androidx.annotation",
+      "artifact": "annotation-jvm",
+      "version": "1.8.1",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
     {
-     "name": "The Apache Software License, Version 2.0",
-     "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
-    }
-   ],
-   "source": "https://dl.google.com/dl/android/maven2/androidx/core/core/1.13.1/core-1.13.1.pom"
-  },
-  {
-   "group": "androidx.fragment",
-   "artifact": "fragment",
-   "version": "1.8.5",
-   "modules": [
-    "wear"
-   ],
-   "licenses": [
+      "group": "androidx.appcompat",
+      "artifact": "appcompat",
+      "version": "1.6.1",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
     {
-     "name": "The Apache Software License, Version 2.0",
-     "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
-    }
-   ],
-   "source": "https://dl.google.com/dl/android/maven2/androidx/fragment/fragment/1.8.5/fragment-1.8.5.pom"
-  },
-  {
-   "group": "androidx.health",
-   "artifact": "health-services-client",
-   "version": "1.1.0",
-   "modules": [
-    "wear"
-   ],
-   "licenses": [
+      "group": "androidx.appcompat",
+      "artifact": "appcompat-resources",
+      "version": "1.6.1",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
     {
-     "name": "The Apache Software License, Version 2.0",
-     "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
-    }
-   ],
-   "source": "https://dl.google.com/dl/android/maven2/androidx/health/health-services-client/1.1.0/health-services-client-1.1.0.pom"
-  },
-  {
-   "group": "androidx.health.connect",
-   "artifact": "connect-client",
-   "version": "1.1.0-alpha12",
-   "modules": [
-    "app"
-   ],
-   "licenses": [
+      "group": "androidx.arch.core",
+      "artifact": "core-common",
+      "version": "2.2.0",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
     {
-     "name": "The Apache Software License, Version 2.0",
-     "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
-    }
-   ],
-   "source": "https://dl.google.com/dl/android/maven2/androidx/health/connect/connect-client/1.1.0-alpha12/connect-client-1.1.0-alpha12.pom"
-  },
-  {
-   "group": "androidx.hilt",
-   "artifact": "hilt-navigation-compose",
-   "version": "1.2.0",
-   "modules": [
-    "app"
-   ],
-   "licenses": [
+      "group": "androidx.arch.core",
+      "artifact": "core-runtime",
+      "version": "2.2.0",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
     {
-     "name": "The Apache Software License, Version 2.0",
-     "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
-    }
-   ],
-   "source": "https://dl.google.com/dl/android/maven2/androidx/hilt/hilt-navigation-compose/1.2.0/hilt-navigation-compose-1.2.0.pom"
-  },
-  {
-   "group": "androidx.hilt",
-   "artifact": "hilt-work",
-   "version": "1.2.0",
-   "modules": [
-    "app"
-   ],
-   "licenses": [
+      "group": "androidx.autofill",
+      "artifact": "autofill",
+      "version": "1.0.0",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
     {
-     "name": "The Apache Software License, Version 2.0",
-     "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
-    }
-   ],
-   "source": "https://dl.google.com/dl/android/maven2/androidx/hilt/hilt-work/1.2.0/hilt-work-1.2.0.pom"
-  },
-  {
-   "group": "androidx.lifecycle",
-   "artifact": "lifecycle-runtime-compose",
-   "version": "2.8.7",
-   "modules": [
-    "app"
-   ],
-   "licenses": [
+      "group": "androidx.cardview",
+      "artifact": "cardview",
+      "version": "1.0.0",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
     {
-     "name": "The Apache Software License, Version 2.0",
-     "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
-    }
-   ],
-   "source": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-runtime-compose/2.8.7/lifecycle-runtime-compose-2.8.7.pom"
-  },
-  {
-   "group": "androidx.lifecycle",
-   "artifact": "lifecycle-runtime-ktx",
-   "version": "2.8.7",
-   "modules": [
-    "app"
-   ],
-   "licenses": [
+      "group": "androidx.collection",
+      "artifact": "collection",
+      "version": "1.4.4",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
     {
-     "name": "The Apache Software License, Version 2.0",
-     "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
-    }
-   ],
-   "source": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-runtime-ktx/2.8.7/lifecycle-runtime-ktx-2.8.7.pom"
-  },
-  {
-   "group": "androidx.lifecycle",
-   "artifact": "lifecycle-viewmodel-compose",
-   "version": "2.8.7",
-   "modules": [
-    "app"
-   ],
-   "licenses": [
+      "group": "androidx.collection",
+      "artifact": "collection-jvm",
+      "version": "1.4.4",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
     {
-     "name": "The Apache Software License, Version 2.0",
-     "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
-    }
-   ],
-   "source": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-viewmodel-compose/2.8.7/lifecycle-viewmodel-compose-2.8.7.pom"
-  },
-  {
-   "group": "androidx.navigation",
-   "artifact": "navigation-compose",
-   "version": "2.8.5",
-   "modules": [
-    "app"
-   ],
-   "licenses": [
+      "group": "androidx.collection",
+      "artifact": "collection-ktx",
+      "version": "1.4.4",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
     {
-     "name": "The Apache Software License, Version 2.0",
-     "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
-    }
-   ],
-   "source": "https://dl.google.com/dl/android/maven2/androidx/navigation/navigation-compose/2.8.5/navigation-compose-2.8.5.pom"
-  },
-  {
-   "group": "androidx.room",
-   "artifact": "room-ktx",
-   "version": "2.6.1",
-   "modules": [
-    "app"
-   ],
-   "licenses": [
+      "group": "androidx.compose",
+      "artifact": "compose-bom",
+      "version": "2024.12.01",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
     {
-     "name": "The Apache Software License, Version 2.0",
-     "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
-    }
-   ],
-   "source": "https://dl.google.com/dl/android/maven2/androidx/room/room-ktx/2.6.1/room-ktx-2.6.1.pom"
-  },
-  {
-   "group": "androidx.room",
-   "artifact": "room-runtime",
-   "version": "2.6.1",
-   "modules": [
-    "app"
-   ],
-   "licenses": [
+      "group": "androidx.compose.animation",
+      "artifact": "animation",
+      "version": "1.7.6",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
     {
-     "name": "The Apache Software License, Version 2.0",
-     "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
-    }
-   ],
-   "source": "https://dl.google.com/dl/android/maven2/androidx/room/room-runtime/2.6.1/room-runtime-2.6.1.pom"
-  },
-  {
-   "group": "androidx.wear",
-   "artifact": "wear",
-   "version": "1.3.0",
-   "modules": [
-    "wear"
-   ],
-   "licenses": [
+      "group": "androidx.compose.animation",
+      "artifact": "animation-android",
+      "version": "1.7.6",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
     {
-     "name": "The Apache Software License, Version 2.0",
-     "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
-    }
-   ],
-   "source": "https://dl.google.com/dl/android/maven2/androidx/wear/wear/1.3.0/wear-1.3.0.pom"
-  },
-  {
-   "group": "androidx.wear",
-   "artifact": "wear-ongoing",
-   "version": "1.0.0",
-   "modules": [
-    "wear"
-   ],
-   "licenses": [
+      "group": "androidx.compose.animation",
+      "artifact": "animation-core",
+      "version": "1.7.6",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
     {
-     "name": "The Apache Software License, Version 2.0",
-     "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
-    }
-   ],
-   "source": "https://dl.google.com/dl/android/maven2/androidx/wear/wear-ongoing/1.0.0/wear-ongoing-1.0.0.pom"
-  },
-  {
-   "group": "androidx.wear.compose",
-   "artifact": "compose-foundation",
-   "version": "1.4.1",
-   "modules": [
-    "wear"
-   ],
-   "licenses": [
+      "group": "androidx.compose.animation",
+      "artifact": "animation-core-android",
+      "version": "1.7.6",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
     {
-     "name": "The Apache Software License, Version 2.0",
-     "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
-    }
-   ],
-   "source": "https://dl.google.com/dl/android/maven2/androidx/wear/compose/compose-foundation/1.4.1/compose-foundation-1.4.1.pom"
-  },
-  {
-   "group": "androidx.wear.compose",
-   "artifact": "compose-material",
-   "version": "1.4.1",
-   "modules": [
-    "wear"
-   ],
-   "licenses": [
+      "group": "androidx.compose.foundation",
+      "artifact": "foundation",
+      "version": "1.7.6",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/compose/foundation/foundation/1.7.6/foundation-1.7.6.pom",
+      "classification": "OSS metadata"
+    },
     {
-     "name": "The Apache Software License, Version 2.0",
-     "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
-    }
-   ],
-   "source": "https://dl.google.com/dl/android/maven2/androidx/wear/compose/compose-material/1.4.1/compose-material-1.4.1.pom"
-  },
-  {
-   "group": "androidx.wear.protolayout",
-   "artifact": "protolayout",
-   "version": "1.4.2",
-   "modules": [
-    "wear"
-   ],
-   "licenses": [
+      "group": "androidx.compose.foundation",
+      "artifact": "foundation-android",
+      "version": "1.7.6",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
     {
-     "name": "The Apache Software License, Version 2.0",
-     "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
-    }
-   ],
-   "source": "https://dl.google.com/dl/android/maven2/androidx/wear/protolayout/protolayout/1.4.2/protolayout-1.4.2.pom"
-  },
-  {
-   "group": "androidx.wear.tiles",
-   "artifact": "tiles",
-   "version": "1.6.2",
-   "modules": [
-    "wear"
-   ],
-   "licenses": [
+      "group": "androidx.compose.foundation",
+      "artifact": "foundation-layout",
+      "version": "1.7.6",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
     {
-     "name": "The Apache Software License, Version 2.0",
-     "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
-    }
-   ],
-   "source": "https://dl.google.com/dl/android/maven2/androidx/wear/tiles/tiles/1.6.2/tiles-1.6.2.pom"
-  },
-  {
-   "group": "androidx.work",
-   "artifact": "work-runtime-ktx",
-   "version": "2.10.0",
-   "modules": [
-    "app"
-   ],
-   "licenses": [
+      "group": "androidx.compose.foundation",
+      "artifact": "foundation-layout-android",
+      "version": "1.7.6",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
     {
-     "name": "The Apache Software License, Version 2.0",
-     "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
-    }
-   ],
-   "source": "https://dl.google.com/dl/android/maven2/androidx/work/work-runtime-ktx/2.10.0/work-runtime-ktx-2.10.0.pom"
-  },
-  {
-   "group": "com.google.android.gms",
-   "artifact": "play-services-wearable",
-   "version": "19.0.0",
-   "modules": [
-    "app",
-    "wear"
-   ],
-   "licenses": [
+      "group": "androidx.compose.material",
+      "artifact": "material",
+      "version": "1.7.8",
+      "modules": [
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
     {
-     "name": "Android Software Development Kit License",
-     "url": "https://developer.android.com/studio/terms.html"
-    }
-   ],
-   "source": "https://dl.google.com/dl/android/maven2/com/google/android/gms/play-services-wearable/19.0.0/play-services-wearable-19.0.0.pom"
-  },
-  {
-   "group": "com.google.android.horologist",
-   "artifact": "horologist-compose-layout",
-   "version": "0.6.23",
-   "modules": [
-    "wear"
-   ],
-   "licenses": [
+      "group": "androidx.compose.material",
+      "artifact": "material-android",
+      "version": "1.7.8",
+      "modules": [
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
     {
-     "name": "The Apache Software License, Version 2.0",
-     "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
-    }
-   ],
-   "source": "https://repo.maven.apache.org/maven2/com/google/android/horologist/horologist-compose-layout/0.6.23/horologist-compose-layout-0.6.23.pom"
-  },
-  {
-   "group": "com.google.android.material",
-   "artifact": "material",
-   "version": "1.12.0",
-   "modules": [
-    "app"
-   ],
-   "licenses": [
+      "group": "androidx.compose.material",
+      "artifact": "material-icons-core",
+      "version": "1.7.6",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
     {
-     "name": "The Apache Software License, Version 2.0",
-     "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
-    }
-   ],
-   "source": "https://dl.google.com/dl/android/maven2/com/google/android/material/material/1.12.0/material-1.12.0.pom"
-  },
-  {
-   "group": "com.google.dagger",
-   "artifact": "hilt-android",
-   "version": "2.52",
-   "modules": [
-    "app"
-   ],
-   "licenses": [
+      "group": "androidx.compose.material",
+      "artifact": "material-icons-core-android",
+      "version": "1.7.6",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
     {
-     "name": "Apache 2.0",
-     "url": "https://www.apache.org/licenses/LICENSE-2.0.txt"
-    }
-   ],
-   "source": "https://repo.maven.apache.org/maven2/com/google/dagger/hilt-android/2.52/hilt-android-2.52.pom"
-  },
-  {
-   "group": "com.google.guava",
-   "artifact": "guava",
-   "version": "33.4.8-android",
-   "modules": [
-    "wear"
-   ],
-   "licenses": [
+      "group": "androidx.compose.material",
+      "artifact": "material-icons-extended-android",
+      "version": "1.7.6",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
     {
-     "name": "Apache License, Version 2.0",
-     "url": "http://www.apache.org/licenses/LICENSE-2.0.txt"
-    }
-   ],
-   "source": "https://repo.maven.apache.org/maven2/com/google/guava/guava-parent/33.4.8-android/guava-parent-33.4.8-android.pom"
-  },
-  {
-   "group": "org.jetbrains.kotlinx",
-   "artifact": "kotlinx-coroutines-android",
-   "version": "1.9.0",
-   "modules": [
-    "app"
-   ],
-   "licenses": [
+      "group": "androidx.compose.material",
+      "artifact": "material-ripple",
+      "version": "1.7.6",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
     {
-     "name": "The Apache Software License, Version 2.0",
-     "url": "https://www.apache.org/licenses/LICENSE-2.0.txt"
+      "group": "androidx.compose.material",
+      "artifact": "material-ripple-android",
+      "version": "1.7.6",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.compose.material3",
+      "artifact": "material3-android",
+      "version": "1.3.1",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.compose.runtime",
+      "artifact": "runtime",
+      "version": "1.7.6",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.compose.runtime",
+      "artifact": "runtime-android",
+      "version": "1.7.6",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.compose.runtime",
+      "artifact": "runtime-saveable",
+      "version": "1.7.6",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.compose.runtime",
+      "artifact": "runtime-saveable-android",
+      "version": "1.7.6",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.compose.ui",
+      "artifact": "ui",
+      "version": "1.7.6",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/compose/ui/ui/1.7.6/ui-1.7.6.pom",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.compose.ui",
+      "artifact": "ui-android",
+      "version": "1.7.6",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.compose.ui",
+      "artifact": "ui-geometry",
+      "version": "1.7.6",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.compose.ui",
+      "artifact": "ui-geometry-android",
+      "version": "1.7.6",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.compose.ui",
+      "artifact": "ui-graphics",
+      "version": "1.7.6",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.compose.ui",
+      "artifact": "ui-graphics-android",
+      "version": "1.7.6",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.compose.ui",
+      "artifact": "ui-text",
+      "version": "1.7.6",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.compose.ui",
+      "artifact": "ui-text-android",
+      "version": "1.7.6",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.compose.ui",
+      "artifact": "ui-tooling-android",
+      "version": "1.7.8",
+      "modules": [
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.compose.ui",
+      "artifact": "ui-tooling-data",
+      "version": "1.7.8",
+      "modules": [
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.compose.ui",
+      "artifact": "ui-tooling-data-android",
+      "version": "1.7.8",
+      "modules": [
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.compose.ui",
+      "artifact": "ui-tooling-preview",
+      "version": "1.7.8",
+      "modules": [
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.compose.ui",
+      "artifact": "ui-tooling-preview-android",
+      "version": "1.7.6",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.compose.ui",
+      "artifact": "ui-unit",
+      "version": "1.7.6",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.compose.ui",
+      "artifact": "ui-unit-android",
+      "version": "1.7.6",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.compose.ui",
+      "artifact": "ui-util",
+      "version": "1.7.6",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.compose.ui",
+      "artifact": "ui-util-android",
+      "version": "1.7.6",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.concurrent",
+      "artifact": "concurrent-futures",
+      "version": "1.1.0",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.concurrent",
+      "artifact": "concurrent-futures-ktx",
+      "version": "1.1.0",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.constraintlayout",
+      "artifact": "constraintlayout",
+      "version": "2.0.1",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.constraintlayout",
+      "artifact": "constraintlayout-solver",
+      "version": "2.0.1",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.coordinatorlayout",
+      "artifact": "coordinatorlayout",
+      "version": "1.1.0",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.core",
+      "artifact": "core",
+      "version": "1.13.1",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/core/core/1.13.1/core-1.13.1.pom",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.core",
+      "artifact": "core-ktx",
+      "version": "1.13.1",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.cursoradapter",
+      "artifact": "cursoradapter",
+      "version": "1.0.0",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.customview",
+      "artifact": "customview",
+      "version": "1.1.0",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.customview",
+      "artifact": "customview-poolingcontainer",
+      "version": "1.0.0",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.documentfile",
+      "artifact": "documentfile",
+      "version": "1.0.0",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.drawerlayout",
+      "artifact": "drawerlayout",
+      "version": "1.1.1",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.dynamicanimation",
+      "artifact": "dynamicanimation",
+      "version": "1.0.0",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.emoji2",
+      "artifact": "emoji2",
+      "version": "1.3.0",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.emoji2",
+      "artifact": "emoji2-views-helper",
+      "version": "1.3.0",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.fragment",
+      "artifact": "fragment",
+      "version": "1.5.1",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.graphics",
+      "artifact": "graphics-path",
+      "version": "1.0.1",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.health",
+      "artifact": "health-services-client",
+      "version": "1.1.0",
+      "modules": [
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/health/health-services-client/1.1.0/health-services-client-1.1.0.pom",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.health",
+      "artifact": "health-services-client-external-protobuf",
+      "version": "1.1.0",
+      "modules": [
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "BSD-3-Clause",
+          "url": "https://opensource.org/license/bsd-3-clause"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.health",
+      "artifact": "health-services-client-proto",
+      "version": "1.1.0",
+      "modules": [
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.health.connect",
+      "artifact": "connect-client",
+      "version": "1.1.0-alpha12",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/health/connect/connect-client/1.1.0-alpha12/connect-client-1.1.0-alpha12.pom",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.health.connect",
+      "artifact": "connect-client-external-protobuf",
+      "version": "1.1.0-alpha12",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "BSD-3-Clause",
+          "url": "https://opensource.org/license/bsd-3-clause"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.health.connect",
+      "artifact": "connect-client-proto",
+      "version": "1.1.0-alpha12",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.hilt",
+      "artifact": "hilt-common",
+      "version": "1.2.0",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.hilt",
+      "artifact": "hilt-navigation",
+      "version": "1.2.0",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.hilt",
+      "artifact": "hilt-navigation-compose",
+      "version": "1.2.0",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/hilt/hilt-navigation-compose/1.2.0/hilt-navigation-compose-1.2.0.pom",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.hilt",
+      "artifact": "hilt-work",
+      "version": "1.2.0",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/hilt/hilt-work/1.2.0/hilt-work-1.2.0.pom",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.interpolator",
+      "artifact": "interpolator",
+      "version": "1.0.0",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.legacy",
+      "artifact": "legacy-support-core-utils",
+      "version": "1.0.0",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.lifecycle",
+      "artifact": "lifecycle-common",
+      "version": "2.8.7",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.lifecycle",
+      "artifact": "lifecycle-common-java8",
+      "version": "2.8.7",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.lifecycle",
+      "artifact": "lifecycle-common-jvm",
+      "version": "2.8.7",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.lifecycle",
+      "artifact": "lifecycle-livedata",
+      "version": "2.8.7",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.lifecycle",
+      "artifact": "lifecycle-livedata-core",
+      "version": "2.8.7",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.lifecycle",
+      "artifact": "lifecycle-livedata-core-ktx",
+      "version": "2.8.7",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.lifecycle",
+      "artifact": "lifecycle-process",
+      "version": "2.8.7",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.lifecycle",
+      "artifact": "lifecycle-runtime",
+      "version": "2.8.7",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.lifecycle",
+      "artifact": "lifecycle-runtime-android",
+      "version": "2.8.7",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.lifecycle",
+      "artifact": "lifecycle-runtime-compose",
+      "version": "2.8.7",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-runtime-compose/2.8.7/lifecycle-runtime-compose-2.8.7.pom",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.lifecycle",
+      "artifact": "lifecycle-runtime-compose-android",
+      "version": "2.8.7",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.lifecycle",
+      "artifact": "lifecycle-runtime-ktx",
+      "version": "2.8.7",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-runtime-ktx/2.8.7/lifecycle-runtime-ktx-2.8.7.pom",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.lifecycle",
+      "artifact": "lifecycle-runtime-ktx-android",
+      "version": "2.8.7",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.lifecycle",
+      "artifact": "lifecycle-service",
+      "version": "2.8.7",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.lifecycle",
+      "artifact": "lifecycle-viewmodel",
+      "version": "2.8.7",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.lifecycle",
+      "artifact": "lifecycle-viewmodel-android",
+      "version": "2.8.7",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.lifecycle",
+      "artifact": "lifecycle-viewmodel-compose",
+      "version": "2.8.7",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-viewmodel-compose/2.8.7/lifecycle-viewmodel-compose-2.8.7.pom",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.lifecycle",
+      "artifact": "lifecycle-viewmodel-compose-android",
+      "version": "2.8.7",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.lifecycle",
+      "artifact": "lifecycle-viewmodel-ktx",
+      "version": "2.8.7",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.lifecycle",
+      "artifact": "lifecycle-viewmodel-savedstate",
+      "version": "2.8.7",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.loader",
+      "artifact": "loader",
+      "version": "1.0.0",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.localbroadcastmanager",
+      "artifact": "localbroadcastmanager",
+      "version": "1.0.0",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.navigation",
+      "artifact": "navigation-common",
+      "version": "2.8.5",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.navigation",
+      "artifact": "navigation-common-ktx",
+      "version": "2.8.5",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.navigation",
+      "artifact": "navigation-compose",
+      "version": "2.8.5",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/navigation/navigation-compose/2.8.5/navigation-compose-2.8.5.pom",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.navigation",
+      "artifact": "navigation-runtime",
+      "version": "2.8.5",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.navigation",
+      "artifact": "navigation-runtime-ktx",
+      "version": "2.8.5",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.paging",
+      "artifact": "paging-common",
+      "version": "3.3.6",
+      "modules": [
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.paging",
+      "artifact": "paging-common-android",
+      "version": "3.3.6",
+      "modules": [
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.paging",
+      "artifact": "paging-compose",
+      "version": "3.3.6",
+      "modules": [
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.paging",
+      "artifact": "paging-compose-android",
+      "version": "3.3.6",
+      "modules": [
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.print",
+      "artifact": "print",
+      "version": "1.0.0",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.profileinstaller",
+      "artifact": "profileinstaller",
+      "version": "1.3.1",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.recyclerview",
+      "artifact": "recyclerview",
+      "version": "1.1.0",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.resourceinspection",
+      "artifact": "resourceinspection-annotation",
+      "version": "1.0.1",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.room",
+      "artifact": "room-common",
+      "version": "2.6.1",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.room",
+      "artifact": "room-ktx",
+      "version": "2.6.1",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/room/room-ktx/2.6.1/room-ktx-2.6.1.pom",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.room",
+      "artifact": "room-runtime",
+      "version": "2.6.1",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/room/room-runtime/2.6.1/room-runtime-2.6.1.pom",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.savedstate",
+      "artifact": "savedstate",
+      "version": "1.2.1",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.savedstate",
+      "artifact": "savedstate-ktx",
+      "version": "1.2.1",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.sqlite",
+      "artifact": "sqlite",
+      "version": "2.4.0",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.sqlite",
+      "artifact": "sqlite-framework",
+      "version": "2.4.0",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.startup",
+      "artifact": "startup-runtime",
+      "version": "1.1.1",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.swiperefreshlayout",
+      "artifact": "swiperefreshlayout",
+      "version": "1.0.0",
+      "modules": [
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.tracing",
+      "artifact": "tracing",
+      "version": "1.2.0",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.tracing",
+      "artifact": "tracing-ktx",
+      "version": "1.2.0",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.transition",
+      "artifact": "transition",
+      "version": "1.5.0",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.vectordrawable",
+      "artifact": "vectordrawable",
+      "version": "1.1.0",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.vectordrawable",
+      "artifact": "vectordrawable-animated",
+      "version": "1.1.0",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.versionedparcelable",
+      "artifact": "versionedparcelable",
+      "version": "1.1.1",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.viewpager",
+      "artifact": "viewpager",
+      "version": "1.0.0",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.viewpager2",
+      "artifact": "viewpager2",
+      "version": "1.0.0",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.wear",
+      "artifact": "wear",
+      "version": "1.3.0",
+      "modules": [
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/wear/wear/1.3.0/wear-1.3.0.pom",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.wear",
+      "artifact": "wear-ongoing",
+      "version": "1.0.0",
+      "modules": [
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/wear/wear-ongoing/1.0.0/wear-ongoing-1.0.0.pom",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.wear",
+      "artifact": "wear-tooling-preview",
+      "version": "1.0.0",
+      "modules": [
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.wear.compose",
+      "artifact": "compose-foundation",
+      "version": "1.4.1",
+      "modules": [
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/wear/compose/compose-foundation/1.4.1/compose-foundation-1.4.1.pom",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.wear.compose",
+      "artifact": "compose-material",
+      "version": "1.4.1",
+      "modules": [
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/wear/compose/compose-material/1.4.1/compose-material-1.4.1.pom",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.wear.compose",
+      "artifact": "compose-material-core",
+      "version": "1.4.1",
+      "modules": [
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.wear.compose",
+      "artifact": "compose-navigation",
+      "version": "1.4.1",
+      "modules": [
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.wear.compose",
+      "artifact": "compose-ui-tooling",
+      "version": "1.4.1",
+      "modules": [
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.wear.protolayout",
+      "artifact": "protolayout",
+      "version": "1.4.2",
+      "modules": [
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/wear/protolayout/protolayout/1.4.2/protolayout-1.4.2.pom",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.wear.protolayout",
+      "artifact": "protolayout-expression",
+      "version": "1.4.2",
+      "modules": [
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.wear.protolayout",
+      "artifact": "protolayout-expression-pipeline",
+      "version": "1.4.2",
+      "modules": [
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.wear.protolayout",
+      "artifact": "protolayout-external-protobuf",
+      "version": "1.4.2",
+      "modules": [
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "BSD-3-Clause",
+          "url": "https://opensource.org/license/bsd-3-clause"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.wear.protolayout",
+      "artifact": "protolayout-material-core",
+      "version": "1.4.2",
+      "modules": [
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.wear.protolayout",
+      "artifact": "protolayout-material3",
+      "version": "1.4.2",
+      "modules": [
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.wear.protolayout",
+      "artifact": "protolayout-proto",
+      "version": "1.4.2",
+      "modules": [
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.wear.tiles",
+      "artifact": "tiles",
+      "version": "1.6.2",
+      "modules": [
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/wear/tiles/tiles/1.6.2/tiles-1.6.2.pom",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.wear.tiles",
+      "artifact": "tiles-proto",
+      "version": "1.6.2",
+      "modules": [
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.work",
+      "artifact": "work-runtime",
+      "version": "2.10.0",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "androidx.work",
+      "artifact": "work-runtime-ktx",
+      "version": "2.10.0",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "pomSource": "https://dl.google.com/dl/android/maven2/androidx/work/work-runtime-ktx/2.10.0/work-runtime-ktx-2.10.0.pom",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "com.google.android.gms",
+      "artifact": "play-services-base",
+      "version": "18.5.0",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "Android Software Development Kit License",
+          "url": "https://developer.android.com/studio/terms"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "SDK terms"
+    },
+    {
+      "group": "com.google.android.gms",
+      "artifact": "play-services-basement",
+      "version": "18.4.0",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "Android Software Development Kit License",
+          "url": "https://developer.android.com/studio/terms"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "SDK terms"
+    },
+    {
+      "group": "com.google.android.gms",
+      "artifact": "play-services-tasks",
+      "version": "18.2.0",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "Android Software Development Kit License",
+          "url": "https://developer.android.com/studio/terms"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "SDK terms"
+    },
+    {
+      "group": "com.google.android.gms",
+      "artifact": "play-services-wearable",
+      "version": "19.0.0",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "Android Software Development Kit License",
+          "url": "https://developer.android.com/studio/terms"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "pomSource": "https://dl.google.com/dl/android/maven2/com/google/android/gms/play-services-wearable/19.0.0/play-services-wearable-19.0.0.pom",
+      "classification": "SDK terms"
+    },
+    {
+      "group": "com.google.android.horologist",
+      "artifact": "horologist-annotations",
+      "version": "0.6.23",
+      "modules": [
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "com.google.android.horologist",
+      "artifact": "horologist-compose-layout",
+      "version": "0.6.23",
+      "modules": [
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "pomSource": "https://repo.maven.apache.org/maven2/com/google/android/horologist/horologist-compose-layout/0.6.23/horologist-compose-layout-0.6.23.pom",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "com.google.android.material",
+      "artifact": "material",
+      "version": "1.12.0",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "pomSource": "https://dl.google.com/dl/android/maven2/com/google/android/material/material/1.12.0/material-1.12.0.pom",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "com.google.code.findbugs",
+      "artifact": "jsr305",
+      "version": "3.0.2",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "com.google.dagger",
+      "artifact": "dagger",
+      "version": "2.52",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "Apache 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "com.google.dagger",
+      "artifact": "dagger-lint-aar",
+      "version": "2.52",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "Apache 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "com.google.dagger",
+      "artifact": "hilt-android",
+      "version": "2.52",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "Apache 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "pomSource": "https://repo.maven.apache.org/maven2/com/google/dagger/hilt-android/2.52/hilt-android-2.52.pom",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "com.google.dagger",
+      "artifact": "hilt-core",
+      "version": "2.52",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "Apache 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "com.google.errorprone",
+      "artifact": "error_prone_annotations",
+      "version": "2.15.0",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "Apache 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "com.google.guava",
+      "artifact": "failureaccess",
+      "version": "1.0.1",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "com.google.guava",
+      "artifact": "guava",
+      "version": "31.1-android",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "Apache License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "com.google.guava",
+      "artifact": "listenablefuture",
+      "version": "9999.0-empty-to-avoid-conflict-with-guava",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "com.google.j2objc",
+      "artifact": "j2objc-annotations",
+      "version": "1.3",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "jakarta.inject",
+      "artifact": "jakarta.inject-api",
+      "version": "2.0.1",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "javax.inject",
+      "artifact": "javax.inject",
+      "version": "1",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "Apache License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "https://github.com/javax-inject/javax-inject/blob/master/README.md ; https://android.googlesource.com/platform/external/jsr330/+/refs/tags/android-17.0.0_r1/pom.xml",
+      "copyrightEvidence": "https://github.com/javax-inject/javax-inject/blob/master/src/javax/inject/Inject.java",
+      "copyrightSummary": "Copyright (C) 2009 The JSR-330 Expert Group (source evidence, not entire artifact audit)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "org.checkerframework",
+      "artifact": "checker-qual",
+      "version": "3.12.0",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "The MIT License",
+          "url": "https://opensource.org/license/mit"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "org.jetbrains",
+      "artifact": "annotations",
+      "version": "23.0.0",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "org.jetbrains.kotlin",
+      "artifact": "kotlin-bom",
+      "version": "1.8.22",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "org.jetbrains.kotlin",
+      "artifact": "kotlin-stdlib",
+      "version": "2.0.21",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "org.jetbrains.kotlin",
+      "artifact": "kotlin-stdlib-common",
+      "version": "2.0.21",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "org.jetbrains.kotlin",
+      "artifact": "kotlin-stdlib-jdk7",
+      "version": "1.8.22",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "org.jetbrains.kotlin",
+      "artifact": "kotlin-stdlib-jdk8",
+      "version": "1.8.22",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "org.jetbrains.kotlinx",
+      "artifact": "kotlinx-coroutines-android",
+      "version": "1.9.0",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "pomSource": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-android/1.9.0/kotlinx-coroutines-android-1.9.0.pom",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "org.jetbrains.kotlinx",
+      "artifact": "kotlinx-coroutines-bom",
+      "version": "1.9.0",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "org.jetbrains.kotlinx",
+      "artifact": "kotlinx-coroutines-core",
+      "version": "1.9.0",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "org.jetbrains.kotlinx",
+      "artifact": "kotlinx-coroutines-core-jvm",
+      "version": "1.9.0",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "org.jetbrains.kotlinx",
+      "artifact": "kotlinx-coroutines-guava",
+      "version": "1.9.0",
+      "modules": [
+        "app"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "org.jetbrains.kotlinx",
+      "artifact": "kotlinx-serialization-bom",
+      "version": "1.6.3",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "org.jetbrains.kotlinx",
+      "artifact": "kotlinx-serialization-core",
+      "version": "1.6.3",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "org.jetbrains.kotlinx",
+      "artifact": "kotlinx-serialization-core-jvm",
+      "version": "1.6.3",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache Software License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
+    },
+    {
+      "group": "org.jspecify",
+      "artifact": "jspecify",
+      "version": "1.0.0",
+      "modules": [
+        "app",
+        "wear"
+      ],
+      "licenses": [
+        {
+          "name": "The Apache License, Version 2.0",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0"
+        }
+      ],
+      "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+      "classification": "OSS metadata"
     }
-   ],
-   "source": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-android/1.9.0/kotlinx-coroutines-android-1.9.0.pom"
-  }
- ]
+  ]
 }

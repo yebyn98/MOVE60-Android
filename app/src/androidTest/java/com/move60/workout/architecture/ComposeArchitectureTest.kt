@@ -65,13 +65,26 @@ class ComposeArchitectureTest {
         rule.waitUntil(10_000) { rule.onAllNodesWithTag("oss_list").fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithTag("oss_unavailable").assertDoesNotExist()
         rule.onNodeWithTag("oss_list").assertIsDisplayed()
-        rule.onNodeWithText("전이 의존성은 아직 포함되지 않았어요.", substring = true).assertIsDisplayed()
+        // v71: 188 historical release-runtime modules have license metadata, but
+        // actual license texts, copyright and NOTICE are not approved yet.
+        rule.onNodeWithTag("oss_audit_count").assertIsDisplayed()
+        rule.onNodeWithText("라이브러리 감사 목록: 188/188건 확인").assertIsDisplayed()
+        rule.onNodeWithTag("oss_legal_unverified").assertIsDisplayed()
         // The dialog is its own window, so the whole screen is captured instead of the Compose root only.
         Thread.sleep(800)
         val image = requireNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot())
         File(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null), "compose-oss-licenses.png").outputStream().use {
             image.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
         }
+        // The release-blocked NOTICE list also offers offline SPDX reference texts
+        // without implying that artifact-specific copyright/NOTICE was verified.
+        rule.onNodeWithTag("oss_list").performScrollToNode(hasTestTag("oss_reference_open_Apache-2.0"))
+        rule.onNodeWithTag("oss_reference_open_Apache-2.0").assertIsDisplayed().performClick()
+        rule.waitUntil(10_000) { rule.onAllNodesWithTag("oss_reference_loaded").fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithTag("oss_reference_detail").assertIsDisplayed()
+        rule.onNodeWithTag("oss_reference_notice").assertIsDisplayed()
+        rule.onNodeWithText("목록으로").performClick()
+        rule.onNodeWithTag("oss_list").assertIsDisplayed()
     }
 
     @Test fun composeSettingsHasEverySettingInThreeGroups() {

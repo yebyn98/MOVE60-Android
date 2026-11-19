@@ -16,7 +16,9 @@
 
     <application android:name=".Move60Application" android:allowBackup="true" android:label="ROUTIVE"
         android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round"
-        android:theme="@style/AppTheme" android:usesCleartextTraffic="false">
+        android:theme="@style/AppTheme" android:usesCleartextTraffic="false"
+        android:fullBackupContent="@xml/routive_full_backup_content"
+        android:dataExtractionRules="@xml/routive_data_extraction_rules">
         <activity android:name=".health.HealthConsentActivity" android:exported="false" />
         <activity android:name=".MainActivity" android:exported="true"
             android:configChanges="orientation|screenSize|keyboardHidden" />
