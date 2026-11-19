@@ -21,7 +21,8 @@ permissions:
 jobs:
   runtime-smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Build + emulator + 102 instrumentation checks exceeded the old 30m cap.
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
