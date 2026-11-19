@@ -28,8 +28,8 @@ class OssNoticeTest {
         assertNotNull(bundled)
         val notice = bundled!!
         assertEquals(188, notice.auditedCount)
-        assertEquals(187, notice.libraries.size)
-        assertEquals(1, notice.unresolvedCount)
+        assertEquals(188, notice.libraries.size)
+        assertEquals(0, notice.unresolvedCount)
         assertFalse("POM license labels and legal license/NOTICE distribution are different", notice.legalNoticesVerified)
     }
 
