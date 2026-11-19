@@ -943,18 +943,20 @@ fun WorkoutSettings(
                         }
                     }
                     item {
-                        Text("표준 라이선스 참고 원문", style = MaterialTheme.typography.titleSmall)
-                        OssLicenseReference.knownIds.forEach { licenseId ->
-                            TextButton(
-                                onClick = { ossReferenceId = licenseId },
-                                modifier = Modifier.heightIn(min = 48.dp).testTag("oss_reference_open_$licenseId")
-                            ) { Text("$licenseId 원문 보기") }
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("표준 라이선스 참고 원문", style = MaterialTheme.typography.titleSmall)
+                            OssLicenseReference.knownIds.forEach { licenseId ->
+                                TextButton(
+                                    onClick = { ossReferenceId = licenseId },
+                                    modifier = Modifier.heightIn(min = 48.dp).testTag("oss_reference_open_$licenseId")
+                                ) { Text("$licenseId 원문 보기") }
+                            }
+                            Text(
+                                "MIT·BSD 원문의 저작권자·연도는 표준 서식의 예시 값이며, 실제 배포 고지는 별도로 검증해야 합니다. Android SDK 항목은 별도의 SDK 이용약관이 적용됩니다.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall
+                            )
                         }
-                        Text(
-                            "MIT·BSD 원문의 저작권자·연도는 표준 서식의 예시 값이며, 실제 배포 고지는 별도로 검증해야 합니다. Android SDK 항목은 별도의 SDK 이용약관이 적용됩니다.",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall
-                        )
                     }
                     items(notice.libraries) { lib ->
                         Column(Modifier.padding(vertical = 6.dp)) {
