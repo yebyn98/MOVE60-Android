@@ -29,8 +29,8 @@
 
 ## 2. OSS 인벤토리 보강 — 고지/사용권 승인과 구분
 
-- 기준 보고서 `docs/v70-oss-transitive-licenses.md`: 과거 Gradle 릴리스 런타임 의존성 **188개**, 그 중 게시 POM 라이선스명 확인 **187개**. `javax.inject:javax.inject:1`의 과거 POM상 확인 불가 상태 보존(별도 출처의 Apache-2.0 근거가 있으나 라이선스/저작권/NOTICE 전수 검증 미완료).
-- 인앱 `app/src/main/assets/oss_licenses.json`에 **187개의 감사 당시 메타데이터** 포함. `audit.unresolved`에 1개를 남기고 `releaseGraphReverified/ licenseTextsVerified/ copyrightVerified/ noticesVerified/ operatorApproved`는 **전부 false**.
+- 기준 보고서 `docs/v70-oss-transitive-licenses.md`: 과거 Gradle 릴리스 런타임 의존성 **188개**, 그 중 기존 POM 조사로 187개, JSR-330 원저장소 README 및 Android 소스 POM을 추가로 확인한 `javax.inject:javax.inject:1` 1개를 포함해 **라이선스 유형 메타데이터 188개 확보**. 라이선스/저작권/NOTICE의 배포 충족 여부는 별개.
+- 인앱 `app/src/main/assets/oss_licenses.json`에 **188개의 감사 및 출처 보완 메타데이터** 포함. `audit.unresolved=[]`로 갱신하고 `releaseGraphReverified/ licenseTextsVerified/ copyrightVerified/ noticesVerified/ operatorApproved`는 **전부 false**.
 - `scripts/gen-oss-notice.py`: 직접 의존성 32개만 덮어쓰기하지 않고 v70의 188행 스냅샷을 파싱. 현재 Gradle을 재실행하는 코드는 아니며 실제 배포 아티팩트의 라이선스 사본과 NOTICE를 준비하는 스크립트가 아니다.
 - `scripts/verify-release-legal.py`: 개인정보 URL 유효성에 더해 전이 목록 100%, 원문·저작권/NOTICE/운영자 확인값을 필수 조건으로 설정. 사용자가 실제 주소/근거를 넣기 전엔 릴리스 **실패가 정상**이다.
 - 인앱 라이브러리 목록 확장은 **법적 고지 완료가 아님**. Apache-2.0 전문/필수 NOTICE, BSD-3-Clause/MIT 저작권·조건/면책 조항, SDK 별도 약관을 실제 배포 위치에서 제공해야 한다.
@@ -38,7 +38,7 @@
 ### OSS QA / 수용 기준
 
 - [ ] 최종 SHA의 Gradle `:app:dependencies`, `:wear:dependencies --configuration releaseRuntimeClasspath`를 다시 해석해 188개 스냅샷과 모든 버전 일치 또는 승인된 최신 변경 검증
-- [ ] 미확인 `javax.inject` 항목을 정확한 배포 소스·저작권·조건과 함께 확인
+- [x] `javax.inject` 라이선스 종류(Apache-2.0) 원저장소/Android 소스의 근거 확인 (단, 바이너리 전체 저작권·NOTICE 검증은 미완료)
 - [ ] 라이선스 전문/NOTICE/저작권 표시를 올바른 파일과 출처로 실제 패키징, 최종 AAB 및 워치 APK 검증
 - [ ] 앱 설정의 오픈소스 화면에서 라이선스별 필수 고지 실물을 실제 확인
 - [ ] 앱/워치 권리 고지가 마케팅 문구와 무관하게 접근 가능
@@ -57,6 +57,6 @@
 2. 개인정보처리자 법적 공개명, 서비스 지원용 이메일/연락 경로, 유효 HTTPS 게시 주소
 3. 보유기간·사용자 삭제 절차·삭제 범위 및 Android/워치 데이터 백업/복원의 실제 검증
 4. 전수 SDK·네트워크 송신 및 Data Safety 신고의 사실 관계
-5. OSS 188개(또는 실제 최신 목록) 출처·필수 고지/NOTICE 전문·번들 검증
+5. OSS 188개(또는 실제 최신 목록) 저작권·필수 고지/NOTICE 전문·번들 검증
 
 **확정된 제품 방향:** 무료 MVP → 사용자 검증 → 별도 개인사업자·유료화 정책 검토. 현재 개인정보·OSS·폰/워치 출시 승인 상태는 **미완료**.
