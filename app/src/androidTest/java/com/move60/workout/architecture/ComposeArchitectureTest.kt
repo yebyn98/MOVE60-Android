@@ -65,7 +65,11 @@ class ComposeArchitectureTest {
         rule.waitUntil(10_000) { rule.onAllNodesWithTag("oss_list").fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithTag("oss_unavailable").assertDoesNotExist()
         rule.onNodeWithTag("oss_list").assertIsDisplayed()
-        rule.onNodeWithText("전이 의존성은 아직 포함되지 않았어요.", substring = true).assertIsDisplayed()
+        // v71: 188 historical release-runtime modules have license metadata, but
+        // actual license texts, copyright and NOTICE are not approved yet.
+        rule.onNodeWithTag("oss_audit_count").assertIsDisplayed()
+        rule.onNodeWithText("라이브러리 감사 목록: 188/188건 확인").assertIsDisplayed()
+        rule.onNodeWithTag("oss_legal_unverified").assertIsDisplayed()
         // The dialog is its own window, so the whole screen is captured instead of the Compose root only.
         Thread.sleep(800)
         val image = requireNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot())
