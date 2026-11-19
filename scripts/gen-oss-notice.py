@@ -44,9 +44,15 @@ for line in lines:
     identity = f"{group}:{artifact}:{version}"
     assert identity not in seen, f"Duplicate dependency: {identity}"
     seen.add(identity)
-    if license_name == "미확인":
+    external_jsr330 = identity == "javax.inject:javax.inject:1"
+    if license_name == "미확인" and not external_jsr330:
         unresolved.append(identity)
         continue
+    # The historical POM scan had no license. The upstream JSR-330 source
+    # project README and Android JSR330 source POM independently state Apache-2.0.
+    # This is a metadata classification, NOT a review of binary NOTICE/copyright.
+    if external_jsr330:
+        license_name = "Apache License, Version 2.0"
     kind = (
         "apache" if "Apache" in license_name else
         "bsd" if license_name == "BSD-3-Clause" else
@@ -60,15 +66,23 @@ for line in lines:
         "version": version,
         "modules": [s.strip() for s in modules.split(",")],
         "licenses": [{"name": license_name, "url": LICENSE_URLS[kind]}],
-        "licenseEvidence": "docs/v70-oss-transitive-licenses.md (POM report, not per-artifact NOTICE)",
+        "licenseEvidence": (
+            "https://github.com/javax-inject/javax-inject/blob/master/README.md ; "
+            "https://android.googlesource.com/platform/external/jsr330/+/refs/tags/android-17.0.0_r1/pom.xml"
+            if external_jsr330 else
+            "docs/v70-oss-transitive-licenses.md (historical POM report, not per-artifact NOTICE)"
+        ),
     }
+    if external_jsr330:
+        entry["copyrightEvidence"] = "https://github.com/javax-inject/javax-inject/blob/master/src/javax/inject/Inject.java"
+        entry["copyrightSummary"] = "Copyright (C) 2009 The JSR-330 Expert Group (source evidence, not entire artifact audit)"
     if pom_sources.get((group, artifact, version)):
         entry["pomSource"] = pom_sources[(group, artifact, version)]
     entry["classification"] = "SDK terms" if kind == "sdk" else "OSS metadata"
     entries.append(entry)
 
-assert len(seen) == 188 and len(entries) == 187, "Historical v70 dependency count changed; re-audit first"
-assert unresolved == ["javax.inject:javax.inject:1"], "Unknown/modified unresolved dependency; re-audit first"
+assert len(seen) == 188 and len(entries) == 188, "Historical v70 dependency count changed; re-audit first"
+assert not unresolved, "Unresolved dependency; re-audit before release"
 result = {
     "scope": "phone+Wear releaseRuntimeClasspath transitive POM audit snapshot (2026-11-17); incomplete third-party legal notices, NOT release-approved",
     "audit": {
