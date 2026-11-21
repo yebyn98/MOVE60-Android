@@ -96,9 +96,19 @@ object RoutiveWatchCommands {
             "pause" -> if (s.running) { store.pause(); true } else false
             "start" -> if (!s.running) { store.resume(); RoutiveSessionService.ensure(context); true } else false
             "next" -> {
-                // The last stage completed on the watch: save through the existing path now (the phone screen may be closed).
-                if (store.advance()?.over == true) (context.applicationContext as? com.move60.workout.Move60Application)?.syncTimerSessionAsync(settle = true)
-                true
+                // 07-N confirmation is phone-only: a watch 'next' must not silently leave UNDECIDED strength sets behind.
+                // A missing/unreadable plan is also unsafe to interpret as "all completed"; let the phone decide.
+                val needsPhoneConfirmation = s.progress.kind == com.move60.workout.domain.StageKind.STRENGTH &&
+                    !StrengthNextGate.safeToAdvanceFromWatch(
+                        RoutivePlanSnapshot.parse(s.planSnapshotJson)?.exercises.orEmpty().filter { it.stageIndex == s.progress.stageIndex },
+                        com.move60.workout.SetRecordStore(context).completedSetsForSession(s.startedAtEpochMs),
+                        com.move60.workout.SetRecordStore(context).skippedSetsForSession(s.startedAtEpochMs)
+                    )
+                if (needsPhoneConfirmation) false else {
+                    // The last stage completed on the watch: save through the existing path now (the phone screen may be closed).
+                    if (store.advance()?.over == true) (context.applicationContext as? com.move60.workout.Move60Application)?.syncTimerSessionAsync(settle = true)
+                    true
+                }
             }
             "rest_skip" -> if (s.rest != null) { store.skipRest(); true } else false
             else -> false   // "+15 s rest", "complete" and the like do not exist for ROUTIVE_4
