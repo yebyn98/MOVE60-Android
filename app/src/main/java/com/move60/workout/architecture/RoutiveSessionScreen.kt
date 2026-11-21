@@ -57,6 +57,7 @@ fun RoutiveSessionScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var confirmEnd by rememberSaveable { mutableStateOf(false) }
+    var confirmUnfinishedNext by rememberSaveable { mutableStateOf(false) }
     var confirmSkipLast by rememberSaveable { mutableStateOf(false) }
     val outcome = state.outcome
     LaunchedEffect(outcome) { if (outcome is RoutiveOutcome.ResultReady) onResult(outcome.sessionId) }
@@ -73,7 +74,11 @@ fun RoutiveSessionScreen(
                         Move60Button(onClick = viewModel::playPause, modifier = Modifier.weight(1f).testTag("routive_resume")) { Text("운동 재개") }
                     } else {
                         Move60Button(onClick = viewModel::playPause, primary = false, modifier = Modifier.weight(1f).testTag("routive_pause")) { Text("일시정지") }
-                        Move60Button(onClick = viewModel::next, modifier = Modifier.weight(1.4f).testTag("routive_next")) { Text(if (state.isLast) "운동 완료" else "다음 단계") }
+                        Move60Button(onClick = {
+                            if (state.stageKind == StageKind.STRENGTH && state.unfinishedStrengthSets > 0 && !state.isLast) {
+                                confirmUnfinishedNext = true
+                            } else viewModel.next()
+                        }, modifier = Modifier.weight(1.4f).testTag("routive_next")) { Text(if (state.isLast) "운동 완료" else "다음 단계") }
                     }
                 }
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -101,6 +106,21 @@ fun RoutiveSessionScreen(
             }
         }
     }
+
+    if (confirmUnfinishedNext && active && state.stageKind == StageKind.STRENGTH) AlertDialog(
+        onDismissRequest = { confirmUnfinishedNext = false },
+        modifier = Modifier.testTag("routive_next_unfinished_dialog"),
+        title = { Text("다음 단계로 이동할까요?") },
+        text = { Text("남은 ${state.unfinishedStrengthSets}세트는 수행하지 않은 상태로 남아요. 완료한 세트의 기록은 그대로 유지돼요.") },
+        confirmButton = {
+            TextButton(onClick = { confirmUnfinishedNext = false; viewModel.next() },
+                modifier = Modifier.heightIn(min = 48.dp).testTag("routive_next_unfinished_confirm")) { Text("다음 단계") }
+        },
+        dismissButton = {
+            TextButton(onClick = { confirmUnfinishedNext = false },
+                modifier = Modifier.heightIn(min = 48.dp).testTag("routive_next_unfinished_continue")) { Text("계속 근력 운동") }
+        }
+    )
 
     if (confirmSkipLast) AlertDialog(
         onDismissRequest = { confirmSkipLast = false },
@@ -259,12 +279,27 @@ private fun CardioInputDialog(e: RoutiveExerciseUi, c: RoutiveCardioUi, vm: Rout
 @Composable
 private fun StrengthExercise(e: RoutiveExerciseUi, vm: RoutiveSessionViewModel, setError: RoutiveSetError?) {
     val secondary = MaterialTheme.colorScheme.onSurfaceVariant
+    var confirmSkipSet by rememberSaveable(e.id) { mutableStateOf<Int?>(null) }
     Move60Card(Modifier.testTag("routive_exercise_${e.id}")) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(e.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Text(e.targetSets?.let { "${e.done.size} / $it 세트" } ?: "${e.done.size}세트 완료", color = secondary, modifier = Modifier.testTag("routive_sets_${e.id}"))
         }
         e.done.forEach { Text("${it.number}세트 · ${it.kg}kg × ${it.reps}회", style = MaterialTheme.typography.bodyMedium) }
+        e.skippedSetNumbers.forEach { number ->
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("${number}세트 · 건너뜀", color = secondary, style = MaterialTheme.typography.bodyMedium)
+                TextButton(onClick = { vm.undoSkippedSet(e.id, number) },
+                    modifier = Modifier.heightIn(min = 48.dp).testTag("routive_set_skip_undo_${e.id}_$number")) { Text("생략 취소") }
+            }
+        }
+        if (e.targetSets != null && e.nextSetNumber <= e.targetSets) {
+            TextButton(onClick = { confirmSkipSet = e.nextSetNumber },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("routive_set_skip_${e.id}_${e.nextSetNumber}")) {
+                Text("${e.nextSetNumber}세트 생략")
+            }
+        }
+        if (e.targetSets == null || e.nextSetNumber <= e.targetSets) {
         var kg by remember(e.id, e.nextSetNumber) { mutableStateOf("") }
         var reps by remember(e.id, e.nextSetNumber) { mutableStateOf("") }
         Text(buildString {
@@ -296,6 +331,24 @@ private fun StrengthExercise(e: RoutiveExerciseUi, vm: RoutiveSessionViewModel, 
             Move60Button(onClick = { vm.completeSet(e.id, kg, reps) }, enabled = kg.isNotBlank() && reps.isNotBlank(),
                 modifier = Modifier.weight(1f).testTag("routive_set_done_${e.id}")) { Text("세트 완료") }
         }
+        } else Text("계획한 세트를 모두 처리했어요.", color = secondary, style = MaterialTheme.typography.bodySmall)
+    }
+    confirmSkipSet?.let { number ->
+        AlertDialog(
+            onDismissRequest = { confirmSkipSet = null },
+            modifier = Modifier.testTag("routive_set_skip_dialog"),
+            title = { Text("${number}세트를 생략할까요?") },
+            text = { Text("생략한 세트는 수행한 세트로 계산하지 않아요. 완료한 세트 기록은 그대로 유지돼요.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (vm.skipSet(e.id, number)) confirmSkipSet = null
+                }, modifier = Modifier.heightIn(min = 48.dp).testTag("routive_set_skip_confirm")) { Text("세트 생략") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmSkipSet = null },
+                    modifier = Modifier.heightIn(min = 48.dp).testTag("routive_set_skip_cancel")) { Text("취소") }
+            }
+        )
     }
 }
 
