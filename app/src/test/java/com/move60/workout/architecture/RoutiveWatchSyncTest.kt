@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.move60.workout.SessionStore
 import com.move60.workout.WatchStatePublisher
 import com.move60.workout.WorkoutData
+import com.move60.workout.SetRecordStore
 import com.move60.workout.domain.StageKind
 import com.move60.workout.domain.StageTimePlan
 import org.json.JSONObject
@@ -102,4 +103,23 @@ class RoutiveWatchSyncTest {
         assertEquals(false, RoutiveWatchCommands.handle(context, cmd("start")))      // no "new workout" from the watch
         assertEquals(false, RoutiveWatchCommands.handle(context, cmd("next")))
     }
+    @Test fun watchMustDeferToPhoneWhenAPlannedStrengthSetIsUndecided() {
+        store.endEarly()
+        val withTarget = plan().copy(exercises = mapOf(
+            StageKind.STRENGTH to listOf(RoutineExerciseInput("legPress", "레그프레스", null, 3, 10))
+        ))
+        assertTrue(store.start(withTarget) is RoutiveStart.Started)
+        store.advance() // strength
+        val s = store.active()!!
+        val sets = SetRecordStore(context)
+        assertEquals(false, RoutiveWatchCommands.handle(context, cmd("next")))
+        assertEquals(1, store.active()!!.progress.stageIndex)
+        sets.write(s.day, "legPress", 1, SetRecordStore.Record("40", "10", "5", true), s.recordDate, s.startedAtEpochMs)
+        sets.write(s.day, "legPress", 2, SetRecordStore.Record("40", "10", "5", true), s.recordDate, s.startedAtEpochMs)
+        assertEquals(false, RoutiveWatchCommands.handle(context, cmd("next")))
+        assertTrue(sets.markSkipped(s.day, "legPress", 3, s.recordDate, s.startedAtEpochMs))
+        assertEquals(true, RoutiveWatchCommands.handle(context, cmd("next")))
+        assertEquals(2, store.active()!!.progress.stageIndex)
+    }
+
 }
