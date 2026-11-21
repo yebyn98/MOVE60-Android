@@ -106,6 +106,53 @@ class ComposeRoutiveSessionTest {
             .activeNotifications.firstOrNull { it.id == RoutiveSessionService.NOTIFICATION_ID }
             ?.notification?.extras?.getCharSequence(android.app.Notification.EXTRA_TEXT)?.toString()
 
+
+    @Test fun strengthPendingNextRequiresTwoButtonConfirmAndExplicitSkipCanBeUndone() {
+        val id = prepareRoutine(RoutineExerciseInput("legPress", "레그 프레스", null, 3, 12, null))
+        try {
+            startFromList(id)
+            rule.onNodeWithTag("routive_next").performClick()             // warm-up -> strength
+            rule.waitUntil(5_000) { rule.onAllNodes(hasText("2 / 4 단계 · 근력운동")).fetchSemanticsNodes().isNotEmpty() }
+            val active = RoutiveSessionStore(context).active()!!
+            val skipLedger = ExplicitSetSkipStore(context)
+            assertTrue(skipLedger.skippedForSession(active.startedAtEpochMs).isEmpty())
+
+            // 07-N does not have a third action and never marks an undecided set skipped.
+            rule.onNodeWithTag("routive_next").performClick()
+            waitTag("routive_pending_next_dialog")
+            rule.onNodeWithTag("routive_pending_next_keep").performClick()
+            assertTrue(skipLedger.skippedForSession(active.startedAtEpochMs).isEmpty())
+
+            rule.onNodeWithTag("routive_set_skip_legPress_1").performScrollTo().performClick()
+            waitTag("routive_set_skip_dialog_legPress")
+            rule.onNodeWithTag("routive_set_skip_cancel_legPress").performClick()
+            assertTrue(skipLedger.skippedForSession(active.startedAtEpochMs).isEmpty())
+
+            rule.onNodeWithTag("routive_set_skip_legPress_1").performScrollTo().performClick()
+            waitTag("routive_set_skip_dialog_legPress")
+            captureScreen("compose-routive-explicit-set-skip-confirm.png")
+            rule.onNodeWithTag("routive_set_skip_confirm_legPress").performClick()
+            rule.waitUntil(5_000) { skipLedger.skippedForSession(active.startedAtEpochMs).size == 1 }
+            rule.onNodeWithTag("routive_set_skipped_legPress_1").performScrollTo().assertIsDisplayed()
+            assertTrue("no completed set was invented", com.move60.workout.SetRecordStore(context)
+                .completedSetsForSession(active.startedAtEpochMs).isEmpty())
+
+            rule.onNodeWithTag("routive_set_skip_undo_legPress_1").performScrollTo().performClick()
+            rule.waitUntil(5_000) { skipLedger.skippedForSession(active.startedAtEpochMs).isEmpty() }
+            assertTrue("the user decision history must be retained",
+                skipLedger.history(active.startedAtEpochMs, "legPress", 1) == listOf("SKIPPED", "UNDECIDED"))
+
+            // The 2-button next-stage confirmation remains separate from the explicit skip flow.
+            rule.onNodeWithTag("routive_next").performClick()
+            waitTag("routive_pending_next_dialog")
+            rule.onNodeWithTag("routive_pending_next_confirm").performClick()
+            rule.waitUntil(5_000) { rule.onAllNodes(hasText("3 / 4 단계 · 유산소")).fetchSemanticsNodes().isNotEmpty() }
+            assertTrue(skipLedger.skippedForSession(active.startedAtEpochMs).isEmpty())
+        } finally {
+            RoutiveSessionStore(context).let { s -> if (s.active()?.over == false) s.endEarly() }
+        }
+    }
+
     @Test fun restTimerRunsAfterASetAndIsExcludedFromActiveTime() {
         val id = prepareRoutine(RoutineExerciseInput("legPress", "레그 프레스", null, 3, 10, 6L))
         try {
