@@ -314,7 +314,7 @@ private fun StrengthExercise(e: RoutiveExerciseUi, vm: RoutiveSessionViewModel, 
             var reps by remember(e.id, e.nextSetNumber) { mutableStateOf("") }
             Text(buildString {
                 append("${e.nextSetNumber}세트")
-                e.targetReps?.let { append(" · 목표 $it회") }
+                e.targetReps?.let { append(" · 목표 ${it}회") }
                 e.restSeconds?.let { append(" · 휴식 ${formatMmSs(it)}") }
             }, color = secondary, style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.testTag("routive_target_${e.id}"))
