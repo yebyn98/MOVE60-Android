@@ -331,7 +331,12 @@ private fun StrengthExercise(e: RoutiveExerciseUi, vm: RoutiveSessionViewModel, 
             Move60Button(onClick = { vm.completeSet(e.id, kg, reps) }, enabled = kg.isNotBlank() && reps.isNotBlank(),
                 modifier = Modifier.weight(1f).testTag("routive_set_done_${e.id}")) { Text("세트 완료") }
         }
-        } else Text("계획한 세트를 모두 처리했어요.", color = secondary, style = MaterialTheme.typography.bodySmall)
+        } else {
+            Text("계획한 세트를 모두 처리했어요.", color = secondary, style = MaterialTheme.typography.bodySmall)
+            // Do not regress the pre-existing undo action when the final planned set is completed.
+            if (e.done.isNotEmpty()) Move60Button(onClick = { vm.undoLastSet(e.id) }, primary = false,
+                modifier = Modifier.fillMaxWidth().testTag("routive_set_undo_${e.id}")) { Text("마지막 세트 취소") }
+        }
     }
     confirmSkipSet?.let { number ->
         AlertDialog(
