@@ -201,7 +201,9 @@ class RoutiveSessionStore(
             sets?.completedSetsForSession(session.startedAtEpochMs).orEmpty().map { TimerSet(it.exerciseId, it.setNumber, it.kg, it.reps) },
             stages = session.progress.plan.mapIndexed { i, p -> TimerStage(p.kind, p.plannedSeconds, session.progress.elapsedSeconds[i]) },
             planSnapshotJson = session.planSnapshotJson,
-            cardioInputs = session.cardioInputs.map { TimerCardioInput(it.inputIndex, it.stageIndex, it.atStageSeconds, it.equipmentKey, it.metricKey, it.valueText, null, it.enteredAtEpochMs) }
+            cardioInputs = session.cardioInputs.map { TimerCardioInput(it.inputIndex, it.stageIndex, it.atStageSeconds, it.equipmentKey, it.metricKey, it.valueText, null, it.enteredAtEpochMs) },
+            skippedSets = if (sets != null) ExplicitSetSkipStore(context).skippedForSession(session.startedAtEpochMs)
+                .map { TimerSkippedSet(it.exerciseId, it.setNumber, it.decidedAtEpochMs) } else emptyList()
         )
 
     // ---- internals ----------------------------------------------------------------------------------------------

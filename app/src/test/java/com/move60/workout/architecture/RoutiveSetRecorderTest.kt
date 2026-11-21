@@ -31,7 +31,7 @@ class RoutiveSetRecorderTest {
 
     @Before fun init() {
         context = ApplicationProvider.getApplicationContext()
-        for (name in listOf(RoutiveSessionStore.NAME, "move60_set_records_v1", PendingSessionOutbox.NAME)) context.getSharedPreferences(name, 0).edit().clear().commit()
+        for (name in listOf(RoutiveSessionStore.NAME, "move60_set_records_v1", PendingSessionOutbox.NAME, ExplicitSetSkipStore.NAME)) context.getSharedPreferences(name, 0).edit().clear().commit()
         sets = SetRecordStore(context)
         store = RoutiveSessionStore(context, { t }, { date })
         recorder = RoutiveSetRecorder(store, sets)
@@ -98,4 +98,30 @@ class RoutiveSetRecorderTest {
         assertNull(recorder.complete("legPress", " 42.5 ", " 012 ", null))
         assertEquals(listOf(SetRecordStore.CompletedSet("legPress", 1, "42.5", "12")), recorded(s))
     }
+    @Test fun completedSetNeverOverwritesAnExplicitlySkippedEarlierSet() {
+        val s = inStrengthStage()
+        val skips = ExplicitSetSkipStore(context)
+        assertTrue(skips.skip(s.startedAtEpochMs, "legPress", 1, 1_001L))
+        val aware = RoutiveSetRecorder(store, sets, skips)
+        assertNull(aware.complete("legPress", "40", "10", legPress))
+        assertEquals(listOf(2), recorded(s).map { it.setNumber })
+        assertEquals(listOf(1), skips.skippedForSession(s.startedAtEpochMs).map { it.setNumber })
+    }
+
+    @Test fun lastTargetSetSkippedCannotBeSilentlyCompletedWithoutUndo() {
+        val s = inStrengthStage()
+        val skips = ExplicitSetSkipStore(context)
+        val aware = RoutiveSetRecorder(store, sets, skips)
+        assertNull(aware.complete("legPress", "40", "10", legPress))
+        assertNull(aware.complete("legPress", "40", "10", legPress))
+        assertTrue(skips.skip(s.startedAtEpochMs, "legPress", 3, 2_000L))
+        assertEquals(SetInputError.NOT_STORED, aware.complete("legPress", "40", "10", legPress))
+        assertEquals(listOf(1, 2), recorded(s).map { it.setNumber })
+        assertEquals(listOf(3), skips.skippedForSession(s.startedAtEpochMs).map { it.setNumber })
+        assertTrue(skips.undo(s.startedAtEpochMs, "legPress", 3, 2_100L))
+        assertNull(aware.complete("legPress", "40", "10", legPress))
+        assertEquals(listOf(1, 2, 3), recorded(s).map { it.setNumber })
+        assertTrue(skips.skippedForSession(s.startedAtEpochMs).isEmpty())
+    }
+
 }

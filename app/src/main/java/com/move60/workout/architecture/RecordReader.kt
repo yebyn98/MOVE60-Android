@@ -48,6 +48,8 @@ data class DayRecord(
 }
 
 data class ExerciseSets(val exerciseId: String, val sets: List<ShownSet>)
+/** Explicitly skipped but not performed. Kept separate from completed/legacy set aggregation. */
+data class SkippedSetSummary(val exerciseId: String, val setNumber: Int)
 
 /** A planned item of a stage (from the start-time plan). Its time is a PLAN, never a measured value. */
 data class PlannedItem(val name: String, val plannedSeconds: Long?)
@@ -65,7 +67,8 @@ data class SessionDetail(
     /** Stages that have real time, in stage order. Empty for sessions saved without stage data. */
     val stages: List<StageRecord> = emptyList(),
     /** Real cardio intensity intervals (docs/v71); null when no cardio value was saved for this session. */
-    val cardio: CardioStageRecord? = null
+    val cardio: CardioStageRecord? = null,
+    val skippedSets: List<SkippedSetSummary> = emptyList()
 )
 
 class RecordReader(
@@ -145,7 +148,10 @@ class RecordReader(
         val cardio = cardioStage?.let {
             CardioStageRecords.build(it.index, it.actualSeconds, dao.cardioInputs(sessionId), dao.adjustments(sessionId))
         }
-        return SessionDetail(date, row(entity, date), exercises, corrections.history(sessionId), stages, cardio)
+        val skipped = dao.sets(sessionId).filter { it.state == SetState.SKIPPED.name }
+            .map { SkippedSetSummary(it.exerciseId, it.setNumber) }
+            .sortedWith(compareBy({ it.exerciseId }, { it.setNumber }))
+        return SessionDetail(date, row(entity, date), exercises, corrections.history(sessionId), stages, cardio, skipped)
     }
 }
 

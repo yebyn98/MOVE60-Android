@@ -19,7 +19,9 @@ data class TimerSnapshot(
     /** Plan at session start as JSON (docs/v61 D1); null when there was none. Never read from the live routine. */
     val planSnapshotJson: String? = null,
     /** Cardio values the user saved during the workout (docs/v71, phone input only); empty when none. Never estimated. */
-    val cardioInputs: List<TimerCardioInput> = emptyList()
+    val cardioInputs: List<TimerCardioInput> = emptyList(),
+    /** Explicitly skipped sets only; UNDECIDED is intentionally absent from persisted set rows. */
+    val skippedSets: List<TimerSkippedSet> = emptyList()
 )
 
 /** One saved cardio value: input [inputIndex] at [atActiveSeconds] of stage [stageIndex] set [metricKey] to the typed [valueText]. */
@@ -29,6 +31,7 @@ data class TimerCardioInput(
 )
 
 data class TimerSet(val exerciseId: String, val setNumber: Int, val weightKg: String, val repetitions: String)
+data class TimerSkippedSet(val exerciseId: String, val setNumber: Int, val decidedAtEpochMs: Long)
 
 /** One stage of a ROUTIVE_4 session: the plan (null = unknown, never 0) and the real active seconds spent in it. */
 data class TimerStage(val kind: com.move60.workout.domain.StageKind, val plannedSeconds: Long?, val actualSeconds: Long)
@@ -86,8 +89,10 @@ class TimerSessionSync(private val committer: SessionCommitter, private val zone
             (if (s.finished) SessionCompletion.COMPLETED else SessionCompletion.PARTIAL).name, s.accumulatedSeconds.toLong(),
             s.completedSets.size, false, s.planSnapshotJson?.takeIf { it.isNotBlank() }, 0L
         )
-        // Only COMPLETED sets are stored; the committer recomputes validity (>=60 s OR >=1 completed set, P-26 B).
-        val sets = s.completedSets.map { SessionSetEntity(id, it.exerciseId, it.setNumber, SetState.COMPLETED.name, it.weightKg, it.repetitions, null) }
+        // COMPLETED counts as activity. SKIPPED is an explicit decision only, never workout volume or a completed set.
+        // SessionBundleValidator rejects duplicate exercise/set keys instead of resolving contradictory snapshots silently.
+        val sets = s.completedSets.map { SessionSetEntity(id, it.exerciseId, it.setNumber, SetState.COMPLETED.name, it.weightKg, it.repetitions, null) } +
+            s.skippedSets.map { SessionSetEntity(id, it.exerciseId, it.setNumber, SetState.SKIPPED.name, "", "", null) }
         val cardio = s.cardioInputs.map {
             SessionCardioInputEntity(id, it.inputIndex, it.stageIndex, it.atActiveSeconds, it.equipmentKey, it.metricKey, it.valueText, it.unit, it.enteredAtEpochMs)
         }

@@ -431,6 +431,7 @@ private fun StageCards(
 ) {
     if (detail.stages.isEmpty()) {
         StrengthStageCard(detail.exercises, name)
+        SkippedSetsCard(detail.skippedSets, name)
         return
     }
     var strengthShown = false
@@ -442,6 +443,23 @@ private fun StageCards(
     }
     // Sets exist but no strength time was stored: still show them rather than hide recorded sets.
     if (!strengthShown && detail.exercises.isNotEmpty()) StrengthStageCard(detail.exercises, name)
+    SkippedSetsCard(detail.skippedSets, name)
+}
+
+/** Explicit set skips are visible in the record but NEVER added to completed/volume summaries. */
+@Composable
+private fun SkippedSetsCard(sets: List<SkippedSetSummary>, name: (String) -> String) {
+    if (sets.isEmpty()) return
+    Move60Card(Modifier.fillMaxWidth().testTag("record_skipped_sets")) {
+        Text("생략한 세트", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        sets.forEach { set ->
+            Text("${name(set.exerciseId)} · ${set.setNumber}세트 · 건너뜀",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.testTag("record_skipped_set_${set.exerciseId}_${set.setNumber}"))
+        }
+        Text("생략한 세트는 완료 세트와 운동량에 포함되지 않아요.",
+            color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall)
+    }
 }
 
 /**

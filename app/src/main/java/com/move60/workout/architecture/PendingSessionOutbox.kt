@@ -40,6 +40,12 @@ open class PendingSessionOutbox(context: Context) {
             .put("sets", JSONArray().also { a ->
                 s.completedSets.forEach { a.put(JSONObject().put("id", it.exerciseId).put("n", it.setNumber).put("kg", it.weightKg).put("reps", it.repetitions)) }
             })
+            // Explicit skip decisions are copied with the snapshot BEFORE the active session can be replaced.
+            // Versioned: older buffered sessions remain readable with no skipped sets.
+            .put("skippedSetsV", 1)
+            .put("skippedSets", JSONArray().also { a ->
+                s.skippedSets.forEach { a.put(JSONObject().put("id", it.exerciseId).put("n", it.setNumber).put("at", it.decidedAtEpochMs)) }
+            })
             .put("stages", JSONArray().also { a ->
                 s.stages.forEach { a.put(JSONObject().put("k", it.kind.name).put("p", it.plannedSeconds ?: JSONObject.NULL).put("a", it.actualSeconds)) }
             })
@@ -113,13 +119,21 @@ open class PendingSessionOutbox(context: Context) {
                 }
             }.getOrNull()
         }
+        val skipped = if (o.optInt("skippedSetsV", 0) >= 1) {
+            val a = o.optJSONArray("skippedSets") ?: JSONArray()
+            (0 until a.length()).mapNotNull { i ->
+                runCatching {
+                    a.getJSONObject(i).let { row -> TimerSkippedSet(row.getString("id"), row.getInt("n"), row.optLong("at", 0L)) }
+                }.getOrNull()
+            }
+        } else emptyList()
         TimerSnapshot(
             LocalDate.parse(o.getString("recordDate")), o.getInt("day"), o.getLong("startedAt"),
             o.optBoolean("finished"), o.getInt("seconds"),
             (0 until iv.length()).map { iv.getJSONArray(it).let { p -> p.getLong(0) to p.getLong(1) } },
             o.optBoolean("endedEarly"),
             (0 until sets.length()).map { sets.getJSONObject(it).let { s -> TimerSet(s.getString("id"), s.getInt("n"), s.getString("kg"), s.getString("reps")) } },
-            stages, plan, cardio
+            stages, plan, cardio, skipped
         )
     } catch (_: Exception) { null }
 
