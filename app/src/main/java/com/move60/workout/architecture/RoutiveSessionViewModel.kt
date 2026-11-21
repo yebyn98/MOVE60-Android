@@ -25,9 +25,11 @@ data class RoutiveExerciseUi(
     /** Targets chosen by the user in the routine; null = not set (never a default). */
     val targetSets: Int? = null, val targetReps: Int? = null, val restSeconds: Long? = null,
     /** Cardio machine values the user saved (docs/v71); null for anything that is not a known cardio machine. */
-    val cardio: RoutiveCardioUi? = null
+    val cardio: RoutiveCardioUi? = null,
+    /** Only sets explicitly skipped by the user; pending sets are not materialized as skipped. */
+    val skipped: List<Int> = emptyList()
 ) {
-    val nextSetNumber: Int get() = (done.maxOfOrNull { it.number } ?: 0) + 1
+    val nextSetNumber: Int get() = maxOf(done.maxOfOrNull { it.number } ?: 0, skipped.maxOrNull() ?: 0) + 1
 }
 
 /** The values the machine has ([metrics], in the order the sheet asks for them) and what the user saved so far, oldest first. */
@@ -73,21 +75,30 @@ data class RoutiveSessionUiState(
     val heartText: String = com.move60.workout.domain.HeartRateFreshness.WAITING_LABEL,
     /** The last refused set input (null = none). Cleared when the user edits the fields or completes a valid set. */
     val setError: RoutiveSetError? = null
-) { val paused: Boolean get() = load == RoutiveLoad.ACTIVE && !running && !over }
+) {
+    val paused: Boolean get() = load == RoutiveLoad.ACTIVE && !running && !over
+    /** Count only explicitly planned, not-yet-decided strength sets; null targets are never invented. */
+    val undecidedStrengthSets: Int get() = if (stageKind == StageKind.STRENGTH)
+        exercises.sumOf { e -> e.targetSets?.let { (it - e.done.size - e.skipped.size).coerceAtLeast(0) } ?: 0 }
+        else 0
+}
 
 /** Pure mapping of the stored session + saved plan + completed sets to what the screen shows. */
 internal fun buildRoutiveUi(
     session: RoutiveSession, exercises: List<RoutineExerciseInput>, completed: List<SetRecordStore.CompletedSet>, outcome: RoutiveOutcome?,
-    heartBpm: Int = 0, heartAgeMs: Long = Long.MAX_VALUE
+    heartBpm: Int = 0, heartAgeMs: Long = Long.MAX_VALUE,
+    skipped: List<ExplicitSetSkipStore.SkippedSet> = emptyList()
 ): RoutiveSessionUiState {
     val p = session.progress
     val kind = p.kind
     val perExercise = completed.groupBy { it.exerciseId }
+    val skippedByExercise = skipped.groupBy { it.exerciseId }
     val ui = exercises.map { e ->
         RoutiveExerciseUi(e.id, e.name, formatPlanned(e.plannedSeconds),
             perExercise[e.id].orEmpty().sortedBy { it.setNumber }.map { RoutiveSetUi(it.setNumber, it.kg, it.reps) },
             e.targetSets, e.targetReps, e.restSeconds,
-            cardio = if (kind == StageKind.CARDIO) cardioUi(e.name, session) else null)
+            cardio = if (kind == StageKind.CARDIO) cardioUi(e.name, session) else null,
+            skipped = skippedByExercise[e.id].orEmpty().map { it.setNumber }.sorted())
     }
     val allSetsDone = kind == StageKind.STRENGTH && ui.isNotEmpty() && ui.all { it.done.isNotEmpty() }
     return RoutiveSessionUiState(
@@ -127,7 +138,8 @@ class RoutiveSessionViewModel @Inject constructor(
 ) : ViewModel() {
     private val store = RoutiveSessionStore(context)
     private val sets = SetRecordStore(context)
-    private val recorder = RoutiveSetRecorder(store, sets)
+    private val explicitSkips = ExplicitSetSkipStore(context)
+    private val recorder = RoutiveSetRecorder(store, sets, explicitSkips)
     // The same class the tracking service, the watch handler and the foreground sync use (one lock, existing idempotent path).
     private val overCommit = RoutiveOverCommit(context, committer) { ZoneId.systemDefault().id }
 
@@ -183,6 +195,41 @@ class RoutiveSessionViewModel @Inject constructor(
         viewModelScope.launch { publish(store.active()) }
     }
 
+    /**
+     * Explicitly skip ONE pending, user-planned set. A stage transition never calls this.
+     * False means no recorded mutation (wrong stage, already completed, stale/duplicate target or disk failure).
+     */
+    fun skipSet(exerciseId: String, setNumber: Int): Boolean {
+        val s = store.reconcile() ?: return false
+        if (s.over || s.progress.kind != StageKind.STRENGTH) return false
+        val target = stageExercises[StageKind.STRENGTH].orEmpty().firstOrNull { it.id == exerciseId }
+            ?.targetSets?.takeIf { it > 0 } ?: return false
+        val lastDone = sets.completedSetsForSession(s.startedAtEpochMs)
+            .filter { it.exerciseId == exerciseId }.maxOfOrNull { it.setNumber } ?: 0
+        val lastSkipped = explicitSkips.skippedForSession(s.startedAtEpochMs)
+            .filter { it.exerciseId == exerciseId }.maxOfOrNull { it.setNumber } ?: 0
+        if (setNumber != maxOf(lastDone, lastSkipped) + 1 || setNumber > target) return false
+        if (!explicitSkips.skip(s.startedAtEpochMs, exerciseId, setNumber)) return false
+        setError = null
+        viewModelScope.launch { publish(store.active()) }
+        return true
+    }
+
+    /** Undo only the latest decided skipped set. All original decisions remain in the audit history. */
+    fun undoSkippedSet(exerciseId: String, setNumber: Int): Boolean {
+        val s = store.reconcile() ?: return false
+        if (s.over || s.progress.kind != StageKind.STRENGTH) return false
+        if (stageExercises[StageKind.STRENGTH].orEmpty().none { it.id == exerciseId }) return false
+        val lastDone = sets.completedSetsForSession(s.startedAtEpochMs)
+            .filter { it.exerciseId == exerciseId }.maxOfOrNull { it.setNumber } ?: 0
+        val skips = explicitSkips.skippedForSession(s.startedAtEpochMs).filter { it.exerciseId == exerciseId }
+        if (skips.none { it.setNumber == setNumber } || maxOf(lastDone, skips.maxOfOrNull { it.setNumber } ?: 0) != setNumber)
+            return false
+        if (!explicitSkips.undo(s.startedAtEpochMs, exerciseId, setNumber)) return false
+        viewModelScope.launch { publish(store.active()) }
+        return true
+    }
+
     /** Undoes only the most recent completed set of an exercise. */
     fun undoLastSet(exerciseId: String) {
         val s = store.active() ?: return
@@ -225,7 +272,8 @@ class RoutiveSessionViewModel @Inject constructor(
         val heart = context.getSharedPreferences("preferences", Context.MODE_PRIVATE)
         _state.value = buildRoutiveUi(session, stageExercises[session.progress.kind].orEmpty(),
             sets.completedSetsForSession(session.startedAtEpochMs), outcome,
-            heart.getInt("watch_heart_rate", 0), System.currentTimeMillis() - heart.getLong("watch_heart_rate_at", 0L)).copy(setError = setError)
+            heart.getInt("watch_heart_rate", 0), System.currentTimeMillis() - heart.getLong("watch_heart_rate_at", 0L),
+            skipped = explicitSkips.skippedForSession(session.startedAtEpochMs)).copy(setError = setError)
     }
 
     /** Buffer first (durable), then drain through the idempotent commit; the result is shown only for a confirmed outcome. */
