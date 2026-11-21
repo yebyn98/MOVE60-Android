@@ -16,7 +16,10 @@ internal class RoutiveSetRecorder(private val store: RoutiveSessionStore, privat
         val s = store.active() ?: return null
         if (s.over || s.progress.kind != StageKind.STRENGTH || kg.isBlank() || reps.isBlank()) return null
         val valid = SetInputPolicy.normalize(kg, reps) ?: return SetInputPolicy.validate(kg, reps) ?: SetInputError.NOT_STORED
-        val next = (sets.completedSetsForSession(s.startedAtEpochMs).filter { it.exerciseId == exerciseId }.maxOfOrNull { it.setNumber } ?: 0) + 1
+        val occupied = (sets.completedSetsForSession(s.startedAtEpochMs).filter { it.exerciseId == exerciseId }.map { it.setNumber } +
+            sets.skippedSetsForSession(s.startedAtEpochMs).filter { it.exerciseId == exerciseId }.map { it.setNumber }).toSet()
+        val next = generateSequence(1) { it + 1 }.first { it !in occupied }
+        if (exercise?.targetSets != null && next > exercise.targetSets) return SetInputError.NOT_STORED
         sets.write(s.day, exerciseId, next, SetRecordStore.Record(valid.kg, valid.reps, "5", true), s.recordDate, s.startedAtEpochMs)
         // The store keeps only a valid record as completed; confirm it before the rest (or anything else) changes.
         if (!sets.read(s.day, exerciseId, next, s.recordDate, s.startedAtEpochMs).completed) return SetInputError.NOT_STORED
@@ -25,5 +28,26 @@ internal class RoutiveSetRecorder(private val store: RoutiveSessionStore, privat
         val rest = exercise?.restSeconds
         if (rest != null && restFollowsSet(exercise.targetSets, next)) store.startRest(exerciseId, rest) else store.skipRest()
         return null
+    }
+
+    /** Explicitly skip only the next untouched, planned set; never alters completed records or starts a rest. */
+    fun skip(exerciseId: String, setNumber: Int, exercise: RoutineExerciseInput?): Boolean {
+        val s = store.active() ?: return false
+        if (s.over || s.progress.kind != StageKind.STRENGTH || exercise?.id != exerciseId) return false
+        val target = exercise.targetSets ?: return false
+        if (setNumber !in 1..target) return false
+        val occupied = (sets.completedSetsForSession(s.startedAtEpochMs).filter { it.exerciseId == exerciseId }.map { it.setNumber } +
+            sets.skippedSetsForSession(s.startedAtEpochMs).filter { it.exerciseId == exerciseId }.map { it.setNumber }).toSet()
+        val next = (1..target).firstOrNull { it !in occupied } ?: return false
+        if (setNumber != next) return false
+        return sets.markSkipped(s.day, exerciseId, setNumber, s.recordDate, s.startedAtEpochMs)
+    }
+
+    /** Restore a skipped set to UNDECIDED while the strength stage is still active. */
+    fun undoSkip(exerciseId: String, setNumber: Int, exercise: RoutineExerciseInput?): Boolean {
+        val s = store.active() ?: return false
+        if (s.over || s.progress.kind != StageKind.STRENGTH || exercise?.id != exerciseId) return false
+        if (setNumber !in 1..(exercise.targetSets ?: 0)) return false
+        return sets.undoSkipped(s.day, exerciseId, setNumber, s.recordDate, s.startedAtEpochMs)
     }
 }
