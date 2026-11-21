@@ -94,4 +94,23 @@ class SessionSetPersistenceTest {
         assertEquals(listOf(TimerSet("legPress", 1, "100", "8")), snap.completedSets)
         assertTrue("without a store the snapshot has no sets (legacy callers)", session.timerSnapshot().completedSets.isEmpty())
     }
+    @Test fun explicitSkippedSetCommitsToRoomWithoutInflatingCompletedCount() = runBlocking {
+        val s = snap(300, listOf(benchSet)).copy(skippedSets = listOf(TimerSkippedSet("chestPress", 2)))
+        assertTrue(sync.syncFinished(s) is SyncOutcome.Committed)
+        val row = dao.session(sync.sessionId(s))!!
+        assertEquals(1, row.completedStrengthSets)
+        val sets = dao.sets(row.sessionId).sortedBy { it.setNumber }
+        assertEquals(listOf("COMPLETED", "SKIPPED"), sets.map { it.state })
+        assertEquals("", sets[1].weightKg)
+        assertEquals("", sets[1].repetitions)
+        assertTrue(sync.syncFinished(s) is SyncOutcome.AlreadyCommitted)
+        assertEquals(2, dao.sets(row.sessionId).size)
+    }
+
+    @Test fun aSkipAloneCannotMakeShortSessionValid() = runBlocking {
+        val s = snap(59, emptyList()).copy(skippedSets = listOf(TimerSkippedSet("chestPress", 1)))
+        assertTrue(sync.syncFinished(s) is SyncOutcome.Discarded)
+        assertNull(dao.session(sync.sessionId(s)))
+    }
+
 }
