@@ -29,7 +29,9 @@ data class RecordSession(
     /** From the plan snapshot saved when the session started; null for sessions saved before it existed or an unreadable one. */
     val routineName: String? = null,
     /** Real seconds per stage (label to seconds) in stage order; stages with no time are absent. Empty for older sessions. */
-    val stageSeconds: List<Pair<String, Long>> = emptyList()
+    val stageSeconds: List<Pair<String, Long>> = emptyList(),
+    /** Explicit skips are displayed separately and never counted as completed exercise sets. */
+    val skippedSets: Int = 0
 ) {
     val startClock: String? get() = RecordFormat.clock(startedAtEpochMs, zoneId)
 }
@@ -65,7 +67,9 @@ data class SessionDetail(
     /** Stages that have real time, in stage order. Empty for sessions saved without stage data. */
     val stages: List<StageRecord> = emptyList(),
     /** Real cardio intensity intervals (docs/v71); null when no cardio value was saved for this session. */
-    val cardio: CardioStageRecord? = null
+    val cardio: CardioStageRecord? = null,
+    /** Read-only SKIPPED rows for the detail screen; never included in performed volume summaries. */
+    val skippedSets: List<SessionSetEntity> = emptyList()
 )
 
 class RecordReader(
@@ -109,7 +113,8 @@ class RecordReader(
             completedSets = s.completedStrengthSets,
             exerciseIds = completed.map { it.exerciseId }.distinct().sorted(),
             routineName = plan?.routineName?.takeIf { it.isNotBlank() },
-            stageSeconds = stageRecords(s.sessionId, plan).map { it.label to it.actualSeconds }
+            stageSeconds = stageRecords(s.sessionId, plan).map { it.label to it.actualSeconds },
+            skippedSets = dao.sets(s.sessionId).count { it.state == SetState.SKIPPED.name }
         )
     }
 
@@ -145,7 +150,9 @@ class RecordReader(
         val cardio = cardioStage?.let {
             CardioStageRecords.build(it.index, it.actualSeconds, dao.cardioInputs(sessionId), dao.adjustments(sessionId))
         }
-        return SessionDetail(date, row(entity, date), exercises, corrections.history(sessionId), stages, cardio)
+        val skipped = dao.sets(sessionId).filter { it.state == SetState.SKIPPED.name }
+            .sortedWith(compareBy({ it.exerciseId }, { it.setNumber }))
+        return SessionDetail(date, row(entity, date), exercises, corrections.history(sessionId), stages, cardio, skipped)
     }
 }
 
