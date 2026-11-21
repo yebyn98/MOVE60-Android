@@ -161,7 +161,8 @@ private fun RecordSessionCard(s: RecordSession, name: (String) -> String, onOpen
             color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.testTag("record_session_stages_${s.sessionId}")
         )
-        Text("${RecordFormat.completionLabel(s.completion)} · 완료 세트 ${s.completedSets}개",
+        Text("${RecordFormat.completionLabel(s.completion)} · 완료 세트 ${s.completedSets}개" +
+                if (s.skippedSets > 0) " · 건너뜀 ${s.skippedSets}개" else "",
             color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall)
         Row(
             Modifier.background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.small).padding(horizontal = 10.dp, vertical = 8.dp),
@@ -232,7 +233,8 @@ private fun SessionContent(
 @Composable
 private fun StrengthStageCard(
     exercises: List<ExerciseSets>, name: (String) -> String,
-    actualSeconds: Long? = null, plannedSeconds: Long? = null
+    actualSeconds: Long? = null, plannedSeconds: Long? = null,
+    skippedSets: List<SessionSetEntity> = emptyList()
 ) {
     // Every stage card starts collapsed (PO decision 2026-11-18, Figma FINAL 27).
     var open by rememberSaveable { mutableStateOf(false) }
@@ -257,16 +259,24 @@ private fun StrengthStageCard(
                 "실제 ${RecordFormat.compact(actualSeconds)}",
                 plannedSeconds?.let { "계획 ${RecordFormat.compact(it)}" } ?: "계획 시간 미정"
             )
+            val performed = if (exercises.isEmpty()) "완료한 세트가 없어요"
+                else "${exercises.size}종목 · ${exercises.sumOf { e -> e.sets.count { !it.differsFromStored } }}세트"
+            val skippedLabel = skippedSets.takeIf { it.isNotEmpty() }?.let { "건너뜀 ${it.size}세트" }
             Text(
-                (timeParts + if (exercises.isEmpty()) listOf("완료한 세트가 없어요")
-                else listOf("${exercises.size}종목 · ${exercises.sumOf { e -> e.sets.count { !it.differsFromStored } }}세트")).joinToString(" · "),
+                (timeParts + listOfNotNull(performed, skippedLabel)).joinToString(" · "),
                 color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.testTag("record_stage_summary")
             )
         }
-        if (open && exercises.isNotEmpty()) {
+        if (open && (exercises.isNotEmpty() || skippedSets.isNotEmpty())) {
             Column(Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 exercises.forEach { ExerciseCard(it, name) }
+                skippedSets.forEach { skipped ->
+                    Text("${name(skipped.exerciseId)} · ${skipped.setNumber}세트 건너뜀",
+                        color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.testTag("record_skipped_set_${skipped.exerciseId}_${skipped.setNumber}")
+                            .padding(horizontal = 12.dp, vertical = 6.dp))
+                }
             }
         }
     }
@@ -430,18 +440,19 @@ private fun StageCards(
     onSaveCardio: (List<CardioValueEdit>, (CardioCorrectionResult) -> Unit) -> Unit, onSaveFailed: () -> Unit
 ) {
     if (detail.stages.isEmpty()) {
-        StrengthStageCard(detail.exercises, name)
+        StrengthStageCard(detail.exercises, name, skippedSets = detail.skippedSets)
         return
     }
     var strengthShown = false
     detail.stages.forEach { stage ->
         if (stage.kind == SegmentKind.STRENGTH) {
             strengthShown = true
-            StrengthStageCard(detail.exercises, name, stage.actualSeconds, stage.plannedSeconds)
+            StrengthStageCard(detail.exercises, name, stage.actualSeconds, stage.plannedSeconds, detail.skippedSets)
         } else PlanStageCard(stage, if (stage.kind == SegmentKind.CARDIO_STEADY) detail.cardio else null, onSaveCardio, onSaveFailed)
     }
     // Sets exist but no strength time was stored: still show them rather than hide recorded sets.
-    if (!strengthShown && detail.exercises.isNotEmpty()) StrengthStageCard(detail.exercises, name)
+    if (!strengthShown && (detail.exercises.isNotEmpty() || detail.skippedSets.isNotEmpty()))
+        StrengthStageCard(detail.exercises, name, skippedSets = detail.skippedSets)
 }
 
 /**
