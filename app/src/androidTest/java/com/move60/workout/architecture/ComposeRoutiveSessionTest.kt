@@ -276,4 +276,31 @@ class ComposeRoutiveSessionTest {
             RoutiveSessionStore(context).let { s -> if (s.active()?.over == false) s.endEarly() }   // never leave a running session for other tests
         }
     }
+    @Test fun unfinishedStrengthRequiresTwoButtonsAndPerSetSkipCanBeUndone() {
+        val id = prepareRoutine(RoutineExerciseInput("legPress", "레그프레스", null, 3, 10))
+        try {
+            startFromList(id)
+            rule.onNodeWithTag("routive_next").performClick() // warm-up -> strength
+            rule.waitUntil(5_000) { rule.onAllNodes(hasText("2 / 4 단계 · 근력운동")).fetchSemanticsNodes().isNotEmpty() }
+            rule.onNodeWithTag("routive_next").performClick()
+            waitTag("routive_next_unfinished_dialog")
+            rule.onNodeWithTag("routive_next_unfinished_continue").performClick()
+            rule.onNodeWithTag("routive_set_skip_legPress_1").performScrollTo().performClick()
+            waitTag("routive_set_skip_dialog")
+            rule.onNodeWithTag("routive_set_skip_cancel").performClick()
+            assertTrue(SetRecordStore(context).skippedSetsForSession(RoutiveSessionStore(context).active()!!.startedAtEpochMs).isEmpty())
+            rule.onNodeWithTag("routive_set_skip_legPress_1").performScrollTo().performClick()
+            rule.onNodeWithTag("routive_set_skip_confirm").performClick()
+            waitTag("routive_set_skip_undo_legPress_1")
+            val token = RoutiveSessionStore(context).active()!!.startedAtEpochMs
+            assertTrue(SetRecordStore(context).skippedSetsForSession(token).any { it.exerciseId == "legPress" && it.setNumber == 1 })
+            assertTrue(SetRecordStore(context).completedSetsForSession(token).isEmpty())
+            rule.onNodeWithTag("routive_set_skip_undo_legPress_1").performScrollTo().performClick()
+            rule.waitUntil(5_000) { SetRecordStore(context).skippedSetsForSession(token).isEmpty() }
+            assertTrue("undo never marks a set completed", SetRecordStore(context).completedSetsForSession(token).isEmpty())
+        } finally {
+            RoutiveSessionStore(context).let { s -> if (s.active()?.over == false) s.endEarly() }
+        }
+    }
+
 }
