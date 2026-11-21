@@ -8,7 +8,7 @@ import java.time.ZoneId
 /** Dated per-set drafts and performed values; legacy aggregate logs remain untouched. */
 class SetRecordStore(context: Context) {
     private val prefs = context.getSharedPreferences("move60_set_records_v1", Context.MODE_PRIVATE)
-    data class Record(val kg: String = "", val reps: String = "", val rpe: String = "5", val completed: Boolean = false) {
+    data class Record(val kg: String = "", val reps: String = "", val rpe: String = "5", val completed: Boolean = false, val skipped: Boolean = false) {
         val valid: Boolean get() = kg.toDoubleOrNull()?.let { it in 0.0..com.move60.workout.domain.SetLimits.MAX_KG } == true &&
             reps.toIntOrNull()?.let { it in com.move60.workout.domain.SetLimits.MIN_REPS..com.move60.workout.domain.SetLimits.MAX_REPS } == true &&
             rpe.toIntOrNull()?.let { it in 1..10 } == true
@@ -20,11 +20,35 @@ class SetRecordStore(context: Context) {
         decode(prefs.getString(key(date, day, id, set, token), null) ?: prefs.getString(key(date, day, id, set, 0L), null)).let { if (token > 0L && !prefs.contains(key(date, day, id, set, token))) it.copy(completed = false) else it }
     fun write(day: Int, id: String, set: Int, record: Record, date: LocalDate = today(), token: Long = 0L) {
         val json = JSONObject().put("kg", record.kg).put("reps", record.reps).put("rpe", record.rpe)
-            .put("completed", record.completed && record.valid)
+            .put("completed", record.completed && record.valid && !record.skipped)
+            .put("skipped", record.skipped && !record.completed)
         val edit = prefs.edit().putString(key(date, day, id, set, token), json.toString())
         if (token > 0L) edit.putString(key(date, day, id, set, 0L), JSONObject(json.toString()).put("completed", false).toString())
         edit.apply()
     }
+    /**
+     * Explicit skip is a separate durable state: a pending set is never silently converted to SKIPPED by moving stages.
+     * A synchronous write prevents an app/process exit from losing the user's confirmed decision.
+     */
+    fun markSkipped(day: Int, id: String, set: Int, date: LocalDate, token: Long): Boolean {
+        if (token <= 0L || id.isBlank() || set < 1) return false
+        val before = read(day, id, set, date, token)
+        if (before.completed || before.skipped) return false
+        val json = JSONObject().put("kg", before.kg).put("reps", before.reps).put("rpe", before.rpe)
+            .put("completed", false).put("skipped", true)
+        return prefs.edit().putString(key(date, day, id, set, token), json.toString()).commit()
+    }
+
+    /** Reverses only an explicit skip, without touching completed sets or other session tokens. */
+    fun undoSkipped(day: Int, id: String, set: Int, date: LocalDate, token: Long): Boolean {
+        if (token <= 0L || set < 1) return false
+        val before = read(day, id, set, date, token)
+        if (!before.skipped || before.completed) return false
+        val json = JSONObject().put("kg", before.kg).put("reps", before.reps).put("rpe", before.rpe)
+            .put("completed", false).put("skipped", false)
+        return prefs.edit().putString(key(date, day, id, set, token), json.toString()).commit()
+    }
+
     fun previous(id: String, set: Int, currentToken: Long): Record? {
         val date = today().toString()
         return prefs.all.entries.mapNotNull { (key, value) ->
@@ -48,6 +72,19 @@ class SetRecordStore(context: Context) {
     }
 
     data class CompletedSet(val exerciseId: String, val setNumber: Int, val kg: String, val reps: String)
+    data class SkippedSet(val exerciseId: String, val setNumber: Int)
+
+    /** Session-scoped explicit skips; they are never included in completed set count or exercise volume. */
+    fun skippedSetsForSession(token: Long): List<SkippedSet> {
+        if (token <= 0L) return emptyList()
+        return prefs.all.mapNotNull { (rawKey, value) ->
+            val parts = rawKey.split(':')
+            if (parts.size != 6 || parts[0] != "set" || parts[3] != token.toString()) return@mapNotNull null
+            val number = parts[5].toIntOrNull()?.takeIf { it >= 1 } ?: return@mapNotNull null
+            val record = decode(value as? String)
+            if (record.skipped && !record.completed) SkippedSet(parts[4], number) else null
+        }.sortedWith(compareBy({ it.exerciseId }, { it.setNumber }))
+    }
     /**
      * Completed, valid sets of ONE workout (identified by its session token), with the exercise id and set number
      * parsed from the storage key. Never mixes other workouts of the same date. Ordered for stable comparison.
@@ -97,7 +134,7 @@ class SetRecordStore(context: Context) {
     }
     private fun decode(value: String?): Record = try {
         val o = JSONObject(value ?: "{}")
-        Record(o.optString("kg"), o.optString("reps"), o.optString("rpe", "5"), o.optBoolean("completed"))
+        Record(o.optString("kg"), o.optString("reps"), o.optString("rpe", "5"), o.optBoolean("completed"), o.optBoolean("skipped", false))
     } catch (_: Exception) { Record() }
 }
 
