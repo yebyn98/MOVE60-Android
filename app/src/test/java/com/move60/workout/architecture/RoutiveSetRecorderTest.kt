@@ -98,4 +98,31 @@ class RoutiveSetRecorderTest {
         assertNull(recorder.complete("legPress", " 42.5 ", " 012 ", null))
         assertEquals(listOf(SetRecordStore.CompletedSet("legPress", 1, "42.5", "12")), recorded(s))
     }
+    @Test fun thirdSetCanBeExplicitlySkippedAndUndoneWithoutChangingCompletedSets() {
+        val s = inStrengthStage()
+        assertNull(recorder.complete("legPress", "40", "10", legPress))
+        assertNull(recorder.complete("legPress", "40", "10", legPress))
+        assertTrue(recorder.skip("legPress", 3, legPress))
+        assertEquals(listOf(SetRecordStore.SkippedSet("legPress", 3)), sets.skippedSetsForSession(s.startedAtEpochMs))
+        assertEquals(2, recorded(s).size)
+        assertFalse("duplicate skip is not permitted", recorder.skip("legPress", 3, legPress))
+        assertEquals("cannot create an extra fourth set", SetInputError.NOT_STORED,
+            recorder.complete("legPress", "40", "10", legPress))
+        assertTrue(recorder.undoSkip("legPress", 3, legPress))
+        assertTrue(sets.skippedSetsForSession(s.startedAtEpochMs).isEmpty())
+        assertEquals(2, recorded(s).size)
+        assertNull(recorder.complete("legPress", "45", "8", legPress))
+        assertEquals(listOf(1, 2, 3), recorded(s).map { it.setNumber })
+    }
+
+    @Test fun completedSetsCannotBeSkippedAndLeavingStrengthDoesNotChangeSetStatus() {
+        val s = inStrengthStage()
+        assertNull(recorder.complete("legPress", "40", "10", legPress))
+        assertFalse(recorder.skip("legPress", 1, legPress))
+        assertFalse(recorder.skip("legPress", 3, legPress)) // only the next untouched set can be skipped
+        store.advance()
+        assertFalse(recorder.skip("legPress", 2, legPress))
+        assertTrue(sets.skippedSetsForSession(s.startedAtEpochMs).isEmpty())
+    }
+
 }
