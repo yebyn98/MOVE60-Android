@@ -25,9 +25,14 @@ data class RoutiveExerciseUi(
     /** Targets chosen by the user in the routine; null = not set (never a default). */
     val targetSets: Int? = null, val targetReps: Int? = null, val restSeconds: Long? = null,
     /** Cardio machine values the user saved (docs/v71); null for anything that is not a known cardio machine. */
-    val cardio: RoutiveCardioUi? = null
+    val cardio: RoutiveCardioUi? = null,
+    /** Only set numbers explicitly skipped by the user. Absent numbers are UNDECIDED, never auto-skipped. */
+    val skippedSetNumbers: List<Int> = emptyList()
 ) {
-    val nextSetNumber: Int get() = (done.maxOfOrNull { it.number } ?: 0) + 1
+    val nextSetNumber: Int get() {
+        val decided = done.map { it.number }.toSet() + skippedSetNumbers
+        return generateSequence(1) { it + 1 }.first { it !in decided }
+    }
 }
 
 /** The values the machine has ([metrics], in the order the sheet asks for them) and what the user saved so far, oldest first. */
@@ -72,24 +77,34 @@ data class RoutiveSessionUiState(
     /** Watch heart rate: a value only while it is valid (30..240) and at most 10 s old, otherwise "수신 대기". Never gates the workout. */
     val heartText: String = com.move60.workout.domain.HeartRateFreshness.WAITING_LABEL,
     /** The last refused set input (null = none). Cleared when the user edits the fields or completes a valid set. */
-    val setError: RoutiveSetError? = null
+    val setError: RoutiveSetError? = null,
+    /** Remaining known planned sets across strength exercises. A null target never produces an invented count. */
+    val unfinishedStrengthSets: Int = 0
 ) { val paused: Boolean get() = load == RoutiveLoad.ACTIVE && !running && !over }
 
 /** Pure mapping of the stored session + saved plan + completed sets to what the screen shows. */
 internal fun buildRoutiveUi(
     session: RoutiveSession, exercises: List<RoutineExerciseInput>, completed: List<SetRecordStore.CompletedSet>, outcome: RoutiveOutcome?,
-    heartBpm: Int = 0, heartAgeMs: Long = Long.MAX_VALUE
+    heartBpm: Int = 0, heartAgeMs: Long = Long.MAX_VALUE,
+    skipped: List<SetRecordStore.SkippedSet> = emptyList()
 ): RoutiveSessionUiState {
     val p = session.progress
     val kind = p.kind
     val perExercise = completed.groupBy { it.exerciseId }
+    val perSkipped = skipped.groupBy { it.exerciseId }
     val ui = exercises.map { e ->
         RoutiveExerciseUi(e.id, e.name, formatPlanned(e.plannedSeconds),
             perExercise[e.id].orEmpty().sortedBy { it.setNumber }.map { RoutiveSetUi(it.setNumber, it.kg, it.reps) },
             e.targetSets, e.targetReps, e.restSeconds,
-            cardio = if (kind == StageKind.CARDIO) cardioUi(e.name, session) else null)
+            cardio = if (kind == StageKind.CARDIO) cardioUi(e.name, session) else null,
+            skippedSetNumbers = perSkipped[e.id].orEmpty().map { it.setNumber }.sorted())
     }
-    val allSetsDone = kind == StageKind.STRENGTH && ui.isNotEmpty() && ui.all { it.done.isNotEmpty() }
+    val allSetsDone = kind == StageKind.STRENGTH && ui.isNotEmpty() && ui.all { e ->
+        e.targetSets?.let { e.done.size + e.skippedSetNumbers.size >= it } ?: e.done.isNotEmpty()
+    }
+    val unfinished = if (kind == StageKind.STRENGTH) ui.sumOf { e ->
+        (e.targetSets?.minus(e.done.size + e.skippedSetNumbers.size) ?: 0).coerceAtLeast(0)
+    } else 0
     return RoutiveSessionUiState(
         load = RoutiveLoad.ACTIVE, routineName = session.routineName, running = session.running, over = session.over,
         stageIndex = p.stageIndex, stageCount = p.plan.size, stageKind = kind,
@@ -99,7 +114,8 @@ internal fun buildRoutiveUi(
         totalSeconds = p.totalElapsedSeconds, isLast = p.isLast, readiness = p.readiness(allSetsDone),
         exercises = ui, outcome = outcome, autoPaused = session.autoPaused,
         rest = session.rest?.takeIf { kind == StageKind.STRENGTH }?.let { RoutiveRestUi(it.exerciseId, it.remainingSeconds, it.totalSeconds, it.done) },
-        heartText = com.move60.workout.domain.HeartRateFreshness.display(heartBpm, heartAgeMs)
+        heartText = com.move60.workout.domain.HeartRateFreshness.display(heartBpm, heartAgeMs),
+        unfinishedStrengthSets = unfinished
     )
 }
 
@@ -170,6 +186,21 @@ class RoutiveSessionViewModel @Inject constructor(
         return null
     }
 
+    /** Only the explicit confirm dialog calls this; changing stages NEVER calls it. */
+    fun skipSet(exerciseId: String, setNumber: Int): Boolean {
+        val exercise = stageExercises[StageKind.STRENGTH].orEmpty().firstOrNull { it.id == exerciseId }
+        val saved = recorder.skip(exerciseId, setNumber, exercise)
+        if (saved) viewModelScope.launch { publish(store.active()) }
+        return saved
+    }
+
+    fun undoSkippedSet(exerciseId: String, setNumber: Int): Boolean {
+        val exercise = stageExercises[StageKind.STRENGTH].orEmpty().firstOrNull { it.id == exerciseId }
+        val restored = recorder.undoSkip(exerciseId, setNumber, exercise)
+        if (restored) viewModelScope.launch { publish(store.active()) }
+        return restored
+    }
+
     private fun refuse(exerciseId: String, error: SetInputError): SetInputError {
         setError = RoutiveSetError(exerciseId, error)
         viewModelScope.launch { publish(store.active()) }
@@ -225,7 +256,8 @@ class RoutiveSessionViewModel @Inject constructor(
         val heart = context.getSharedPreferences("preferences", Context.MODE_PRIVATE)
         _state.value = buildRoutiveUi(session, stageExercises[session.progress.kind].orEmpty(),
             sets.completedSetsForSession(session.startedAtEpochMs), outcome,
-            heart.getInt("watch_heart_rate", 0), System.currentTimeMillis() - heart.getLong("watch_heart_rate_at", 0L)).copy(setError = setError)
+            heart.getInt("watch_heart_rate", 0), System.currentTimeMillis() - heart.getLong("watch_heart_rate_at", 0L),
+            skipped = sets.skippedSetsForSession(session.startedAtEpochMs)).copy(setError = setError)
     }
 
     /** Buffer first (durable), then drain through the idempotent commit; the result is shown only for a confirmed outcome. */
