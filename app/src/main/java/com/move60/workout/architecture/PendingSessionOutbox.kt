@@ -40,6 +40,9 @@ open class PendingSessionOutbox(context: Context) {
             .put("sets", JSONArray().also { a ->
                 s.completedSets.forEach { a.put(JSONObject().put("id", it.exerciseId).put("n", it.setNumber).put("kg", it.weightKg).put("reps", it.repetitions)) }
             })
+            .put("skippedSets", JSONArray().also { a ->
+                s.skippedSets.forEach { a.put(JSONObject().put("id", it.exerciseId).put("n", it.setNumber)) }
+            })
             .put("stages", JSONArray().also { a ->
                 s.stages.forEach { a.put(JSONObject().put("k", it.kind.name).put("p", it.plannedSeconds ?: JSONObject.NULL).put("a", it.actualSeconds)) }
             })
@@ -92,6 +95,8 @@ open class PendingSessionOutbox(context: Context) {
         val o = JSONObject(prefs.getString(id, null) ?: return null)
         val iv = o.getJSONArray("intervals")
         val sets = o.optJSONArray("sets") ?: JSONArray()
+        // Older buffered snapshots had no skippedSets key; treat them as no explicit skips.
+        val skips = o.optJSONArray("skippedSets") ?: JSONArray()
         // Entries written before stage data existed have neither key: they stay readable with no stages and no plan.
         // An unknown stage kind drops that stage only (the sum check then stores no segments); the entry is never lost.
         val stageArr = o.optJSONArray("stages") ?: JSONArray()
@@ -119,7 +124,10 @@ open class PendingSessionOutbox(context: Context) {
             (0 until iv.length()).map { iv.getJSONArray(it).let { p -> p.getLong(0) to p.getLong(1) } },
             o.optBoolean("endedEarly"),
             (0 until sets.length()).map { sets.getJSONObject(it).let { s -> TimerSet(s.getString("id"), s.getInt("n"), s.getString("kg"), s.getString("reps")) } },
-            stages, plan, cardio
+            stages, plan, cardio,
+            (0 until skips.length()).mapNotNull { i ->
+                runCatching { skips.getJSONObject(i).let { TimerSkippedSet(it.getString("id"), it.getInt("n")) } }.getOrNull()
+            }
         )
     } catch (_: Exception) { null }
 
