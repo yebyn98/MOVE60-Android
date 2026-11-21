@@ -31,7 +31,7 @@ class RoutiveSetRecorderTest {
 
     @Before fun init() {
         context = ApplicationProvider.getApplicationContext()
-        for (name in listOf(RoutiveSessionStore.NAME, "move60_set_records_v1", PendingSessionOutbox.NAME)) context.getSharedPreferences(name, 0).edit().clear().commit()
+        for (name in listOf(RoutiveSessionStore.NAME, "move60_set_records_v1", PendingSessionOutbox.NAME, ExplicitSetSkipStore.NAME)) context.getSharedPreferences(name, 0).edit().clear().commit()
         sets = SetRecordStore(context)
         store = RoutiveSessionStore(context, { t }, { date })
         recorder = RoutiveSetRecorder(store, sets)
