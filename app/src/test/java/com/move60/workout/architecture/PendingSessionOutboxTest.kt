@@ -176,4 +176,17 @@ class PendingSessionOutboxTest {
         assertFalse(outbox.discardConflict(outbox.sessionId(snap)))
         assertEquals(1, outbox.size())
     }
+    @Test fun bufferedExplicitSkipSurvivesProcessReadAndReachesRoomOnce() = runBlocking {
+        val s = TimerSnapshot(java.time.LocalDate.parse("2026-11-19"), 3, 6_123_456_000L, true,
+            120, listOf(6_123_456L to 6_123_576L),
+            completedSets = listOf(TimerSet("legPress", 1, "40", "10")),
+            skippedSets = listOf(TimerSkippedSet("legPress", 2)))
+        assertTrue(outbox.enqueue(s))
+        assertEquals(s.skippedSets, outbox.pending().single().skippedSets)
+        assertTrue(sync.drain(outbox).single() is SyncOutcome.Committed)
+        assertEquals(listOf("COMPLETED", "SKIPPED"),
+            dao.sets(sync.sessionId(s)).sortedBy { it.setNumber }.map { it.state })
+        assertEquals(0, outbox.size())
+    }
+
 }
