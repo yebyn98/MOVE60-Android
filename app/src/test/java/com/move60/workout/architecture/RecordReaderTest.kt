@@ -150,4 +150,19 @@ class RecordReaderTest {
         assertEquals("일부 수행", RecordFormat.completionLabel(SessionCompletion.PARTIAL))
         assertEquals("상태 확인 안 됨", RecordFormat.completionLabel(null))
     }
+    @Test fun skippedSetsRemainVisibleButNotCountedAsCompletedVolume() = runBlocking {
+        val id = "skipped-visible"
+        val original = sessionBundle(id, listOf(T.run(T.at("2026-11-09", 20, 35), 600)), sets = 1)
+        val performed = completedSet(id, "legPress", 1, "40", "12")
+        val skipped = SessionSetEntity(id, "legPress", 2, SetState.SKIPPED.name, "", "", null)
+        assertTrue(SessionCommitter(db) { 5_000L }.commit(original.copy(sets = listOf(performed, skipped))) is CommitResult.Committed)
+        val detail = reader.session(id)!!
+        assertEquals(1, detail.session.completedSets)
+        assertEquals(1, detail.session.skippedSets)
+        assertEquals(listOf(2), detail.skippedSets.map { it.setNumber })
+        assertEquals("SKIPPED", detail.skippedSets.single().state)
+        assertEquals(listOf(1), detail.exercises.single().sets.map { it.setNumber })
+        assertEquals("40kg × 12회 (1세트)", RecordFormat.setSummary(detail.exercises.single().sets))
+    }
+
 }
