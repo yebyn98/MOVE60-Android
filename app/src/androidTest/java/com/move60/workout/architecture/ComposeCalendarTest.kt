@@ -12,6 +12,9 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -159,6 +162,45 @@ class ComposeCalendarTest {
             rule.onNodeWithText("상체").performClick()
             rule.waitForIdle()
             assertEquals("upper", SessionStore(context, WorkoutData(context)).bodyFocus)
+        }
+    }
+
+    @Test fun accessibleDatePickerSelectsArbitraryDayAndSyncsVisibleMonth() {
+        ActivityScenario.launch(ComposeActivity::class.java).use {
+            rule.onNodeWithTag("tab_calendar").performClick()
+            rule.onNodeWithTag("calendar_list").performScrollToNode(hasTestTag("calendar_month_grid"))
+            rule.onNodeWithTag("calendar_open_date_picker").performClick()
+            rule.onNodeWithTag("calendar_date_picker_dialog").assertIsDisplayed()
+            rule.onNodeWithTag("calendar_date_list").assertIsDisplayed()
+
+            val selected = java.time.YearMonth.from(today).atDay(9)
+            rule.onNodeWithTag("calendar_date_$selected").performClick()
+            rule.onNodeWithText("선택한 날짜 확인").assertIsDisplayed()
+            rule.onNodeWithTag("calendar_date_confirm").performClick()
+
+            // The selected day and the visible month must refer to the same date.
+            rule.onNodeWithText("${selected.year}년 ${selected.monthValue}월").assertExists()
+            rule.onNodeWithContentDescription("$selected · 운동 기록 없음").assertExists()
+        }
+    }
+
+    @Test fun manualDateInputRejectsImpossibleDayThenAcceptsLeapDay() {
+        ActivityScenario.launch(ComposeActivity::class.java).use {
+            rule.onNodeWithTag("tab_calendar").performClick()
+            rule.onNodeWithTag("calendar_list").performScrollToNode(hasTestTag("calendar_month_grid"))
+            rule.onNodeWithTag("calendar_open_date_picker").performClick()
+            rule.onNodeWithTag("calendar_picker_direct_input").performClick()
+            rule.onNodeWithTag("calendar_date_text_input").performTextInput("2026.11.31")
+            rule.onNodeWithText("존재하지 않는 날짜이거나 형식이 잘못됐어요.").assertExists()
+            rule.onNodeWithTag("calendar_date_prepare_confirmation").assertIsNotEnabled()
+
+            rule.onNodeWithTag("calendar_date_text_input").performTextReplacement("2028.02.29")
+            rule.onNodeWithTag("calendar_date_prepare_confirmation").performScrollTo().performClick()
+            rule.onNodeWithText("2028년 2월 29일").assertExists()
+            rule.onNodeWithTag("calendar_date_confirm").performClick()
+
+            rule.onNodeWithText("2028년 2월").assertExists()
+            rule.onNodeWithContentDescription("2028-02-29 · 운동 기록 없음").assertExists()
         }
     }
 }
