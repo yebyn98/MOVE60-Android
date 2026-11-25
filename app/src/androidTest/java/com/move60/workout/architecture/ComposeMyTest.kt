@@ -222,7 +222,9 @@ class ComposeMyTest {
                 rule.waitUntil(10_000) { rule.onAllNodesWithTag("my_report_latest").fetchSemanticsNodes().isNotEmpty() }
                 rule.onNodeWithTag("my_report_chart").assertIsDisplayed()
                 rule.onNodeWithTag("my_report_latest").assertIsDisplayed()
-                rule.onNodeWithText("12분 00초 · 운동 기록 상세 보기").assertIsDisplayed()
+                // The latest-session card can be partially visible below the chart on the emulator.
+                // Scroll the text itself into view before asserting its visibility.
+                rule.onNodeWithText("12분 00초 · 운동 기록 상세 보기").performScrollTo().assertIsDisplayed()
                 rule.onNodeWithTag("my_report_composition").performScrollTo().assertIsDisplayed()
                 rule.onNodeWithTag("my_report_ex_legPress").performScrollTo().assertIsDisplayed()
                 rule.onNodeWithText("40kg × 12회 (1세트)").assertIsDisplayed()
