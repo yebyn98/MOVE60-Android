@@ -4,6 +4,7 @@ import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -403,6 +404,7 @@ fun WorkoutCalendar(
     val conflicts = conflictItems.size
     var showConflicts by rememberSaveable { mutableStateOf(false) }
     var discardId by rememberSaveable { mutableStateOf<String?>(null) }
+    var showDatePicker by rememberSaveable { mutableStateOf(false) }
     androidx.lifecycle.compose.LifecycleResumeEffect(Unit) { conflictItems = viewModel.conflicts(); onPauseOrDispose { } }
     // Tapping a day selects it; a day without a record also shows a short toast (every tap, not only the first).
     val onDayClick: (java.time.LocalDate) -> Unit = { date ->
@@ -414,6 +416,16 @@ fun WorkoutCalendar(
                 toast.show("운동한 기록이 없습니다.")
             }
         }
+    }
+    if (showDatePicker) {
+        AccessibleRecordDateDialog(
+            selectedDate = selected,
+            onDismiss = { showDatePicker = false },
+            onDateConfirmed = { date ->
+                onDayClick(date)
+                showDatePicker = false
+            }
+        )
     }
     if (showConflicts) AlertDialog(
         onDismissRequest = { showConflicts = false },
@@ -475,7 +487,8 @@ fun WorkoutCalendar(
                     HabitProgress("이번 달 목표", summary.trainedDays, WorkoutHistory.MONTHLY_GOAL_DAYS, "calendar_month_progress")
                 }
             }
-            item { MonthGrid(viewModel, month, selected, sessionDates, onDayClick) }
+            item { MonthGrid(viewModel, month, selected, sessionDates, onDayClick,
+                onOpenDatePicker = { showDatePicker = true }) }
             item {
                 val legacyMonth = viewModel.monthSummary(month)
                 // Stored sessions are counted too (v58 and stored time are never added on one date); no calories (policy 7).
@@ -625,7 +638,8 @@ private fun SetGroupCard(title: String, kind: String, group: LegacySetGroup, exe
 private fun MonthGrid(
     viewModel: HistoryViewModel, month: java.time.YearMonth, selected: java.time.LocalDate,
     sessionDates: Set<java.time.LocalDate>,
-    onDayClick: (java.time.LocalDate) -> Unit
+    onDayClick: (java.time.LocalDate) -> Unit,
+    onOpenDatePicker: () -> Unit
 ) {
     Move60Card(Modifier.testTag("calendar_month_grid")) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -638,6 +652,11 @@ private fun MonthGrid(
                 Icon(Icons.Outlined.ChevronRight, contentDescription = "다음 달", modifier = Modifier.size(24.dp))
             }
         }
+        TextButton(
+            onClick = onOpenDatePicker,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                .testTag("calendar_open_date_picker")
+        ) { Text("날짜로 이동 · 직접 입력") }
         Row(Modifier.fillMaxWidth().heightIn(min = 28.dp), verticalAlignment = Alignment.CenterVertically) {
             listOf("월", "화", "수", "목", "금", "토", "일").forEach { name ->
                 Text(name, modifier = Modifier.weight(1f), textAlign = TextAlign.Center,
@@ -647,11 +666,18 @@ private fun MonthGrid(
         val first = month.atDay(1)
         val firstCell = first.minusDays((first.dayOfWeek.value - 1).toLong())
         val dates = List(42) { i -> firstCell.plusDays(i.toLong()) }
-        dates.chunked(7).forEach { week ->
-            Row(Modifier.fillMaxWidth()) {
-                week.forEach { date ->
-                    DayCell(viewModel, date, selected, date.month != month.month, date in sessionDates,
-                        onDayClick, Modifier.weight(1f))
+        // Seven cells need at least 336dp of real row width to remain 48dp touch targets.
+        // Do not rely on overlapping Compose expanded hit targets on compact widths.
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val canTapDays = maxWidth >= 336.dp
+            Column {
+                dates.chunked(7).forEach { week ->
+                    Row(Modifier.fillMaxWidth()) {
+                        week.forEach { date ->
+                            DayCell(viewModel, date, selected, date.month != month.month, date in sessionDates,
+                                onDayClick, canTapDays, Modifier.weight(1f))
+                        }
+                    }
                 }
             }
         }
@@ -666,6 +692,7 @@ private fun DayCell(
     outsideMonth: Boolean,
     hasStoredSession: Boolean,
     onDayClick: (java.time.LocalDate) -> Unit,
+    canTapDays: Boolean,
     modifier: Modifier
 ) {
     val trained = viewModel.trained(date) || hasStoredSession
@@ -676,7 +703,8 @@ private fun DayCell(
     // One 48dp touch region owns date, selection circle and record dot; no pixel offsets.
     Column(
         modifier.height(48.dp)
-            .clickable(onClickLabel = "날짜 선택") { onDayClick(date) }
+            .then(if (canTapDays) Modifier.clickable(onClickLabel = "날짜 선택") { onDayClick(date) }
+                else Modifier.testTag("calendar_day_display_only_$date"))
             .semantics { contentDescription = "$date · ${if (trained) "운동 기록 있음" else "운동 기록 없음"}$focusLabel" },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center

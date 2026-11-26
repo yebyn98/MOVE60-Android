@@ -122,7 +122,11 @@ class HistoryViewModel @Inject constructor(
 
     fun previousMonth() = moveTo(_month.value.minusMonths(1))
     fun nextMonth() = moveTo(_month.value.plusMonths(1))
-    fun select(date: LocalDate) { _selected.value = date }
+    /** Keep the visible month, selected day and selected-day record in sync, including dates from the picker. */
+    fun select(date: LocalDate) {
+        _month.value = YearMonth.from(date)
+        _selected.value = date
+    }
 
     private fun moveTo(month: YearMonth) {
         _month.value = month
