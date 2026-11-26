@@ -446,7 +446,7 @@ private fun ReportContent(report: MyReport, name: (String) -> String, onOpenSess
         Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
-                Text("${RecordFormat.duration(latest.session.totalActiveSeconds)} · 운동 기록 상세 보기", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                Text("${RecordFormat.duration(latest.session.totalActiveSeconds)} · 운동 기록 상세 보기", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary, modifier = Modifier.testTag("my_report_latest_duration"))
             }
             Icon(Icons.Outlined.ChevronRight, contentDescription = null)
         }
