@@ -2,6 +2,7 @@ package com.move60.workout.architecture
 
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
@@ -198,11 +199,23 @@ class ComposeMyTest {
         val db = Room.databaseBuilder(context, WorkoutDatabase::class.java, dbFile).build()
         try {
             runBlocking {
-                val start = date.atTime(20, 35).atZone(zone).toEpochSecond()
+                // The report intentionally shows the most recent stored session. Other
+                // instrumentation tests may leave newer session fixtures in the same DB.
+                // Make our 720-second fixture the newest without deleting or editing them.
+                val dao = db.routiveDao()
+                val previousLatest = dao.latestSessionId()?.let { dao.session(it) }
+                val previousStart = previousLatest?.startedAtEpochMs ?: previousLatest?.committedAtEpochMs ?: 0L
+                val nominalStart = date.atTime(20, 35).atZone(zone).toEpochSecond()
+                val start = maxOf(nominalStart, previousStart / 1000L + 1)
                 val session = SessionEntity(id, null, zone.id, start * 1000, (start + 720) * 1000,
                     SessionCompletion.COMPLETED.name, 720, 1, false, null, 0L)
-                SessionCommitter(db).commit(SessionBundle(session, listOf(SessionActiveIntervalEntity(id, 0, start, start + 720)),
-                    listOf(SessionSetEntity(id, "legPress", 1, SetState.COMPLETED.name, "40", "12", null))))
+                val committed = SessionCommitter(db).commit(SessionBundle(
+                    session,
+                    listOf(SessionActiveIntervalEntity(id, 0, start, start + 720)),
+                    listOf(SessionSetEntity(id, "legPress", 1, SetState.COMPLETED.name, "40", "12", null))
+                ))
+                org.junit.Assert.assertTrue("Fixture must commit", committed is CommitResult.Committed)
+                assertEquals("Report test must select our newest fixture", id, dao.latestSessionId())
             }
             db.close()
             ActivityScenario.launch(ComposeActivity::class.java).use {
@@ -221,10 +234,13 @@ class ComposeMyTest {
                 rule.onNodeWithTag("my_report_open").performScrollTo().performClick()
                 rule.waitUntil(10_000) { rule.onAllNodesWithTag("my_report_latest").fetchSemanticsNodes().isNotEmpty() }
                 rule.onNodeWithTag("my_report_chart").assertIsDisplayed()
-                rule.onNodeWithTag("my_report_latest").assertIsDisplayed()
-                // The latest-session card can be partially visible below the chart on the emulator.
-                // Scroll the text itself into view before asserting its visibility.
-                rule.onNodeWithText("12분 00초 · 운동 기록 상세 보기").performScrollTo().assertIsDisplayed()
+                // Scroll the actual card (stable semantics node), not a descendant
+                // whose text is merged into its clickable parent in some Compose versions.
+                rule.onNodeWithTag("my_report_latest").performScrollTo().assertIsDisplayed()
+                rule.onNodeWithTag("my_report_latest_duration", useUnmergedTree = true)
+                    .assertTextEquals("12분 00초 · 운동 기록 상세 보기")
+                rule.onNodeWithTag("my_report_latest_duration", useUnmergedTree = true)
+                    .assertIsDisplayed()
                 rule.onNodeWithTag("my_report_composition").performScrollTo().assertIsDisplayed()
                 rule.onNodeWithTag("my_report_ex_legPress").performScrollTo().assertIsDisplayed()
                 rule.onNodeWithText("40kg × 12회 (1세트)").assertIsDisplayed()
