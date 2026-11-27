@@ -35,22 +35,19 @@ object CardioMetrics {
     }
 
     /**
-     * The largest console value the app accepts for [metric] on [equipmentKey]. PO asked (2026-11-18) for ranges based on real machines:
-     * commercial upright/recumbent bikes document 16, 20, 24, 25 or 40 resistance levels (a few go to 100+), so a bike level is capped at 40;
-     * commercial ellipticals document 20 resistance levels and a 1-20 ramp setting, so both ellipticals metrics are capped at 25 (headroom
-     * for gym-specific models). The gym's own machine is not known to the app, so this is a typo guard, not a machine specification.
-     * Unknown equipment keeps the earlier general cap of 100. Only NEW input and corrections are checked against it: values already stored are
-     * never rejected or changed.
+     * A verified upper bound for this PARTICULAR console model and metric, or null when unknown.
+     *
+     * P-29 allows unregistered equipment models. A category ("INDOOR_CYCLE"/"ELLIPTICAL") does NOT identify a console model:
+     * the old 40/25/100 category caps were examples from unrelated machines, not verified limits for this user's console.
+     * No manufacturer/model-specific range registry is available yet. Keep null until a verified, sourced model mapping exists.
+     * Do not backfill or alter a previously saved user's reading when a mapping is added later.
      */
-    fun maxFor(equipmentKey: String, metric: CardioMetric): Double = when {
-        equipmentKey == "INDOOR_CYCLE" && metric == CardioMetric.LEVEL -> 40.0
-        equipmentKey == "ELLIPTICAL" -> 25.0
-        else -> 100.0
-    }
+    @Suppress("UNUSED_PARAMETER")
+    fun maxFor(equipmentKey: String, metric: CardioMetric): Double? = null
 
-    /** [parse], and not above [maxFor]. */
+    /** Validate a finite, non-negative user-entered reading; enforce an upper bound only when one is verified. */
     fun parseWithin(text: String, equipmentKey: String, metric: CardioMetric): Double? =
-        parse(text)?.takeIf { it <= maxFor(equipmentKey, metric) }
+        parse(text)?.takeIf { value -> maxFor(equipmentKey, metric)?.let { value <= it } ?: true }
 
     /** Parses what the user typed: a finite, non-negative number. Anything else is rejected (null) instead of guessed. */
     fun parse(text: String): Double? {

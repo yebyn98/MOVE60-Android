@@ -76,17 +76,18 @@ class CardioIntervalsTest {
         assertEquals(5.0, CardioMetrics.parse(" 5 ")!!, 0.0); assertEquals(7.5, CardioMetrics.parse("7,5")!!, 0.0); assertEquals(0.0, CardioMetrics.parse("0")!!, 0.0)
         for (bad in listOf("", " ", "abc", "-1", "NaN", "Infinity", "5kg")) assertNull("'$bad'", CardioMetrics.parse(bad))
     }
-    @Test fun valueRangesFollowTheMachine() {
-        // Documented commercial bikes: 16/20/24/25/40 levels -> 40 accepted; ellipticals: 20 levels, 1-20 ramp -> 25 accepted.
-        assertEquals(40.0, CardioMetrics.maxFor("INDOOR_CYCLE", LEVEL), 0.0)
-        assertEquals(25.0, CardioMetrics.maxFor("ELLIPTICAL", LEVEL), 0.0)
-        assertEquals(25.0, CardioMetrics.maxFor("ELLIPTICAL", INCLINE), 0.0)
-        assertEquals(100.0, CardioMetrics.maxFor("SOMETHING_ELSE", LEVEL), 0.0)
-        assertEquals(40.0, CardioMetrics.parseWithin("40", "INDOOR_CYCLE", LEVEL)!!, 0.0)
-        assertNull(CardioMetrics.parseWithin("41", "INDOOR_CYCLE", LEVEL))
-        assertEquals(25.0, CardioMetrics.parseWithin("25", "ELLIPTICAL", INCLINE)!!, 0.0)
-        assertNull(CardioMetrics.parseWithin("26", "ELLIPTICAL", INCLINE))
-        assertNull(CardioMetrics.parseWithin("abc", "INDOOR_CYCLE", LEVEL))
+    @Test fun equipmentCategoryMustNotInventAnUnverifiedConsoleRange() {
+        // P-29: category != manufacturer/model; figures from OTHER machines are not binding limits.
+        assertNull(CardioMetrics.maxFor("INDOOR_CYCLE", LEVEL))
+        assertNull(CardioMetrics.maxFor("ELLIPTICAL", LEVEL))
+        assertNull(CardioMetrics.maxFor("ELLIPTICAL", INCLINE))
+        assertNull(CardioMetrics.maxFor("SOMETHING_ELSE", LEVEL))
+        assertEquals(41.0, CardioMetrics.parseWithin("41", "INDOOR_CYCLE", LEVEL)!!, 0.0)
+        assertEquals(26.0, CardioMetrics.parseWithin("26", "ELLIPTICAL", INCLINE)!!, 0.0)
+        assertEquals(0.0, CardioMetrics.parseWithin("0", "ELLIPTICAL", LEVEL)!!, 0.0)
+        for (bad in listOf("abc", "-1", "NaN", "Infinity", "5kg")) {
+            assertNull(CardioMetrics.parseWithin(bad, "ELLIPTICAL", LEVEL))
+        }
     }
     @Test fun invalidConstructionIsRejected() {
         assertThrows(IllegalArgumentException::class.java) { CardioInput(-1, 0, emptyMap()) }

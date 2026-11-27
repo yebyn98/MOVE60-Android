@@ -90,9 +90,19 @@ class RoutiveCardioStoreTest {
         refused(CardioSaveResult.Reason.NO_VALUE, st.saveCardioInput(elliptical, mapOf(LEVEL to " ", INCLINE to "")))
         for (bad in listOf("abc", "-1", "NaN", "5kg", "1/2")) refused(CardioSaveResult.Reason.INVALID_VALUE, st.saveCardioInput(elliptical, mapOf(LEVEL to bad)))
         refused(CardioSaveResult.Reason.INVALID_VALUE, st.saveCardioInput(elliptical, mapOf(LEVEL to "5", INCLINE to "x")))
-        // above what the machine can show (ellipticals 25, bikes 40): a typo is refused, not stored
-        refused(CardioSaveResult.Reason.INVALID_VALUE, st.saveCardioInput(elliptical, mapOf(LEVEL to "26")))
-        refused(CardioSaveResult.Reason.INVALID_VALUE, st.saveCardioInput(elliptical, mapOf(LEVEL to "5", INCLINE to "26")))
+    }
+
+    @Test fun unregisteredMachineDoesNotApplyCategoryCapsAndKeepsExactEnteredNumbers() {
+        val st = onCardio()
+        assertTrue(st.active()!!.cardioInputs.isEmpty()) // null/unrecorded, not fabricated zero
+        assertEquals(CardioSaveResult.Saved, st.saveCardioInput(elliptical, mapOf(LEVEL to "26", INCLINE to "0")))
+        assertEquals(CardioSaveResult.Saved, st.saveCardioInput(cycle, mapOf(LEVEL to "41")))
+        val saved = st.active()!!.cardioInputs
+        assertEquals(listOf("26", "0", "41"), saved.map { it.valueText })
+        assertEquals(listOf("level", "incline", "level"), saved.map { it.metricKey })
+        // A model-level maximum may be applied only after a verified model mapping exists.
+        assertNull(CardioMetrics.maxFor(elliptical, LEVEL))
+        assertNull(CardioMetrics.maxFor(cycle, LEVEL))
     }
 
     @Test fun onlyTheCardioStageOfASessionThatIsNotOverAcceptsAValue() {

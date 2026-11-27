@@ -59,6 +59,8 @@ class CardioCorrectionServiceTest {
     @Test fun sameValueWritesNothing_evenWrittenWithADecimalPoint() = runBlocking {
         store()
         assertEquals(CardioCorrectionResult.Unchanged, service.applyCardio("c1", listOf(CardioValueEdit(0, LEVEL, "5.0"))))
+        // Decimal comma and decimal point represent the same real value, not a new correction.
+        assertEquals(CardioCorrectionResult.Unchanged, service.applyCardio("c1", listOf(CardioValueEdit(0, LEVEL, "5,0"))))
         assertTrue(dao.adjustments("c1").isEmpty())
     }
 
@@ -68,15 +70,37 @@ class CardioCorrectionServiceTest {
         assertEquals(CardioCorrectionResult.InvalidValue(0, "incline"),
             service.applyCardio("c1", listOf(CardioValueEdit(0, LEVEL, "9"), CardioValueEdit(0, INCLINE, "-1"))))
         assertEquals(CardioCorrectionResult.InvalidValue(0, "level"), service.applyCardio("c1", listOf(CardioValueEdit(0, LEVEL, ""))))
-        assertEquals(CardioCorrectionResult.InvalidValue(0, "level"), service.applyCardio("c1", listOf(CardioValueEdit(0, LEVEL, "1000"))))
-        // ELLIPTICAL: 25 is the largest accepted value, 26 is not
-        assertEquals(CardioCorrectionResult.InvalidValue(0, "level"), service.applyCardio("c1", listOf(CardioValueEdit(0, LEVEL, "26"))))
+        assertEquals(CardioCorrectionResult.InvalidValue(0, "level"), service.applyCardio("c1", listOf(CardioValueEdit(0, LEVEL, "12a"))))
+        assertEquals(CardioCorrectionResult.InvalidValue(0, "level"), service.applyCardio("c1", listOf(CardioValueEdit(0, LEVEL, "NaN"))))
         assertEquals(CardioCorrectionResult.InvalidValue(0, "level"),
             service.applyCardio("c1", listOf(CardioValueEdit(0, LEVEL, "3"), CardioValueEdit(0, LEVEL, "4"))))
         assertEquals(CardioCorrectionResult.InputNotFound(5, "level"), service.applyCardio("c1", listOf(CardioValueEdit(5, LEVEL, "3"))))
         assertEquals(CardioCorrectionResult.InputNotFound(1, "incline"), service.applyCardio("c1", listOf(CardioValueEdit(1, INCLINE, "3"))))
         assertEquals(CardioCorrectionResult.SessionNotFound, service.applyCardio("nope", listOf(CardioValueEdit(0, LEVEL, "3"))))
         assertTrue(dao.adjustments("c1").isEmpty())
+    }
+
+    @Test fun consoleModelUnknownAcceptsUserReportedValueWithoutAguessedMaxAndAppendsCorrections() = runBlocking {
+        store()
+        val original = dao.cardioInputs("c1")
+        assertEquals(CardioCorrectionResult.Saved(1),
+            service.applyCardio("c1", listOf(CardioValueEdit(0, LEVEL, "26"))))
+        nowMs += 1000
+        assertEquals(CardioCorrectionResult.Saved(1),
+            service.applyCardio("c1", listOf(CardioValueEdit(0, LEVEL, "1,5"))))
+        assertEquals(listOf("5" to "26", "26" to "1,5"),
+            dao.adjustments("c1").map { it.oldValue to it.newValue })
+        assertEquals("original event must remain unmodified", original, dao.cardioInputs("c1"))
+        assertEquals("1,5", CardioStageRecords.build(0, 720,
+            dao.cardioInputs("c1"), dao.adjustments("c1"))!!.rows.first { it.recorded }.values?.get(LEVEL))
+    }
+
+    @Test fun userConsoleCorrectionRejectsMalformedAndNonFiniteInput() {
+        for (bad in listOf("", "12a", "-1", "5kg", "NaN", "Infinity", "1..5")) {
+            assertNull("must reject raw invalid text $bad", CorrectionRules.cardio(bad))
+        }
+        assertEquals("0", CorrectionRules.cardio("0"))
+        assertEquals("1,5", CorrectionRules.cardio("1,5"))
     }
 
     @Test fun cardioRowsDoNotAppearInTheStrengthSetHistoryOrOverlay() = runBlocking {
