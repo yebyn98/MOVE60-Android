@@ -59,6 +59,8 @@ class CardioCorrectionServiceTest {
     @Test fun sameValueWritesNothing_evenWrittenWithADecimalPoint() = runBlocking {
         store()
         assertEquals(CardioCorrectionResult.Unchanged, service.applyCardio("c1", listOf(CardioValueEdit(0, LEVEL, "5.0"))))
+        // Decimal comma and decimal point represent the same real value, not a new correction.
+        assertEquals(CardioCorrectionResult.Unchanged, service.applyCardio("c1", listOf(CardioValueEdit(0, LEVEL, "5,0"))))
         assertTrue(dao.adjustments("c1").isEmpty())
     }
 
