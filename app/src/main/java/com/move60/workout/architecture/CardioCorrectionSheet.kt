@@ -73,7 +73,7 @@ internal fun CardioCorrectionSheet(
     fun num(t: String) = t.trim().replace(',', '.').toDoubleOrNull()
     fun same(a: String, b: String) = num(a).let { it != null && it == num(b) }
     val changed = metrics.filter { m -> !same(typed[m].orEmpty(), originals.getValue(m)) }
-    fun maxOf(m: CardioMetric) = CardioMetrics.maxFor(row?.equipmentKey.orEmpty(), m)
+    fun maxOf(m: CardioMetric): Double? = CardioMetrics.maxFor(row?.equipmentKey.orEmpty(), m)
     val valid = metrics.all { CorrectionRules.cardio(typed[it].orEmpty(), maxOf(it)) != null }
     val canSave = row != null && changed.isNotEmpty() && valid && !saving
 
@@ -103,6 +103,10 @@ internal fun CardioCorrectionSheet(
             }
             if (row != null) {
                 Text("정정할 값", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                if (metrics.any { maxOf(it) == null }) {
+                    Text("기구 모델별 범위·조절 단계는 미확인입니다. 실제 콘솔에 표시된 값만 입력해 주세요.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 metrics.forEach { m ->
                     ValueStepper(m.label, typed[m].orEmpty(), { typed[m] = it }, "cardio_stepper_${m.key}", enabled = !saving, max = maxOf(m))
                 }
@@ -128,7 +132,19 @@ internal fun CardioCorrectionSheet(
 
 /** − / value / +. The value in the middle is tapped to type a number. 1 per step, never below 0. */
 @Composable
-private fun ValueStepper(label: String, value: String, onChange: (String) -> Unit, tag: String, enabled: Boolean, max: Double) {
+private fun ValueStepper(label: String, value: String, onChange: (String) -> Unit, tag: String, enabled: Boolean, max: Double?) {
+    // P-29: Without a verified console-specific step, +/- 1 might imply a level unsupported by the actual machine.
+    // Use exact direct input instead; re-enable the stepper only when model metadata verifies a bound AND step.
+    if (max == null) {
+        OutlinedTextField(
+            value = value, onValueChange = onChange,
+            singleLine = true, enabled = enabled, label = { Text(label) },
+            isError = CorrectionRules.cardio(value) == null,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+            modifier = Modifier.fillMaxWidth().testTag("${tag}_input")
+        )
+        return
+    }
     var editing by remember { mutableStateOf(false) }
     val focus = remember { FocusRequester() }
     val current = value.trim().replace(',', '.').toBigDecimalOrNull()
@@ -150,7 +166,7 @@ private fun ValueStepper(label: String, value: String, onChange: (String) -> Uni
             if (editing) {
                 LaunchedEffect(Unit) { focus.requestFocus() }
                 OutlinedTextField(
-                    value = value, onValueChange = { v -> if (v.length <= 6 && v.all { it.isDigit() || it == '.' }) onChange(v) },
+                    value = value, onValueChange = onChange,
                     singleLine = true, isError = CorrectionRules.cardio(value, max) == null,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(onDone = { editing = false }),
