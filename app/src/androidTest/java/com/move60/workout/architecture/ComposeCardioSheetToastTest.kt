@@ -10,10 +10,12 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextReplacement
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.move60.workout.ui.LocalMove60Toast
@@ -63,19 +65,21 @@ class ComposeCardioSheetToastTest {
                 }
             }
         }
-        // Nothing changed yet: save is off. The only recorded interval is selected for the user.
-        rule.onNodeWithTag("cardio_stepper_level_value", useUnmergedTree = true).assertTextEquals("레벨 6")
+        // P-29: a model-unverified console has no trustworthy +/- step. Its correction uses raw direct input.
+        val input = rule.onNodeWithTag("cardio_stepper_level_input")
+        input.assertTextContains("6", substring = true)
         rule.onNodeWithTag("cardio_save").assertIsNotEnabled()
-        rule.onNodeWithTag("cardio_stepper_level_plus").performClick()
-        rule.onNodeWithTag("cardio_stepper_level_value", useUnmergedTree = true).assertTextEquals("레벨 7")
+        input.performTextReplacement("7")
+        input.assertTextContains("7", substring = true)
         rule.onNodeWithTag("cardio_save").assertIsEnabled().performClick()
 
-        // The toast exists inside the sheet's own window, with the same text; the sheet and the typed value are still there.
+        // Forced persistence failure must preserve the actual input and leave the sheet open.
+        // The window-local toast must remain above the sheet scrim rather than being dimmed.
         rule.waitUntil(5_000) { rule.onAllNodesWithTag("move60_toast_window").fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithTag("move60_toast_window").assertIsDisplayed()
         rule.onNodeWithTag("move60_toast_window").assertTextEquals("저장하지 못했어요. 다시 시도해 주세요.")
         rule.onNodeWithTag("cardio_correction_sheet").assertIsDisplayed()
-        rule.onNodeWithTag("cardio_stepper_level_value", useUnmergedTree = true).assertTextEquals("레벨 7")
+        rule.onNodeWithTag("cardio_stepper_level_input").assertTextContains("7", substring = true)
         rule.onNodeWithTag("cardio_save").assertIsEnabled()
         captureScreen("compose-cardio-sheet-toast.png")
     }
