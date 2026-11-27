@@ -216,7 +216,11 @@ class SessionCorrectionService(private val db: WorkoutDatabase, private val cloc
                 val v = CorrectionRules.cardio(e.value, com.move60.workout.domain.CardioMetrics.maxFor(row.equipmentKey, e.metric))
                     ?: return@withTransaction CardioCorrectionResult.InvalidValue(e.inputIndex, e.metric.key)
                 val old = shown[key] ?: row.valueText
-                if (v.toDouble() != old.trim().replace(',', '.').toDoubleOrNull()) pending += SessionAdjustmentEntity(
+                // Both live input and corrections accept a decimal comma; never bypass the shared parser.
+                // A valid new value must not throw or silently alter the untouched saved original.
+                if (com.move60.workout.domain.CardioMetrics.parse(v) !=
+                    com.move60.workout.domain.CardioMetrics.parse(old)
+                ) pending += SessionAdjustmentEntity(
                     sessionId = sessionId, createdAtEpochMs = now, field = CorrectionField.cardio(e.inputIndex, e.metric.key),
                     oldValue = old, newValue = v, reason = reason
                 )
