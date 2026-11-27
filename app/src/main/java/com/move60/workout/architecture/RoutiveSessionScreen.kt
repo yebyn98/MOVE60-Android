@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -30,6 +31,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -222,8 +224,14 @@ private fun StageExercise(e: RoutiveExerciseUi, vm: RoutiveSessionViewModel) {
 private fun CardioInputDialog(e: RoutiveExerciseUi, c: RoutiveCardioUi, vm: RoutiveSessionViewModel, onClose: () -> Unit) {
     var values by rememberSaveable(e.id) { mutableStateOf(c.metrics.associate { it.key to "" }) }
     var error by rememberSaveable(e.id) { mutableStateOf<String?>(null) }
+    fun discardDraft() {
+        // Closing a new-entry dialog must not carry an unsaved input into its next opening.
+        values = c.metrics.associate { it.key to "" }
+        error = null
+        onClose()
+    }
     AlertDialog(
-        onDismissRequest = onClose,
+        onDismissRequest = { discardDraft() },
         modifier = Modifier.testTag("routive_cardio_dialog_${e.id}"),
         title = { Text("${e.name} 수치 입력") },
         text = {
@@ -231,9 +239,20 @@ private fun CardioInputDialog(e: RoutiveExerciseUi, c: RoutiveCardioUi, vm: Rout
                 Text("지금 기구 화면에 보이는 값을 그대로 입력해 주세요. 입력하지 않은 항목은 기록하지 않아요.", style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 c.metrics.forEach { m ->
-                    OutlinedTextField(values[m.key].orEmpty(), { v -> values = values + (m.key to v.filter { ch -> ch.isDigit() || ch == '.' }.take(6)); error = null },
-                        singleLine = true, label = { Text(m.label) }, isError = error != null,
-                        modifier = Modifier.fillMaxWidth().testTag("routive_cardio_field_${e.id}_${m.key}"))
+                    OutlinedTextField(
+                        value = values[m.key].orEmpty(),
+                        onValueChange = { typed ->
+                            // Never silently turn invalid input into a different number (e.g. "-1" -> "1",
+                            // "12a" -> "12", or "1,5" -> "15"). Validate the exact input on Save.
+                            values = values + (m.key to typed)
+                            error = null
+                        },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        label = { Text(m.label) },
+                        isError = error != null,
+                        modifier = Modifier.fillMaxWidth().testTag("routive_cardio_field_${e.id}_${m.key}")
+                    )
                 }
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("routive_cardio_error_${e.id}")) }
             }
@@ -242,7 +261,7 @@ private fun CardioInputDialog(e: RoutiveExerciseUi, c: RoutiveCardioUi, vm: Rout
             TextButton(onClick = {
                 val typed = c.metrics.associateWith { values[it.key].orEmpty() }
                 when (val r = vm.saveCardioInput(e.name, typed)) {
-                    is CardioSaveResult.Saved -> onClose()
+                    is CardioSaveResult.Saved -> discardDraft()
                     is CardioSaveResult.Rejected -> error = when (r.reason) {
                         CardioSaveResult.Reason.NO_VALUE -> "저장하려면 값을 하나 이상 입력해 주세요."
                         CardioSaveResult.Reason.INVALID_VALUE -> "기구에서 쓸 수 있는 범위의 숫자로 입력해 주세요."
@@ -252,7 +271,7 @@ private fun CardioInputDialog(e: RoutiveExerciseUi, c: RoutiveCardioUi, vm: Rout
                 }
             }, modifier = Modifier.heightIn(min = 48.dp).testTag("routive_cardio_save_${e.id}")) { Text("저장") }
         },
-        dismissButton = { TextButton(onClick = onClose, modifier = Modifier.heightIn(min = 48.dp).testTag("routive_cardio_cancel_${e.id}")) { Text("취소") } }
+        dismissButton = { TextButton(onClick = { discardDraft() }, modifier = Modifier.heightIn(min = 48.dp).testTag("routive_cardio_cancel_${e.id}")) { Text("취소") } }
     )
 }
 
