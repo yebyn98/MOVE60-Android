@@ -172,7 +172,8 @@ class RoutiveSessionStore(
         if (metrics.isEmpty()) return CardioSaveResult.Rejected(CardioSaveResult.Reason.UNKNOWN_EQUIPMENT)
         val typed = metrics.mapNotNull { m -> values[m]?.trim()?.takeIf { it.isNotEmpty() }?.let { m to it } }
         if (typed.isEmpty()) return CardioSaveResult.Rejected(CardioSaveResult.Reason.NO_VALUE)
-        // A number, not above what this machine can show (CardioMetrics.maxFor): a typo like 150 is refused instead of stored.
+        // Preserve the exact console reading: validate a finite, non-negative number.
+        // A category alone does not prove a model-specific max; only verified model metadata may add a bound.
         if (typed.any { (m, v) -> com.move60.workout.domain.CardioMetrics.parseWithin(v, equipmentKey, m) == null })
             return CardioSaveResult.Rejected(CardioSaveResult.Reason.INVALID_VALUE)
         val current = read() ?: return CardioSaveResult.Rejected(CardioSaveResult.Reason.NO_ACTIVE_SESSION)
