@@ -92,19 +92,18 @@ sealed interface CardioCorrectionResult {
 }
 
 internal object CorrectionRules {
-    private val CARDIO = Regex("^\\d+(\\.\\d+)?$")
-    /** Upper bound for a console level/incline (proposal, PO to confirm): machines in the app use small whole numbers. */
-    const val CARDIO_MAX = 100.0
+    private val CARDIO = Regex("^\\d+([.,]\\d+)?$")
 
     /**
-     * A plain non-negative number up to [max] (default [CARDIO_MAX]; the app passes the per-machine
-     * [com.move60.workout.domain.CardioMetrics.maxFor]); blank is not accepted (a correction never removes a recorded value).
+     * Validate a user-confirmed console value without inventing a category-level maximum.
+     * [max] is null unless an actual machine model's range has been verified (P-29).
+     * Blank is never a valid correction: an edit must not silently erase an original input.
      */
-    fun cardio(raw: String, max: Double = CARDIO_MAX): String? {
+    fun cardio(raw: String, max: Double? = null): String? {
         val t = raw.trim()
         if (!CARDIO.matches(t)) return null
-        val v = t.toDoubleOrNull() ?: return null
-        return if (v in 0.0..max) t else null
+        val v = com.move60.workout.domain.CardioMetrics.parse(t) ?: return null
+        return if (max == null || v <= max) t else null
     }
 
     private val WEIGHT = Regex("^\\d+(\\.\\d+)?$")
