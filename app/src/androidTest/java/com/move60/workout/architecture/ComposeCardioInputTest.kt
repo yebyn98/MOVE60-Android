@@ -2,12 +2,14 @@ package com.move60.workout.architecture
 
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -89,6 +91,44 @@ class ComposeCardioInputTest {
     }
 
     private fun saved() = RoutiveSessionStore(context).active()!!.cardioInputs
+
+    @Test fun invalidCardioTextIsNotSilentlyConvertedBeforeValidation() {
+        val id = prepareRoutine()
+        startAndGoToCardio(id)
+        rule.onNodeWithTag("routive_cardio_input_$elliptical").performScrollTo().performClick()
+        waitTag("routive_cardio_dialog_$elliptical")
+        val field = rule.onNodeWithTag("routive_cardio_field_${elliptical}_level")
+        val save = rule.onNodeWithTag("routive_cardio_save_$elliptical")
+
+        // Previously the UI silently converted these to 12, 1 and 5, respectively.
+        for (invalid in listOf("12a", "-1", "5kg")) {
+            field.performTextClearance()
+            field.performTextInput(invalid)
+            field.assertTextContains(invalid, substring = true)
+            save.performClick()
+            waitTag("routive_cardio_error_$elliptical")
+            assertTrue("invalid user input must not be saved: $invalid", saved().isEmpty())
+        }
+
+        // Decimal comma is supported by the domain parser; the UI must not turn 1,5 into 15.
+        field.performTextClearance()
+        field.performTextInput("1,5")
+        field.assertTextContains("1,5", substring = true)
+        save.performClick()
+        rule.waitUntil(5_000) { !has("routive_cardio_dialog_$elliptical") }
+        assertEquals("1,5", saved().single().valueText)
+
+        // Reopening a new input starts empty, and an explicitly entered 0 remains 0, not null.
+        rule.onNodeWithTag("routive_cardio_input_$elliptical").performScrollTo().performClick()
+        waitTag("routive_cardio_dialog_$elliptical")
+        val reopened = rule.onNodeWithTag("routive_cardio_field_${elliptical}_level")
+        reopened.performTextInput("0")
+        reopened.assertTextContains("0", substring = true)
+        rule.onNodeWithTag("routive_cardio_save_$elliptical").performClick()
+        rule.waitUntil(5_000) { !has("routive_cardio_dialog_$elliptical") }
+        assertEquals(listOf("1,5", "0"), saved().filter { it.metricKey == "level" }.map { it.valueText })
+        RoutiveSessionStore(context).let { s -> if (s.active()?.over == false) s.endEarly() }
+    }
 
     @Test fun theUserSavesMachineValuesAndCancelOrInvalidInputStoresNothing() {
         val id = prepareRoutine()
